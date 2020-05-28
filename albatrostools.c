@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-// gcc-9 -o libalbatrostools.so -fPIC --shared albatrostools.c -fopenmp
+// gcc-9 -O3 -o libalbatrostools.so -fPIC --shared albatrostools.c -fopenmp
 
 
 void unpack_4bit(uint8_t *data,double *pol0, double *pol1, int ndat, int nchan)
