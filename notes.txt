@@ -1,0 +1,710 @@
+Important numbers
+-----------------
+
+LWA
+N 79 deg 24.898'
+W 090 deg 44.921'
+
+MegaMIST
+N 79 deg 24.895'
+W 090 deg 44.879'
+
+pol00 = EW
+pol11 = NS
+
+Radials: 8 total, 2.9m length
+
+Nivek's recommendation is ~4.5 bits at the ADC, which roughly
+corresponds to -3 dBm at ADC input
+
+---------------------------------------------
+
+All times below are local MARS time = CDT = UTC-5
+
+
+20 July 2019
+------------
+
+21:30
+System powered on, baseband_autorun will start at some point later
+after power off
+
+~16:00
+A few 4-bit baseband runs capturing shortwave on LWA
+
+7:30
+Radio sked as usual.  Power off overnight.  Turned off system around 7:50.
+
+
+19 July 2019
+------------
+
+21:30
+System powered on, baseband_autorun set to start in about an hour.
+Not sure if power will still be on then.
+
+7:30
+Radio sked as usual.  Power off overnight.  Meteor scattering event last night!
+
+
+18 July 2019
+------------
+
+* 2-bit baseband from Nivek: "I just worked back from the autos of
+  pol00 trying to undo it to and got the number 280, which was then
+  tweaked so that the 2nd bit was flicked ~40% of the time."
+
+10:00-16:00
+Hiked to site #2 for extended RFI survey.  Sharky on NS, LoWavz on EW.
+12:40 - first run on first battery, ethernet cable plugged in at the beginning
+13:44 - second run on second battery, ended roughly 14:40
+
+7:30
+Turned off SNAP.  DAQ wasn't running, must have crashed early in the
+night.  Powered on briefly again around 7:55 to confirm that
+baseband_autorun.py works (it does).
+
+
+17 July 2019
+------------
+
+Power off overnight
+
+7:05
+Copied data from overnight LWA run, turned off SNAP.  Power turned on
+at base.
+
+
+16 July 2019
+------------
+
+* New marion-tools pulled, changed <I to >I in spectrum number reading
+* New quad_input_poco_gbe_2019-07-15_2121.fpg pulled
+* Change file size and drive safety factor for baseband_autorun on RPi
+
+Full power off at night
+
+19:20
+Powered SNAP on, LWA is plugged in as normal without extra length of
+coax.  Power is still on, and generator is going.
+
+6:55
+Automated baseband tests overnight with uneven LWA.  Stopped
+baseband_autorun.py, copied data, powered system off.  Note: 4 files
+1563224097.raw
+1563224233.raw
+1563224321.raw
+1563225075.raw
+written to MARS2 before we ran into safety factor -- manually copied
+these to MARS1.
+
+
+15 July 2019
+------------
+
+20:55
+Turned system on to let Trimble settle down
+
+20:30
+Added extendo section to LWA NS for phase shift tests overnight
+
+------------------------------
+Notes from Nivek:
+
+spectrum number is: it a count of the spectrum coming out of the
+fft. So depending on the number of spectra in one packet (should be
+5), the number should increase by 5 every time. If it's not then,
+there's packet loss.
+
+to fixed the packet loss, i increased the buffer size. To do this, you
+need to edit the /etc/sysctl.conf and to the bottom of the file change
+net.core.rmem_default and net.core.rmem_max to 536900000, where
+536900000 is the buffer size in bytes.
+
+try running udp_stats.sh that's in the old_daq folder to check if
+there's packet loss. If there is the last number in the output should
+be changing
+
+MIST should have 12% lower scale facor than LWA
+------------------------------
+
+6:50
+Plugged in ethernet cable to stop DAQ, pull data. Power back on,
+turned system off.
+
+
+14 July 2019
+------------
+
+22:00
+Full power off overnight
+
+20:00
+Started dump_spectra.py, LWA plugged in.  SNAP powered on about 30min prior.
+
+7:30
+Stopped DAQ and powered off
+
+6:13
+Small inverter at the kitchen turned off, turned back on around 7:30am
+
+
+13 July 2019
+------------
+
+Full power off for the night
+
+15:20
+Power back on
+
+15:00
+Full power off while the humans are away.  Baseband tests:
+- 15:04-15:06 One bit with extended frequency range (884-1376 = 54-84 MHz)
+- 15:12-15:14 Four bit with channels 884-1004, shift at 2^27
+- 15:17-15:20 Four bit with channels 884-1004, shift at 2^28
+
+14:17
+Powered SNAP system on to give Trimble some time to settle
+
+14:00
+Disconnected MegaMIST, connected LWA NS with extra ~2m coax section
+
+8:00
+Powering off SNAP to pull data
+
+7:30
+HF on for radio sked
+
+6:20
+New small inverter + solar system has been installed in the kitchen as
+of yesterday.  Small inverter turned off briefly at 6:20, will be
+turned on again around radio sked.
+
+Full power off overnight
+
+
+12 July 2019
+------------
+
+Night...
+Added more 3dB attenuators to MegaMIST so that the full front end
+chain is ZFL500LN + 3dB + ZFL500LN + 3dB + bias tee + 3dB.
+** NOTE: one 3dB att was on the RF+DC side of the bias tee **
+
+19:35
+MegaMIST connected again.  Front end is bias tee + 2 x ZFL500LN + 3dB
+att, piped into SNAP NS input.
+
+19:26
+4-bit baseband on uneven LWA, power on at base
+
+19:00
+Power off for radio sked, took 1-bit baseband for uneven LWA during quiet period.
+
+~14:50
+Ended 1-bit baseband dump.  "config12.ini"
+
+~14:15
+Reconnected LWA with extra ~2m coax section on NS leg.  Taking 1-bit
+baseband and dump_spectra.
+
+11:40-13:00
+RFI surveying at 2 sites (#1 and #8).  LoWavz on EW input (pol00),
+sharky on NS input (pol11).
+
+11:00
+Disconnected MegaMIST, reconnected LWA NS with additional ~2m coax
+section to introduce phase shift.  Attempting dump_spectra and 1-bit
+baseband.
+
+~7:00
+Power back on.  Turned off system to pull data.
+
+
+11 July 2019
+------------
+
+~23:00
+Full power off overnight.  Big inverter was "broken" because the
+switches are completely non-obvious.
+
+----------------------------------
+Baseband notes from Nivek:
+
+From the previous plots of mist/lwa configuration it looked like
+fringes started to occur ~60Mhz. So maybe try using a frequency range
+of 60 to 67 Mhz which are channels 982 to 1102. You should also plot
+the histograms to check if you are using all of the four bits and
+shift up accordingly.
+
+You will need to write the integer number of the shift, so for eg if I
+want to shift up 4 bits: 2^4=16 and the parameter channel_coeffs in
+the config.ini would look like 982:1102:16
+
+from lab tests with ~4.3 bits being used, a shift of 2^24 worked
+best. Maybe 2^25 or 2^26 might work for you.
+
+For 54-61 MHz, channel range is 884:1004
+
+Frequency/channel mapping is freq(Mhz)/125.00)*2048, but...
+for one bit we can use 492 channels, two bit is 246 channels and four bits is 120 channels
+----------------------------------
+
+~21:00
+Added amplifier to MegaMIST to boost signal level, front end has bias
+tee + 2 x ZFL-500LN.  Signal level is a little too high, added a
+couple attenuators.
+
+~19:00
+MegaMIST up and running again with bias tee + 1 x ZFL-500LN on the
+front end, piped into SNAP NS input.  Various baseband tests
+afterwards with power off at the base (Taj driving), but lots and lots
+of helicopter and ATV traffic.  Data will be a mix of good and shit.
+
+15:00 and onward -- various baseband tests with different
+configurations and power off at the base.  Taj is driving, so he has
+all the notes.
+
+13:08-13:10
+config4.ini
+
+13:05-13:07
+config3.ini
+
+13:02-13:04
+config2.ini
+
+12:58-13:00
+config1.ini
+
+12:55-12:57
+config0.ini
+
+12:54
+Powered back on to do some quick baseband tests, LWA plugged into both channels
+
+11:39
+Powered off SNAP box to charge batteries
+
+~11:28
+Killed baseband DAQ.  ~7.1G in ~12 minutes running.
+
+~11:20
+Power was off briefly, might be useful to check histogram levels
+
+11:16
+First baseband test started, writing 54-61 MHz at 4 bit.
+Inadvertently killed dump_spectra because we didn't stop/restart it
+while running config_fpga.
+
+9:50
+Stopped DAQ, restarted with latest version but with digital gain
+setting lines commented out in albatrosdigitizer.py.  Taking a few
+spectra to see if mirroring bug is gone.  Confirmed dump_spectra.py is
+fine.
+
+7:15
+Power back on
+
+
+10 July 2019
+------------
+
+22:37
+Full power off
+
+15:09
+Ended survey, packed up stuff but left system cabled and running from
+the helicopter
+
+14:52
+Laptop plugged in for data checks
+
+14:48
+Surveying third site (#7).
+
+14:25
+Ended survey, packed up stuff but left system cabled and running from
+the helicopter
+
+~14:05
+Laptop plugged in for data checks
+
+14:02
+Surveying second site (#9).
+
+13:45
+Ended survey, packed up stuff but left system cabled and running from
+the helicopter
+
+~13:30
+Plugged in ethernet cable to check on data for a few minutes
+
+13:22
+Surveying first site (#4).  LoWavz on NS input (pol11), sharky on EW input (pol00).
+
+~11:00
+Generator on to charge batteries
+
+10:39
+Power back on
+
+10:32
+Full power off to test sharky + bias tee + 2 x ZFL500LN
+
+10:18
+Adding LNA to sharky so that full front end chain is bias tee + 2 x
+ZFL500LN.  Fully connected at 10:23.
+
+~10:00
+Helicopter landed and took off, there will be lots of shit in the data
+
+~8:32
+Power off briefly for radio comms, probably hammered with HF during
+this time
+
+8:23
+Sharky plugged into SNAP NS input, bias tee + ZFL500 at front end
+
+Full power off overnight
+
+
+9 July 2019
+-----------
+
+19:00
+Swapped batteries in metal box, haven't started DAQ yet.  Power off at
+base for radio sked, taking measurements with Low Wavz antenna +
+handheld spectrum analyzer.
+
+Afternoon...sometime...measurements with Low Wavz antenna + handheld
+spectrum analyzer while power is on, generator going
+
+14:29
+Power off Low Wavz antenna, LWA NS plugged back in, power back on at
+station
+
+14:20-14:24
+Power still off, adding another ZFL500 (low noise version) to Low Wavz
+at front end
+
+14:14
+Full power off, Low Wavz still piped into SNAP box at NS input
+
+13:58
+Unplugged LWA NS at SNAP input, plugged in Low Wavz antenna with bias
+tee + preamp at front end, preamp switched on.  Power is on at the
+base, and generator is going.
+
+10:48
+Switched power switches back on, also started generator for the building
+
+10:42
+Turned all building power switches off for a few minutes to take quiet
+data.
+
+10:33
+Lost power in the building, decided to pull the box and remove
+attenuators.  2nd stage chains are now 2 x ZFL500 + 2 x 3dB att.
+Reinstalled box, config_fpga reports 3.5 bits at ADCs.
+
+7:30
+Usual radio sked, followed by power on
+
+
+8 July 2019
+-----------
+
+22:45
+Full power off
+
+21:35
+Restarted system with extra ZFL-500 amplifier + 3 x 3dB attenuators in
+each chain.  LWA antenna plugged into both inputs.  Running older DAQ
+version without digital gain mods.
+
+20:07
+Spectra from quiet period look completely messed up -- seem to be
+horizontal mirror images around the clock line.  Reverted back to
+previous DAQ version, LWA antenna still plugged into both channels.
+
+20:00
+Power back on
+
+19:53
+Unplugged bias tee + 50 ohm terminators, plugged LWA antenna back in
+to both channels, power off briefly at 19:54.
+
+19:30
+Powered box back on, EW chain has extra ZFL-500 amplifier + 5 x 3dB
+attenuators.  Using latest DAQ with digital gain set at 1.  Plugged in
+LWA inputs briefly, then plugged in bias tee + 50 ohm terminators
+(around 19:38).
+
+18:00
+Tried a bunch of DAQ shit for the past hour and got grumpy.  Powering
+off now to squeeze amplifiers into box.
+
+#--------nivek's new daq changes------
+add a completely untest code for setting the adc gain
+
+1, 1.25, 2, 2.5, 4, 5, 8, 10, 12.5, 16, 20, 25, 32, 50
+
+any one of these numbers can be used. I'm assuming the adc multiplies
+the incoming signal by this number, but I need to confirm this. The
+adc a default natural gain of one. There's a parameter in the
+config.ini file where you can set this.
+#--------
+
+16:30
+Unplugged LWA and low wavz antenna, attached bias tee + 3dB att to
+both SNAP inputs.  Data acquired with old DAQ between roughly 16:33
+and 16:35.
+
+10:35
+Generator on for charging batteries
+
+10:16
+Power back on
+
+10:08
+Full power off test with Low-Wavz connected
+
+9:41
+Low-Wavz antenna plugged into SNAP NS input (with bias tee).  Low-Wavz
+is physically located at MIST/MegaMIST location, about 17m east of
+LWA, and preamp is connected.  Tied to one of the MegaMIST posts,
+pointing up at the sky.
+
+7:30
+All power off (including inverter bypass) until radio sked, then power
+back on
+
+
+7 July 2019
+-----------
+
+21:58
+Power off.  MegaMIST is installed (larger MIST roughly tuned for 70
+MHz), cabled into SNAP NS input.
+
+19:06
+Power back on.  Nongaussianities are still in the data.
+
+19:00
+Power off for radio sked, this time including the bonus AC input
+generator switch.  DC switch is still on though.
+
+18:35
+System powered back on
+
+18:22
+Powering off system to swap batteries
+
+17:30
+Replaced LWA NS extendo arms with triangular wire structures, also
+about 3m long each.
+
+16:10
+Power back on
+
+15:35
+Full power off at the base (weather station left running though)
+
+12:56
+Reconnected LWA cables at SNAP inputs
+
+12:40
+Attached bias tee + 50 ohm terminator at SNAP inputs
+
+12:27
+Disconnected LWA cables and attached bias tee + 3dB att at SNAP inputs
+
+11:52
+Disconnected MIST at SNAP NS input, reconnected LWA NS
+
+11:00
+3m extensions tied on to LWA NS petals.  Horizontal distances from
+central post to north and south tent pegs are 287cm and 282cm,
+respectively
+
+>>> LWA/MIST baseline length is 17 meters
+
+9:35
+Stopping DAQ temporarily, changing RPi system time to UTC because I'm
+defeated.  Local time is UTC minus 5 hours.
+
+7:30
+Power back on early morning (maybe ~6:30?), followed by power off for
+radio sked at 7:30, then power back on
+
+*** NOTE: during last night's power off, AC input generator switch was also off ***
+*** Spectra from last night have noticeably more gaussian noise than before ***
+
+
+6 July 2019
+-----------
+
+22:31
+Full power off late at night
+
+21:40
+Plugged in ethernet cable for ~1min to copy data off RPi
+
+21:35
+MIST antenna is piped into SNAP NS input.  MIST antenna is oriented
+EW, placed east of LWA antenna by ~15m (to be measured more precisely
+if we see some sweet fringe action).
+
+21:30
+Disconnecting LWA NS to pipe in MIST instead
+
+19:00
+Power off for radio sked
+
+18:35
+Restarted dump_spectra with DAQ updates, including new firmware
+
+18:14
+Stopped DAQ to try baseband
+
+16:24
+Reconnected LWA antenna
+
+16:11
+Power back on, 3dB attenuator still attached to SNAP inputs
+
+15:58-15:59
+LWA antenna still disconnected, attached bias tee + 3 dB attenuator to SNAP inputs
+
+15:50-15:52
+Disconnected LWA antenna from SNAP box, attached bias tee + 50 ohm terminator to SNAP inputs
+
+15:44
+Full power shutdown, system is observing the sky
+
+14:45
+Reconnected LWA antenna
+
+14:08
+LWA antenna still disconnected, attached bias tee + 50 ohm terminator to SNAP inputs
+
+13:05
+Disconnected LWA antenna from SNAP box, attached bias tee + 3 dB attenuator to SNAP inputs
+
+Full power shutdown from previous night, turned back on around 7am for
+the humans.
+
+
+5 July 2019
+-----------
+
+General notes from earlier:
+Weather station broadcasts at 902-928 MHz --> should be aliased to 27-53 MHz
+Handheld radios broadcast at 168 MHz and 171 MHz (channels 1 and 2, respectively)
+
+Late night: full power shutdown at camp
+
+20:00?
+Generator ran out of gas somewhere in the middle of dinner.  System
+still taking data, power on as normal.
+
+19:15
+Generator on to charge batteries
+
+19:11
+HF off, followed by power back on
+
+19:00
+Radio sked, power off
+
+15:40
+Turned system off to charge batteries
+
+13:12
+Keyed radio for funs:
+- Full strength
+- Antenna removed
+- Antenna reattached with 3dB att
+- Antenna reattached with 9dB att
+
+~12:48
+Chris buzzed the electric lighter at the kitchen
+
+11:58
+Laptops closed, phones in airplane mode
+
+11:38
+All batteries out of weather station, box closed again.  Raul was
+tootling around the MIST antenna, opening and closing the box
+(containing spectrum analyzer and his computer) around 11:53 for a few
+times.
+
+11:35
+Pulled batteries out of weather station, opened box briefly to check on DAQ
+
+11:15
+Main red switch to the inverter turned off
+
+11:05
+"Load circuit 12V DC" turned off
+
+10:55
+"PV MPPT output one" turned off
+
+10:45
+"PV array input one" turned off
+
+10:40
+"Load circuit 110V AC" turned off
+
+10:36
+"Normal" power inverter turned off.  All things turned off will remain
+off for the rest of the tests unless otherwise noted.
+
+10:34
+Opened box to transfer all data and check on DAQ, still running fine
+
+10:26
+Honda generator turned on briefly for testing purposes
+
+10:02-10:04
+Keyed handheld radio three times
+
+7:30
+Radio sked, data look clean again in that window
+
+
+4 July 2019
+-----------
+
+20:50
+Opened box and copied data off the RPi, left DAQ running
+
+19:07
+Power back on, HF switched off after radio sked.  Also, HCC realized
+that she had been playing with the electric lighter / RFI source.
+
+18:55
+Power is off, HF coming on
+
+18:30
+Spooling done, humans away from the antenna
+
+17:55
+Starting to work on spooling out ground radials
+
+17:25
+Powered system back on with both pols connected
+
+17:15:
+Powered off system briefly to connect NS polarization.  Note: Raul is
+mucking with MIST antenna stuff at the same time, so there are
+computers being powered on/off etc.
+
+~17:00:
+LWA antenna powered on, only EW polarization connected at the front
+end.  Took data for a few minutes to verify life.  Swamped by low
+frequency junk.  Looks like the channel mapping is
+pol00 = EW
+pol11 = NS

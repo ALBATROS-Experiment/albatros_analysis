@@ -1,0 +1,44 @@
+# UTC time stamp in YYYYMMDD_HHMMSS format, short descriptor of system state
+# Use tab as delimiter
+
+20190718_220000		LWA nominal (2 ZFL500 + 2 3dB att)
+20190718_174000		LoWavz on pol0, Sharky on pol1
+20190717_002000		LWA nominal (2 ZFL500 + 2 3dB att)
+20190716_013000		Uneven LWA with extra coax on pol1
+20190715_010000		LWA nominal (2 ZFL500 + 2 3dB att)
+20190713_190000		Uneven LWA with extra coax on pol1
+20190713_003500		LWA EW on pol0, MegaMIST with 41dB gain on pol1
+20190712_191500		Uneven LWA with extra coax on pol1
+20190712_164000		LoWavz on pol0, Sharky on pol1
+20190712_160000		Uneven LWA with extra coax on pol1
+20190712_020000		LWA EW on pol0, MegaMIST with 44dB gain on pol1
+20190712_000000		LWA EW on pol0, MegaMIST with 25dB gain on pol1
+20190711_175000		LWA nominal (2 ZFL500 + 2 3dB att)
+20190711_010000		LWA nominal (2 ZFL500 + 2 3dB att)
+20190710_182000		Sharky on pol0, LoWavz on pol1
+20190710_132000		Sharky on pol1
+20190709_192900		LWA nominal (2 ZFL500 + 2 3dB att)
+20190709_185800		LoWavz on pol1
+20190709_153300		LWA nominal (2 ZFL500 + 2 3dB att)
+20190709_023500		LWA with 2 ZFL500 + 3 3dB att
+20190709_003800		Bias tee plus 50 ohm term, 2 ZFL500 + 5 3dB att on pol00
+20190709_003000		LWA with 2 ZFL500 + 5 3dB att on pol00
+20190708_213000		Bias tee + 3dB att
+20190708_144000		LoWavz on pol1
+20190708_030000		LWA EW on pol0, MegaMIST on pol1
+20190707_223000		LWA NS with wire approximation of larger petals
+20190707_175600		LWA original (only 1 ZFL500)
+20190707_174000		Bias tee + 50 ohm
+20190707_172700		Bias tee + 3dB att
+20190707_165200		LWA original (only 1 ZFL500)
+20190707_160000		LWA NS with wire extensions
+20190707_023500		LWA EW on pol0, MIST on pol1
+20190706_212400		LWA original (only 1 ZFL500)
+20190706_205800		Bias tee + 3dB att
+20190706_205000		Bias tee + 50 ohm
+20190706_194500		LWA original (only 1 ZFL500)
+20190706_190800		Bias tee + 50 ohm
+20190706_180500		Bias tee + 3dB att
+20190704_233000		LWA original (only 1 ZFL500)
+20190704_222500		LWA original with no radials
+20190704_220000		LWA original with no radials, only EW connected
