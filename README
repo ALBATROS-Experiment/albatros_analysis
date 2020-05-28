@@ -94,3 +94,12 @@ turned off power at the base (and all the sources of RFI, like the
 inverters and solar chargers).  If you have questions about any of the
 daytime data and the state of the system, send me a message and I can
 help you decipher notes.txt.
+
+-----------------------------------------------------------------
+
+Note - this version uses (optionally) an improved C-based 4bit
+unpacker (other bit depths to come).  This means you need to compile
+the C code.  A sample compile line, which should hopefully be
+transparantely translateable to other systems, is at the top of
+albatrostools.c
+
