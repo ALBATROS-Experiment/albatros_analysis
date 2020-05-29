@@ -5,13 +5,15 @@ import os, sys, datetime, pylab
 import numpy as nm
 import SNAPfiletools as sft
 from optparse import OptionParser
+import time
+import shutil
 
 #============================================================
 def downsample2d(dat, dsfac):
     nrow = nm.shape(dat)[0]
     ncol = nm.shape(dat)[1]
     if nrow%dsfac != 0:
-        print 'downsample2d: number of rows not divisible by downsample factor'
+        print('downsample2d: number of rows not divisible by downsample factor')
         exit(0)
     return nm.mean( nm.reshape(dat, (nrow/dsfac, dsfac, ncol)), axis=1 )
 
@@ -29,10 +31,12 @@ if __name__=="__main__":
     parser = OptionParser()
     parser.set_usage('python coarse_cross.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
     parser.set_description(__doc__)
-    parser.add_option('-o', '--outdir', dest='outdir',type='str', default='baseband_plots',
+    parser.add_option('-o', '--outdir', dest='outdir',type='str', default='/project/s/sievers/simont/baseband_plots',
 		      help='Output plot directory [default: %default]')
-    parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/media/cynthia/MARS2/albatros_north_baseband',
+    parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/project/s/sievers/mars2019/MARS1/albatros_north_baseband',
                       help='Baseband data directory [default: %default]')
+    parser.add_option('-s', '--savedir', dest='save_dir', type='str', default='/project/s/sievers/mars2019/MARS3',
+                      help='Save to directory [default: %default]')
     parser .add_option('-l', '--length', dest='readlen', type='int', default=1000, help='Length of data to read from each raw file [default: %default]')
     parser.add_option('-z', '--dsfac', dest='dsfac', type='int', default=True,
 		      help='Downsampling factor for # time samples (if True, then all time samples are averaged together [default: %default]')
@@ -56,12 +60,17 @@ if __name__=="__main__":
     pol01_mag = None
     pol01_phase = None
     tstamps = []
+    
     for fname in fnames:
         print 'Reading', fname
         fname_sub = fname.split('/')[-1]
         tstamp = fname_sub.split('.')[0]
         tstamps.append(tstamp)
-        header, data = albatrostools.get_data(fname, items=opts.readlen)
+        header, data = albatrostools.get_data(fname, items=opts.readlen, unpack_fast=True, float=True)
+        ##unpack using c code do not forget to compile that stuff first!
+
+
+
         if header['bit_mode'] == 1:
             plot_auto = False
         else:
@@ -75,12 +84,15 @@ if __name__=="__main__":
 
         # Calculate auto and cross correlations
         corr = data['pol0']*nm.conj(data['pol1'])
+
+
         # Append averaged data
         if opts.dsfac is True:
             mean_pol00 = nm.mean(nm.abs(data['pol0'])**2, axis=0)
             mean_pol11 = nm.mean(nm.abs(data['pol1'])**2, axis=0)
             mean_mag = nm.mean(nm.abs(corr), axis=0)
             mean_phase = nm.mean(nm.angle(corr), axis=0)
+
         else:
             mean_pol00 = downsample2d(nm.abs(data['pol0'])**2, opts.dsfac)
             mean_pol11 = downsample2d(nm.abs(data['pol1'])**2, opts.dsfac)
@@ -97,6 +109,25 @@ if __name__=="__main__":
             pol01_mag = nm.vstack((pol01_mag, mean_mag))
             pol01_phase = nm.vstack((pol01_phase, mean_phase))
         print 'Total dimensions are now', nm.shape(pol01_mag)
+
+    ##before ploting lets save the stuffs
+    sup_dir = os.path.join(opts.save_dir, str(ctime_start)[:5])
+    sft.mallocdir(sup_dir)
+    test_fnames = sft.time2fnames(ctime_start, ctime_stop, opts.save_dir)
+    for fname in test_fnames: ##delete existing files that fall into the time frame
+        shutil.rmtree(fname)
+        print('deleted: ' + str(fname))
+    
+    saveto_dir = os.path.join(sup_dir, str(ctime_start))
+    sft.callocdir(saveto_dir)
+    with open(os.path.join(saveto_dir, 'pol00.npy')) as f:
+        np.save(f, pol00)
+    with open(os.path.join(saveto_dir, 'pol11.npy')) as f:
+        np.save(f, pol11)
+    with open(os.path.join(saveto_dir, 'pol01_mag.npy')) as f:
+        np.save(f, pol01_mag)
+    with open(os.path.join(saveto_dir, 'pol01_phase.npy')) as f:
+        np.save(f, pol01_phase)
 
     # Plot cross spectra
     pylab.figure(figsize=(16,16))
@@ -170,7 +201,7 @@ if __name__=="__main__":
     pylab.ylabel('Pol11 magnitude')
 
     pylab.suptitle(str(datetime.datetime.utcfromtimestamp(int(tstamps[0])))+' - '+str(datetime.datetime.utcfromtimestamp(int(tstamps[-1]))), fontsize=24)
-    outfile = outdir+'/coarse_auto_'+tstamps[0]+'-'+tstamps[-1]+'.png'
+    outfile = opts.outdir+'/coarse_auto_'+tstamps[0]+'-'+tstamps[-1]+'.png'
     pylab.savefig(outfile)
     print 'wrote', outfile
     pylab.close()    

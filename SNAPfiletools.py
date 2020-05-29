@@ -179,3 +179,28 @@ def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file='time_gps_
     data = data[:,inds]
 
     return time, data
+
+
+
+def callocdir(dir_name):
+    if os.path.exists(dir_name) = False:
+        os.mkdir(dir_name)
+    else: #empty it before writing into it (who knows wtf is in it)
+        for  file_name in os.listdir(dir_name):
+            temp_path = os.path.join(dir_name, file_name)
+            try:
+                os.unlink(temp_path)
+            except Exception as error:
+                print("failed to delete: " + str(temp_path) + " cause: " + str(error))
+                return
+    return
+
+def mallocdir(dir_name):
+    if os.path.exists(dir_name) = False:
+        os.mkdir(dir_name)
+    return
+
+def readin_computed(fname):
+    with open(fname, 'rb') as f:
+        out = np.load(f)
+    return out

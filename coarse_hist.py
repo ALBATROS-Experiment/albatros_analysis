@@ -21,7 +21,7 @@ if __name__=="__main__":
     parser.set_description(__doc__)
     parser.add_option('-o', '--outdir', dest='outdir',type='str', default='baseband_plots',
 		      help='Output plot directory [default: %default]')
-    parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/media/cynthia/MARS2/albatros_north_baseband',
+    parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/mnt/c/Users/simta/Documents/GitHub/mars/data',
                       help='Baseband data directory [default: %default]')
     parser.add_option('-r', '--row', dest='nrow', type='int', default=12,
                       help='Number of subplot rows [default: %default]')
@@ -43,6 +43,7 @@ if __name__=="__main__":
     allhist = {}
     tstamps = []
     for fname in fnames:
+        print('worked')
         print 'Reading', fname
         fname_sub = fname.split('/')[-1]
         tstamp = fname_sub.split('.')[0]

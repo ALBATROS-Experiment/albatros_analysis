@@ -1,29 +1,38 @@
+import os
+import matplotlib as mpl
+if os.environ.get('DISPLAY','') == '':
+    print('no display found. Using non-interactive Agg backend')
+    mpl.use('Agg')
+
+
 import numpy as nm
-import scio, pylab, datetime, time, os
+import scio, pylab, datetime, time
 import SNAPfiletools as sft
+
 
 #============================================================
 
 if __name__ == '__main__':
 
-    time_start = '20190720_030000'
-    time_stop = '20190720_123000'
-    data_dir = '/home/cynthia/working/arctic/data/data_auto_cross'
-    plot_dir = 'all_plots'
+    time_start = '20190720_031716'
+    time_stop = '20190720_051833'
+    data_dir = '/mnt/c/Users/simta/Documents/GitHub/mars/data'
+    plot_dir = '/mnt/c/Users/simta/Documents/GitHub/mars/plots'
     logplot = True
     
     ctime_start = sft.timestamp2ctime(time_start)
     ctime_stop = sft.timestamp2ctime(time_stop)
+    print('In cTime from: ' + str(ctime_start) + '. to: ' + str(ctime_stop))
 
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
 
     freq = nm.linspace(0, 125, 2048)
-    
+   
     for data_subdir in data_subdirs:
 
         tstamp_ctime = int(data_subdir.split('/')[-1])
         tstamp = sft.ctime2timestamp(tstamp_ctime)
-        print 'Processing',tstamp, tstamp_ctime
+        print('Processing ' + str(tstamp) + 'ctime ' + str(tstamp_ctime))
         
         pol00 = scio.read(data_subdir+'/pol00.scio.bz2')
         pol11 = scio.read(data_subdir+'/pol11.scio.bz2')
@@ -60,7 +69,7 @@ if __name__ == '__main__':
 
         myext = nm.array([0,125,pol00.shape[0],0])
             
-        pylab.figure(figsize=(18,10), dpi=200)
+        pylab.figure(figsize=(18,10) , dpi=200)
         
         pylab.subplot(2,3,1)
         pylab.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
@@ -101,5 +110,5 @@ if __name__ == '__main__':
 
         outfile = plot_dir+'/'+tstamp+'.png'
         pylab.savefig(outfile)
-        print 'Wrote', outfile
+        print('Wrote ' + outfile)
         pylab.close()
