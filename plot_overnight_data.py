@@ -14,10 +14,10 @@ import SNAPfiletools as sft
 
 if __name__ == '__main__':
 
-    time_start = '20190720_031716'
-    time_stop = '20190720_051833'
-    data_dir = '/mnt/c/Users/simta/Documents/GitHub/mars/data'
-    plot_dir = '/mnt/c/Users/simta/Documents/GitHub/mars/plots'
+    time_start = "20190720_000000"
+    time_stop = "20190720_235959"
+    data_dir = '/project/s/sievers/mars2019/auto_cross/data_auto_cross'
+    plot_dir = '/project/s/sievers/simont/baseband_plots_snap'
     logplot = True
     
     ctime_start = sft.timestamp2ctime(time_start)

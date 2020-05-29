@@ -35,11 +35,13 @@ if __name__=="__main__":
 		      help='Output plot directory [default: %default]')
     parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/project/s/sievers/mars2019/MARS1/albatros_north_baseband',
                       help='Baseband data directory [default: %default]')
-    parser.add_option('-s', '--savedir', dest='save_dir', type='str', default='/project/s/sievers/mars2019/MARS3',
+    parser.add_option('-s', '--savedir', dest='save_dir', type='str', default='/project/s/sievers/simont/mars_computed',
                       help='Save to directory [default: %default]')
     parser .add_option('-l', '--length', dest='readlen', type='int', default=1000, help='Length of data to read from each raw file [default: %default]')
     parser.add_option('-z', '--dsfac', dest='dsfac', type='int', default=True,
 		      help='Downsampling factor for # time samples (if True, then all time samples are averaged together [default: %default]')
+    parser.add_option('-c', '--ctime', dest='c_flag', action='store_true',
+                    help='Use Ctime instead of real time [default: %default]')
     opts, args = parser.parse_args(sys.argv[1:])
 
     if len(args) != 2:
@@ -48,8 +50,14 @@ if __name__=="__main__":
     time_start = args[0]
     time_stop = args[1]
 
-    ctime_start = sft.timestamp2ctime(time_start)
-    ctime_stop = sft.timestamp2ctime(time_stop)
+    if opts.c_flag is True:
+        ctime_start = int(time_start)
+        ctime_stop = int(time_stop)
+    else:
+        print("how about this")
+        ctime_start = sft.timestamp2ctime(time_start)
+        ctime_stop = sft.timestamp2ctime(time_stop)
+
     fnames = sft.time2fnames(ctime_start, ctime_stop, opts.data_dir)
     if len(fnames) == 0:
         print 'No files found in time range'
@@ -120,14 +128,14 @@ if __name__=="__main__":
     
     saveto_dir = os.path.join(sup_dir, str(ctime_start))
     sft.callocdir(saveto_dir)
-    with open(os.path.join(saveto_dir, 'pol00.npy')) as f:
-        np.save(f, pol00)
-    with open(os.path.join(saveto_dir, 'pol11.npy')) as f:
-        np.save(f, pol11)
-    with open(os.path.join(saveto_dir, 'pol01_mag.npy')) as f:
-        np.save(f, pol01_mag)
-    with open(os.path.join(saveto_dir, 'pol01_phase.npy')) as f:
-        np.save(f, pol01_phase)
+    with open(os.path.join(saveto_dir, 'pol00.npy'), 'wb') as f:
+        nm.save(f, pol00)
+    with open(os.path.join(saveto_dir, 'pol11.npy'), 'wb') as f:
+        nm.save(f, pol11)
+    with open(os.path.join(saveto_dir, 'pol01_mag.npy'), 'wb') as f:
+        nm.save(f, pol01_mag)
+    with open(os.path.join(saveto_dir, 'pol01_phase.npy'), 'wb') as f:
+        nm.save(f, pol01_phase)
 
     # Plot cross spectra
     pylab.figure(figsize=(16,16))

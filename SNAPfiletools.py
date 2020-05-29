@@ -183,7 +183,7 @@ def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file='time_gps_
 
 
 def callocdir(dir_name):
-    if os.path.exists(dir_name) = False:
+    if os.path.exists(dir_name) == False:
         os.mkdir(dir_name)
     else: #empty it before writing into it (who knows wtf is in it)
         for  file_name in os.listdir(dir_name):
@@ -196,7 +196,7 @@ def callocdir(dir_name):
     return
 
 def mallocdir(dir_name):
-    if os.path.exists(dir_name) = False:
+    if os.path.exists(dir_name) == False:
         os.mkdir(dir_name)
     return
 
