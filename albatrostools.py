@@ -10,6 +10,15 @@ unpack_4bit_c=mylib.unpack_4bit
 unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_4bit_float_c=mylib.unpack_4bit_float
 unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+bin_crosses_float_c=mylib.bin_crosses_float
+bin_crosses_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+bin_crosses_double_c=mylib.bin_crosses_double
+bin_crosses_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+bin_autos_float_c=mylib.bin_autos_float
+bin_autos_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+bin_autos_double_c=mylib.bin_autos_double
+bin_autos_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+
 
 
 def unpack_1_bit(data, num_channels):
@@ -97,6 +106,31 @@ def unpack_4_bit(data, num_channels):
     pol0=pol0.reshape(-1, num_channels)
     pol1=pol1.reshape(-1, num_channels)
     return pol0, pol1
+
+def bin_crosses(pol0,pol1,chunk=100):
+    ndat=pol0.shape[0]
+    nchan=pol0.shape[1]
+    nchunk=ndat//chunk
+    if pol0.itemsize==8:
+        spec=numpy.zeros([nchunk,nchan],dtype='complex64')
+        bin_crosses_float_c(pol0.ctypes.data,pol1.ctypes.data,spec.ctypes.data,ndat,nchan,chunk)
+    else:
+        assert(pol0.itemsize==16) #better be double precision complex
+        spec=numpy.zeros([nchunk,nchan],dtype='complex128')
+        bin_crosses_double_c(pol0.ctypes.data,pol1.ctypes.data,spec.ctypes.data,ndat,nchan,chunk)
+        
+    return spec
+def bin_autos(dat,chunk=100):
+    ndat=dat.shape[0]
+    nchan=dat.shape[1]
+    nchunk=ndat//chunk
+    if dat.itemsize==8: #this means we're in single precision
+        spec=numpy.zeros([nchunk,nchan],dtype='float32')
+        bin_autos_float_c(dat.ctypes.data,spec.ctypes.data,ndat,nchan,chunk)
+    else:
+        spec=numpy.zeros([nhcunk,nchan],dtype='float64')
+        bin_autos_double_c(dat.ctypes.data,spec.ctypes.data,ndat,nchan,chunk)
+    return spec
 
 def correlate(pol0, pol1):
     pols={}
