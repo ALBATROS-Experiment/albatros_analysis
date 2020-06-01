@@ -32,7 +32,7 @@ class scio:
             
     def __del__(self):
         if self.closed==False:
-            print 'closing scio file ' + self.fname
+            print( 'closing scio file ' + self.fname)
             self.fid.flush()        
             self.fid.close()
             self.closed=True
@@ -110,7 +110,7 @@ class scio:
 #        f.close()
 
 def _read_from_string(mystr):
-    icur=0;
+    icur=0
     ndim=numpy.fromstring(mystr[icur:icur+4],dtype='int32')[0]
     icur=icur+4
     if (ndim<0):

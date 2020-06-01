@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.set_usage('python find_baseband_runs.py [options]')
     parser.set_description(__doc__)
-    parser.add_option('-L', '--logdir', dest='logdir',type='str', default='/home/cynthia/working/arctic/data/logs',
+    parser.add_option('-L', '--logdir', dest='logdir',type='str', default='/project/s/sievers/simont/logs',
 		      help='Log directory [default: %default]')
     parser.add_option('-t', '--time', dest='min_time', type='int', default=1,
                       help='Minimum length (in minutes) for a run to be reported by this script [default: %default]')
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_option('-b', '--bits', dest='bits', type='int', default=None,
                       help='Select runs with only specified number of bits [default: %default]')
     parser.add_option('-e', '--events', dest='events_file', type='str',
-                      default='/home/cynthia/working/arctic/data/events.txt',
+                      default='/project/s/sievers/simont/logs/events.txt',
                       help='Events file [default: %default]')
     opts, args = parser.parse_args(sys.argv[1:])
 

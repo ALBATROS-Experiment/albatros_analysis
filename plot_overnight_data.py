@@ -1,35 +1,55 @@
+import os
+import matplotlib as mpl
+if os.environ.get('DISPLAY','') == '':
+    print('no display found. Using non-interactive Agg backend')
+    mpl.use('Agg')
+
+
 import numpy as nm
-import scio, pylab, datetime, time, os
+import scio, pylab, datetime, time
 import SNAPfiletools as sft
+
 
 #============================================================
 
 if __name__ == '__main__':
 
-    time_start = '20190720_030000'
-    time_stop = '20190720_123000'
-    data_dir = '/home/cynthia/working/arctic/data/data_auto_cross'
-    plot_dir = 'all_plots'
+
+    ##ADDING THING TO PLOT THE DATA AS COMPUTED FROM THE OFFLINE CROSS AND AUTOS (APPLES TO APPLES)
+    from_computed = True
+
+    time_start = "20190720_000000"
+    time_stop = "20190720_235959"
+    data_dir = '/project/s/sievers/mars2019/auto_cross/data_auto_cross'
+    plot_dir = '/project/s/sievers/simont/baseband_plots_snap'
     logplot = True
     
     ctime_start = sft.timestamp2ctime(time_start)
     ctime_stop = sft.timestamp2ctime(time_stop)
+    print('In cTime from: ' + str(ctime_start) + '. to: ' + str(ctime_stop))
 
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
 
     freq = nm.linspace(0, 125, 2048)
-    
+   
     for data_subdir in data_subdirs:
 
         tstamp_ctime = int(data_subdir.split('/')[-1])
         tstamp = sft.ctime2timestamp(tstamp_ctime)
-        print 'Processing',tstamp, tstamp_ctime
+        print('Processing ' + str(tstamp) + 'ctime ' + str(tstamp_ctime))
         
-        pol00 = scio.read(data_subdir+'/pol00.scio.bz2')
-        pol11 = scio.read(data_subdir+'/pol11.scio.bz2')
-        pol01r = scio.read(data_subdir+'/pol01r.scio.bz2')
-        pol01i = scio.read(data_subdir+'/pol01i.scio.bz2')
-        pol01 = pol01r + 1J*pol01i
+        
+        if from_computed:
+            pol00 = sft.readin_computed('pol00.npy')
+            pol11 = sft.readin_computed('pol11.npy')
+            pol01m = sft.readin_computed('pol01_mag.npy')
+            pol01p = sft.reading_computed('pol01_phase.npy')
+        else:
+            pol00 = scio.read(data_subdir+'/pol00.scio.bz2')
+            pol11 = scio.read(data_subdir+'/pol11.scio.bz2')
+            pol01r = scio.read(data_subdir+'/pol01r.scio.bz2')
+            pol01i = scio.read(data_subdir+'/pol01i.scio.bz2')
+            pol01 = pol01r + 1J*pol01i
 
         pol00_med = nm.median(pol00, axis=0)
         pol11_med = nm.median(pol11, axis=0)
@@ -60,7 +80,7 @@ if __name__ == '__main__':
 
         myext = nm.array([0,125,pol00.shape[0],0])
             
-        pylab.figure(figsize=(18,10), dpi=200)
+        pylab.figure(figsize=(18,10) , dpi=200)
         
         pylab.subplot(2,3,1)
         pylab.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
@@ -90,16 +110,24 @@ if __name__ == '__main__':
         pylab.legend(loc='lower right', fontsize='small')
 
         pylab.subplot(2,3,3)
-        pylab.imshow(nm.log10(nm.abs(pol01)), vmin=6, vmax=9, aspect='auto', extent=myext)
+        if from_computed:
+            pylab.imshow(nm.log10(pol01m), vmin=6, vmax=9, aspect='auto', extent=myext)
+        else:    
+            pylab.imshow(nm.log10(nm.abs(pol01)), vmin=6, vmax=9, aspect='auto', extent=myext)
+
         pylab.title('pol01 magnitude')
 
         pylab.subplot(2,3,6)
-        pylab.imshow(nm.angle(pol01), vmin=-nm.pi, vmax=nm.pi, aspect='auto', extent=myext)
+        if from_computed:
+            pylab.imshow(pol01p, vmin=-nm.pi, vmax=nm.pi, aspect='auto', extent=myext)
+        else:    
+            pylab.imshow(nm.angle(pol01), vmin=-nm.pi, vmax=nm.pi, aspect='auto', extent=myext)
+
         pylab.title('pol01 phase')
         
         pylab.suptitle(tstamp+' | '+str(tstamp_ctime), fontsize='large')
 
         outfile = plot_dir+'/'+tstamp+'.png'
         pylab.savefig(outfile)
-        print 'Wrote', outfile
+        print('Wrote ' + outfile)
         pylab.close()
