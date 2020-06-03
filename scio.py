@@ -65,7 +65,7 @@ class scio:
         if (arr.shape==self.shape):
             pass
         else:
-            print "shape mismatch in scio.append"            
+            print("shape mismatch in scio.append")
         if (arr.dtype==self.dtype):
             if (self.diff):
                 if self.last is None:
@@ -78,7 +78,7 @@ class scio:
             arr_use.tofile(self.fid)
             self.fid.flush()
         else:
-            print 'dtype mismatch in scio.append on file ' + self.fname
+            print('dtype mismatch in scio.append on file ' + self.fname)
         
             
 #def append(arr,fname,overwrite=False):
@@ -259,6 +259,6 @@ def dtype2int(dtype_str):
     if (dtype_str==aa.dtype):
         return -108
     
-    print 'unknown dtype'
+    print('unknown dtype')
     return 0
 

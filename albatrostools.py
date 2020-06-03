@@ -170,10 +170,10 @@ def get_header(file_name):
         header["length_channels"]=int(header["length_channels"]/2)
     return header
 
-def get_data(file_name, items=-1,unpack_fast=False,float=False):
+def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     header=get_header(file_name)
     file_data=open(file_name, "r")
-    file_data.seek(8+header["header_bytes"])
+    file_data.seek(8+header["header_bytes"]+byte_delta)
     data=numpy.fromfile(file_data, count=items, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(header["bytes_per_packet"]-4))])
     file_data.close()
     if header["bit_mode"]==1:
