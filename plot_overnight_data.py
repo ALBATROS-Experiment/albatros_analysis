@@ -1,4 +1,4 @@
-import os
+import os, sys
 import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
@@ -8,6 +8,7 @@ if os.environ.get('DISPLAY','') == '':
 import numpy as nm
 import scio, pylab, datetime, time
 import SNAPfiletools as sft
+from optparse import OptionParser
 
 
 #============================================================
@@ -15,13 +16,38 @@ import SNAPfiletools as sft
 if __name__ == '__main__':
 
 
-    ##ADDING THING TO PLOT THE DATA AS COMPUTED FROM THE OFFLINE CROSS AND AUTOS (APPLES TO APPLES)
-    from_computed = True
 
-    time_start = "20190720_000000"
-    time_stop = "20190720_235959"
-    data_dir = '/project/s/sievers/mars2019/auto_cross/data_auto_cross'
-    plot_dir = '/project/s/sievers/simont/baseband_plots_snap'
+    parser = OptionParser()
+    parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
+    parser.set_description(__doc__)
+    parser.add_option('-o', '--outdir', dest='outdir',type='str', default='/project/s/sievers/simont/baseband_plots/computed',
+		      help='Output plot directory [default: %default]')
+    parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/project/s/sievers/simont/mars_computed',
+                      help='Baseband data directory [default: %default]')
+    parser .add_option('-l', '--length', dest='readlen', type='int', default=1000, help='length of integration time in secconds [default: %default]')
+    parser.add_option('-c', '--computed', dest='c_flag', action='store_true',
+                    help='Use computed values instead of snap auto/cross  [default: %default]')
+    opts, args = parser.parse_args(sys.argv[1:])
+
+
+    if len(args) != 2:
+        print 'Please specify start and stop times.  Run with -h for more usage info.'
+        exit(0)
+    time_start = args[0]
+    time_stop = args[1]
+
+    ##ADDING THING TO PLOT THE DATA AS COMPUTED FROM THE OFFLINE CROSS AND AUTOS (APPLES TO APPLES)
+    
+    #cary over 
+    #time_start = "20190720_000000"
+    #time_stop = "20190720_235959"
+    #data_dir = '/project/s/sievers/mars2019/auto_cross/data_auto_cross'
+    #plot_dir = '/project/s/sievers/simont/baseband_plots_snap'
+
+    data_dir = opts.data_dir
+    plot_dir = opts.outdir
+    #print(data_dir)
+    
     logplot = True
     
     ctime_start = sft.timestamp2ctime(time_start)
@@ -29,27 +55,51 @@ if __name__ == '__main__':
     print('In cTime from: ' + str(ctime_start) + '. to: ' + str(ctime_stop))
 
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
+    #lets figure out how to group them
+    time_interval = 0
+    data_set_index = 0
+    temp_data =[]
+    data_set =[]
+    print(data_subdirs)
+    for index, val in enumerate(data_subdirs):
+        if index == 0:
+            prev_val = int(os.path.basename(val))
+        
+        if time_interval < opts.readlen:
+            time_interval += (int(os.path.basename(val)) - prev_val)
+            prev_val = int(os.path.basename(val))
+            temp_data.append(str(val))
+            #print("here!!!!")
+        else:
+            data_set.append(temp_data)
+            temp_data=[]
+            time_interval = 0
+        print(time_interval)
 
-    freq = nm.linspace(0, 125, 2048)
+    data_set.append(temp_data)
+
+    
    
-    for data_subdir in data_subdirs:
+    for data_subdir in data_set:
 
-        tstamp_ctime = int(data_subdir.split('/')[-1])
+        tstamp_ctime = int(data_subdir[0].split('/')[-1])
         tstamp = sft.ctime2timestamp(tstamp_ctime)
         print('Processing ' + str(tstamp) + 'ctime ' + str(tstamp_ctime))
         
         
-        if from_computed:
-            pol00 = sft.readin_computed('pol00.npy')
-            pol11 = sft.readin_computed('pol11.npy')
-            pol01m = sft.readin_computed('pol01_mag.npy')
-            pol01p = sft.reading_computed('pol01_phase.npy')
+        if opts.c_flag is True:
+            pol00 = sft.readin_append(data_subdir, opts.data_dir, 'pol00.npy', sft.readin_computed)
+            pol11 = sft.readin_append(data_subdir, opts.data_dir, 'pol11.npy', sft.readin_computed)
+            pol01m = sft.readin_append(data_subdir, opts.data_dir, 'pol01_mag.npy', sft.readin_computed)
+            pol01p = sft.readin_append(data_subdir, opts.data_dir, 'pol01_phase.npy', sft.readin_computed)
         else:
-            pol00 = scio.read(data_subdir+'/pol00.scio.bz2')
-            pol11 = scio.read(data_subdir+'/pol11.scio.bz2')
-            pol01r = scio.read(data_subdir+'/pol01r.scio.bz2')
-            pol01i = scio.read(data_subdir+'/pol01i.scio.bz2')
+            pol00 = sft.readin_append(data_subdir, opts.data_dir, 'pol00.scio.bz2', scio.read)
+            pol11 = sft.readin_append(data_subdir, opts.data_dir, 'pol11.scio.bz2', scio.read)
+            pol01r = sft.readin_append(data_subdir, opts.data_dir, 'pol01r.scio.bz2', scio.read)
+            pol01i = sft.readin_append(data_subdir, opts.data_dir, 'pol01i.scio.bz2', scio.read)
             pol01 = pol01r + 1J*pol01i
+
+        freq = nm.linspace(0, 125, nm.shape(pol00)[1])
 
         pol00_med = nm.median(pol00, axis=0)
         pol11_med = nm.median(pol11, axis=0)
@@ -110,7 +160,7 @@ if __name__ == '__main__':
         pylab.legend(loc='lower right', fontsize='small')
 
         pylab.subplot(2,3,3)
-        if from_computed:
+        if opts.c_flag is True:
             pylab.imshow(nm.log10(pol01m), vmin=6, vmax=9, aspect='auto', extent=myext)
         else:    
             pylab.imshow(nm.log10(nm.abs(pol01)), vmin=6, vmax=9, aspect='auto', extent=myext)
@@ -118,7 +168,7 @@ if __name__ == '__main__':
         pylab.title('pol01 magnitude')
 
         pylab.subplot(2,3,6)
-        if from_computed:
+        if opts.c_flag is True:
             pylab.imshow(pol01p, vmin=-nm.pi, vmax=nm.pi, aspect='auto', extent=myext)
         else:    
             pylab.imshow(nm.angle(pol01), vmin=-nm.pi, vmax=nm.pi, aspect='auto', extent=myext)

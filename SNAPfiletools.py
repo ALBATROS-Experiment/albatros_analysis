@@ -204,3 +204,15 @@ def readin_computed(fname):
     with open(fname, 'rb') as f:
         out = np.load(f)
     return out
+
+def readin_append(dir_names, base_file_path, file_name, function):
+    for index, dir_name in enumerate(dir_names):
+        file_path = os.path.join(base_file_path, dir_name[:5], dir_name, file_name)
+        if index ==0:
+            data = function(file_path)
+            print("initiate")
+        else:
+            np.append(data,function(file_path), axis = 0)
+            print("append")
+    print(np.shape(data))
+    return data 
