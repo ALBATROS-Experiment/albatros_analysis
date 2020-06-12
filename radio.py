@@ -77,7 +77,7 @@ def demodulate_chunk(data, fs, freq, audio_rate):
 
 endtime = 2 #end time in seconds
 fs = 2e6 #sample rate in Hz
-ta = np.linspace(0.0, endtime, endtime * fs, endpoint=False)
+ta = np.linspace(0.0, endtime, int(endtime * fs), endpoint=False)
 sampleRate = 10000
 
 ##### fake data generation 
