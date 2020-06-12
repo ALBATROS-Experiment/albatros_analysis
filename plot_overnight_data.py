@@ -48,7 +48,7 @@ if __name__ == '__main__':
     plot_dir = opts.outdir
     #print(data_dir)
     
-    logplot = True
+    logplot = False
     
     ctime_start = sft.timestamp2ctime(time_start)
     ctime_stop = sft.timestamp2ctime(time_stop)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
    
     for data_subdir in data_set:
 
-        tstamp_ctime = int(data_subdir[0].split('/')[-1])
+        tstamp_ctime = int(os.path.basename(data_subdir[0]))
         tstamp = sft.ctime2timestamp(tstamp_ctime)
         print('Processing ' + str(tstamp) + 'ctime ' + str(tstamp_ctime))
         
@@ -105,13 +105,18 @@ if __name__ == '__main__':
         pol11_med = nm.median(pol11, axis=0)
         pol00_mean = nm.mean(pol00, axis=0)
         pol11_mean = nm.mean(pol11, axis=0)
-        pol00_max = nm.max(pol00, axis=0)
-        pol11_max = nm.max(pol11, axis=0)
-        pol00_min = nm.min(pol00, axis=0)
-        pol11_min = nm.min(pol11, axis=0)
+        pol00_max = nm.max(pol00, axis = 0)
+        pol11_max = nm.max(pol11, axis = 0)
+        pol00_min = nm.min(pol00, axis = 0)
+        pol11_min = nm.min(pol11, axis = 0)
+        if opts.c_flag is True:
+            pol01_min = nm.median(pol01m) - 2*nm.std(pol01m)
+            pol01_max = nm.median(pol01m) + 2*nm.std(pol01m)
+        print(nm.shape(pol00_med))
 
-        vmin = 0
-        vmax = 1e11
+        print(pol00_mean)
+        vmin = nm.median(pol00) - 2*nm.std(pol00)
+        vmax = nm.median(pol00) + 2*nm.std(pol00)
         axrange = [0, 125, 0, 1e11]
         if logplot is True:
             pol00 = nm.log10(pol00)
@@ -124,8 +129,8 @@ if __name__ == '__main__':
             pol11_max = nm.log10(pol11_max)
             pol00_min = nm.log10(pol00_min)
             pol11_min = nm.log10(pol11_min)
-            vmin = 8
-            vmax = 9.5
+            vmin = nm.log10(vmin)
+            vmax = nm.log10(vmax)
             axrange = [0, 125, 8, 10]
 
         myext = nm.array([0,125,pol00.shape[0],0])
@@ -145,6 +150,7 @@ if __name__ == '__main__':
         pylab.plot(freq, pol00_min, 'b-', label='Min')
         pylab.plot(freq, pol00_mean, 'k-', label='Mean')
         pylab.plot(freq, pol00_med, color='#666666', linestyle='-', label='Median')
+        pylab.ylim(vmin,vmax)
         pylab.xlabel('Freq (MHz)')
         pylab.ylabel('pol00')
         pylab.axis(axrange)
@@ -154,6 +160,7 @@ if __name__ == '__main__':
         pylab.plot(freq, pol11_min, 'b-', label='Min')
         pylab.plot(freq, pol11_mean, 'k-', label='Mean')
         pylab.plot(freq, pol11_med, color='#666666', linestyle='-', label='Median')
+        pylab.ylim(vmin,vmax)
         pylab.xlabel('Freq (MHz)')
         pylab.ylabel('pol11')
         pylab.axis(axrange)
@@ -161,7 +168,7 @@ if __name__ == '__main__':
 
         pylab.subplot(2,3,3)
         if opts.c_flag is True:
-            pylab.imshow(nm.log10(pol01m), vmin=6, vmax=9, aspect='auto', extent=myext)
+            pylab.imshow(pol01m, vmin=pol01_min, vmax=pol01_max, aspect='auto', extent=myext)
         else:    
             pylab.imshow(nm.log10(nm.abs(pol01)), vmin=6, vmax=9, aspect='auto', extent=myext)
 

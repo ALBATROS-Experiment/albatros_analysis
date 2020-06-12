@@ -212,7 +212,8 @@ def readin_append(dir_names, base_file_path, file_name, function):
             data = function(file_path)
             print("initiate")
         else:
-            np.append(data,function(file_path), axis = 0)
-            print("append")
+            data = np.append(data,function(file_path), axis = 0)
+            print("append so shape is now")
+            print(np.shape(data))
     print(np.shape(data))
     return data 
