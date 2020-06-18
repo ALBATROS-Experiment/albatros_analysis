@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=64000
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 
 # Load modules here.  As an example, uncomment the following line
 # if your job requires python.
