@@ -1,0 +1,6 @@
+for the 1563273072.raw file i demodulated a signal at 13.308e6 with a band of 2e3
+
+logs/albatros_dump_baseband/albatros_dump_baseband_20072019_201530.log
+logs/albatros_dump_baseband/albatros_dump_baseband_20072019_211613.log
+logs/albatros_dump_baseband/albatros_dump_baseband_20072019_221734.log
+logs/albatros_dump_baseband/albatros_dump_baseband_20072019_231815.log
