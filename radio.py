@@ -57,7 +57,7 @@ def demodulate_chunk(data, fs, freq, audio_rate):
         Returns NumPy array of int16 to be saved to a .wav file
     """
     ##bandpass first
-    band = 5e3
+    band = 30e3
     radio_signal = np.clip(butter_bandpass_filter(data, freq-band, freq +band, fs, order=3),-1,1)
     #find endtime using sample rate
     endtime = np.shape(data)[0]/fs
@@ -105,14 +105,16 @@ import albatrostools
 if __name__ == "__main__":
     #fname = "/data/cynthia/albatros/mars2019/baseband/15632/1563273072.raw"
     #fname = "data/15632/1563273072.raw"
-    items_per_core=50000
+    items_per_core=10000
     total_items = 100000
     n_cores = 4
 
     ctime_start = 1563273072
     ctime_stop = ctime_start + (60 * 4)
     data_dir = "/data/cynthia/albatros/mars2019/baseband"
-    fnames =  sft.time2fnames(ctime_start, ctime_stop, data_dir)
+    #fnames =  sft.time2fnames(ctime_start, ctime_stop, data_dir)
+
+    fnames = ["data/15632/1563273072.raw"]
 
     if len(fnames) == 0:
         print('No files found in time range')
@@ -121,9 +123,10 @@ if __name__ == "__main__":
         print("we have", len(fnames), 'files')
     audio = np.array([])
 
+    
     for fname in fnames:
         print("working on" , fname)
-        header, data = albatrostools.get_data(fname, items=-1, unpack_fast=True, float=True)
+        header, data = albatrostools.get_data(fname, items=-1, unpack_fast=False, float=True)
         print("unpacked")
         # pool = Pool(processes=n_cores)
         
@@ -146,10 +149,10 @@ if __name__ == "__main__":
 
 
         sampleRate = fs/(1e4)
-        audio = np.append(audio,demodulate_chunk(time_stream['pol0'],fs, 13.39e6, sampleRate ))
+        audio = np.append(audio,demodulate_chunk(time_stream['pol0'],fs, 13.35e6, sampleRate ))
     
     ##write to file
-    write('music.wav',int(sampleRate),audio)
+    write('music.wav',int(sampleRate),np.int16(audio))
     print("demodulated")
     
 

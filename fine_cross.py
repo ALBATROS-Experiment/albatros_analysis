@@ -30,24 +30,20 @@ def spec_resolve(data, bins):
     #return data
 
     ##do the invers
-    time_stream = np.clip(pfb.inverse_pfb(data, 4), -0.1,0.1)
+    time_stream = np.clip(pfb.inverse_pfb(data, 4).ravel(),-0.05,0.05)
    
     ##cut the ends off
-    lenz = np.shape(time_stream)[0]
-    time_stream = time_stream[int(0.3 * lenz):-int(0.2*lenz), :].ravel()
+    lenz = len(time_stream)
+    time_stream = time_stream[int(0.3*lenz):-int(0.3*lenz)]
 
     ##snip off some data to make it a power of 2
     ##should make it a hell of a lot faster
     ##hoping we dont loose too much data :)
     ##also might deal with the edges well (we will see)
 
-
-    # current_len = len(time_stream)
-    # time_stream = time_stream[int(0.5*current_len): -int(0.3*current_len)]
-
-
+    multi_temp = (2 * (bins - 1))
     current_len = len(time_stream)
-    good_len = 2**(np.floor(np.log2(current_len)))
+    good_len = np.floor(current_len/multi_temp) * multi_temp
     snip = current_len - good_len
     if snip%2 == 0 and snip != 0:
         time_stream = time_stream[int(snip/2) -1:int(-snip/2)]
@@ -58,13 +54,13 @@ def spec_resolve(data, bins):
         time_stream = time_stream[int(snip/2) - 1 :int(-snip/2)]
 
     ##dumb check
-    if np.abs(int(np.log2(len(time_stream))) - np.log2(len(time_stream))) > 0.01:
-        print("simon is dumb")
+    # if np.abs(int(len(time_stream)/multi_temp) - len(time_stream)/multi_temp) > 0.0001:
+    #     print("simon is dumb")
     #do an estimate on what we are about to shit out
     
-    if (good_len /(2*bins)) < 10:
-        print("not enough data")
-        exit(1)
+    # if (good_len /(2*bins)) < 10:
+    #     print("not enough data")
+    #     exit(1)
 
     
     #do the actual PFB
@@ -129,7 +125,7 @@ if __name__ == "__main__":
         print("Reading", fname)
         tstamp = os.path.basename(fname).split(".")[0]
         tstamps.append(tstamp)
-        header, data = albatrostools.get_data(fname, items=20000, unpack_fast=False, float=True)
+        header, data = albatrostools.get_data(fname, items=int(1e4), unpack_fast=False, float=True)
         ##unpack using c code do not forget to compile that stuff first!
 
 
@@ -146,7 +142,7 @@ if __name__ == "__main__":
         ##heavy duty rebinning here:
         ##get variables set up
         n_cores = opts.ncores
-        lines_per_core = 1000000
+        lines_per_core = int(1e4)
         n_bins = opts.nbins
         n_channels = header['channels'][-1]
 
@@ -167,7 +163,7 @@ if __name__ == "__main__":
                 print("re-binning:", key)
                 pol = data[key]
                 ##split up the job into lines per core
-                job = [(pol[x:(x+lines_per_core), :], n_bins) for x in range(0,np.shape(pol)[0]-1,lines_per_core)]
+                job = [(np.clip(pol[x:(x+lines_per_core), :],-0.1,0.1), n_bins) for x in range(0,np.shape(pol)[0]-1,lines_per_core)]
                 ##assign the job
                 result = pool.starmap(spec_resolve, job)
                 ##collaps result
@@ -301,3 +297,7 @@ if __name__ == "__main__":
     pylab.ylabel('(Down)samples')
     pylab.title('Pol00 magnitude')
     pylab.show()
+
+
+    # pylab.imshow(np.abs(data['pol0']), extent=myext)
+    # pylab.show()
