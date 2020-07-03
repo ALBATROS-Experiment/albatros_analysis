@@ -63,6 +63,103 @@ def sinc_hamming(ntap, lblock):
     return sinc_window(ntap, lblock) * np.hamming(ntap * lblock)
 
 
+def get_pfb_mat_sinc(nchan,ntap,window=sinc_hanning):
+    x=np.arange(-(nchan-1)*ntap,(nchan-1)*ntap)
+    x=x/(nchan-1)/2
+    #mysinc2=np.sinc(x)
+    mysinc=window(ntap,2*(nchan-1))
+    #print(np.std(mysinc-mysinc2))
+    mymat=np.zeros([nchan,len(mysinc)],dtype='complex')
+    for i in range(nchan):
+        mymat[i,:]=mysinc*np.exp(-2J*np.pi*x*i)
+    return mymat
+
+
+def apply_pfb_filter_patches(mypfb,patches):
+#def filter_pfb_patches(mypfb,patches):
+    """Assume the filtering is stationary and so apply it with a convolution.  Each patch is the filter
+    kernel for a single frequency, with highest value assumed in the middle."""
+    mypfb_out=0*mypfb
+    mypfb_ft=np.fft.fft2(mypfb)
+    nchan=mypfb.shape[1]
+    nblock=patches[0].shape[0]
+    assert(patches[0].shape[1]==nchan)
+    for i in range(nchan):
+        tmp=0*mypfb_out
+        patch=patches[i]
+        patch=np.roll(patch,-i,1)
+        tmp[:nblock//2,:]=patch[nblock//2:,:]
+        tmp[-nblock//2:,:]=patch[:nblock//2,:]
+        #print(np.sum(np.abs(tmp)),np.sum(np.abs(patch)))
+        tmpft=np.fft.fft2(tmp)
+        if True:
+            tmpft=tmpft*mypfb_ft
+            tmpft=np.fft.ifft(tmpft,axis=1)
+            mypfb_out[:,i]=np.fft.ifft(tmpft[:,i])
+        else:
+            myconv=np.fft.ifft2((tmpft)*mypfb_ft)
+            mypfb_out[:,i]=myconv[:,i]
+    return mypfb_out
+
+def make_large_pfb_mat(nchan,ntap,nblock,window=sinc_hamming):
+    block=get_pfb_mat_sinc(nchan,ntap,window=window)
+    shift=2*(nchan-1)
+    nx=nblock*block.shape[0]
+    ny=shift*(nblock-1)+block.shape[1]
+    mat=np.zeros([nx,ny],dtype='complex')
+    
+    for i in range(nblock):
+        ix=i*nchan
+        iy=i*shift
+        mat[ix:ix+nchan,iy:iy+block.shape[1]]=block
+    return mat
+
+def get_pfb_filter_mat(nchan,ntap,nblock,window=sinc_hamming,frac=0.85):
+    mat=make_large_pfb_mat(nchan,ntap,nblock,window=window)
+    u,s,v=np.linalg.svd(mat)
+    ss=s[np.int(frac*len(s))]
+    s_filt=s/ss
+    s_filt[s_filt>1]=1
+    s_filt=s_filt**2
+    filt_mat=np.conj(u)@(np.diag(s_filt)@(u.T))
+    return filt_mat
+    
+
+def make_conv_patches(nchan,nblock,mat,offset=0):
+    patches=[0]*nchan
+    if False:
+        for i in range(nchan):
+            for j in range(nblock):
+                ind=j*nchan
+                patch=np.reshape(mat[ind+i,:],[nblock,nchan]).copy()
+                patches[i]=patches[i]+patch
+            patches[i]=patches[i]/nblock
+    else:
+        ind=(nblock//2+offset)*nchan
+        patches=[0]*nchan
+        for i in range(nchan):
+            patch=np.reshape(mat[ind+i,:],[nblock,nchan]).copy()
+            if not(offset==0):
+                patch=np.roll(patch,-offset,axis=0)
+            patches[i]=patch
+    return patches
+
+
+def filter_pfb_patches(mypfb,patches=None,ntap=4,nblock=16,window=sinc_hamming,frac=0.85,return_patches=False):
+    if patches is None:
+        nchan=mypfb.shape[1]
+        filt_mat=get_pfb_filter_mat(nchan,ntap,nblock,window=window,frac=frac)
+        patches=make_conv_patches(nchan,nblock,filt_mat)
+
+    mypfb_filt=apply_pfb_filter_patches(mypfb,patches)
+    if return_patches:
+        return mypfb_filt,patches
+    else:
+        return mypfb_filt
+
+
+
+
 def pfb(timestream, nfreq, ntap=4, window=sinc_hamming):
     """Perform the CHIME PFB on a timestream.
     
