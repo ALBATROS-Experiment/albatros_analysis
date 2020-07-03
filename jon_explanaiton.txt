@@ -1,0 +1,85 @@
+that “filt_mat” line is, not surprisingly, key
+3:35
+so the PFB works on chunks of data, with the chunks overlapping each other as you move to adjacent PFB slices
+3:36
+in matrix land, that looks like a band-diagonal thing, where the diagonal is these repeated blocks
+3:36
+we can’t easily deal with the whole giant matrix (we probably actually could with more work, but ignoring that for now)
+3:37
+so, I break up the PFB into largeish chunks to deal with
+3:37
+the number of PFB chunks that I deal with at once is that nchunk argument.  The larger it is, (probably) the better the filter will work but the slower it will be.
+3:39
+to SVD:  any matrix can be written as U*S*V (possibly with additional transposes, depending on definitions).  U and V are orthogonal, and S is diagonal.  It’s like the eigenvalue/eigenvector decomposition for non-symmetric or even non-square matrices
+3:41
+if you think about a single block, then V takes the timestream points, and rotates/compresses them onto a basis that you can think of as eigenvalues.  S then stretches by the suitable eigenvalue, and U finally rotates those back into the output space, in this case the actual PFB output
+3:43
+now let’s say that p=Ad, where p is pfb, d is data, and A is pfb operator.  We’ll also pretend that A is invertible
+3:44
+Then d=A^-1p.  What does A^-1 look like?  if A=USV, then A^-1=V^-1 S^-1 U^-1
+3:45
+but U/V are orthogonal, so this goes to V^T S^-1 U^T
+3:45
+So, anything in the pfb output that corresponds to small values of S is going to blow up in the inverse.  That’s where the tiger stripes come from
+3:47
+So, we add a step in where we want to get rid of the stuff that is getting blown up.  Note that that stuff should not be there because the forward PFB would have already downweighted it (since S is small for those modes), but we put it back in by quantizing
+3:50
+So we add an extra filter that downweights the stuff that shouln’t have been there.  That filter needs to live in the SVD space, so we have to multiply the PFB’d data by U to get to the “eigenspace”.  Now we downweight things that should have been small by multiplying by something to do with S.  The choice I made was to pick some reference value for S to pick and setting the filter to be 1 for values larger than that, and (s/s_ref)**2 for values smaller.  I also tried s/s_ref, but that didn’t work as well.
+3:52
+So, once we’ve downweighted the nasty bits, we have to get back to the original PFB space since the IPFB operates on that.  U^T does that for us, so our filter becomes U^T S_filt U.  Now when we want to clean up the quanitzation crud, we just take our data, multiply by that matrix to clean it up, and then IPFB as ususal
+3:54
+the only remaining wrinkle is that the filter I wrote down works on finite chunks of data, so you need some way to stitch things together.  The (extremely lazy!) thing I did was to say, right, let’s loop over each possible starting PFB slice, apply the filter to the (large) chunk starting there,and accumulate.  At the end, you’ve run the filter several times at each point, so divide by the number of times to get the normalization back.
+
+Simon Tartakovsky  10:35 AM
+thank you for the explanation
+
+Jonathan Sievers  10:36 AM
+hope it wasn’t too dense
+
+Simon Tartakovsky  10:36 AM
+i still have a quesiton about the how you regenerate the USV
+10:37
+the whole mat thing are you claiming that the mat matrix you generate is the pfb
+
+Jonathan Sievers  10:37 AM
+the mat thing is the matrix that transforms data into the pfb
+
+Simon Tartakovsky  10:37 AM
+but how did you decide what to put into that matrix
+10:38
+i mean the mat matrix is some hanning windowed complex phase thing
+10:38
+but why
+
+Jonathan Sievers  10:38 AM
+So, PFB is window the data over a stretch, then Fourier transform and subsample
+10:38
+window operator is just a diagonal matrix made out of the window
+10:39
+And Fourier transform is sum (f(x) exp(2 pi i k x/N))
+
+Simon Tartakovsky  10:39 AM
+bruh
+10:39
+ok thats cool
+
+Jonathan Sievers  10:39 AM
+a given F(k) is then the dot product of that exp() vector with f(x)
+10:40
+so you just make the matrix out of those vectors, and do the FT as a matrix operation
+10:40
+dude
+10:40
+it may shock you to hear this, coming from me, but linear algebra is the shit
+
+Simon Tartakovsky  10:40 AM
+so u actually move into a diagonal basis and re-zero the values that should have been zero
+10:40
+thats magic
+10:40
+i guess i didnt realize that we can so elegantly write the pfb as a linear transformation
+
+Jonathan Sievers  10:41 AM
+yup
+10:41
+A whole, whole lotta things can be written that way, then you get to invoke the whole machinery of linear algebra

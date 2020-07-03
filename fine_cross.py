@@ -7,6 +7,7 @@ import SNAPfiletools as sft
 from optparse import OptionParser
 import time
 import shutil
+# import line_fill as lf
 
 from multiprocessing import Pool, get_context
 import pfb_helper as pfb
@@ -22,22 +23,28 @@ def downsample2d(dat, dsfac):
         nrow = int(np.shape(dat)[0])
     return np.mean( np.reshape(dat, (nrow//dsfac, dsfac, ncol)), axis=1 )
 
-def spec_resolve(data, bins):
+def spec_resolve(data, bins, mat):
     """
     Takes in some frequency domain data from the snap and pfbs it there and back to get finer resolution
     Will generate one time chunk with bins number of bins
     """
     #return data
 
+    ##lets average over a couple bins for niceness
+    avg_num = 3
+    n_bins_init = avg_num * bins
+
+    filtered_data = pfb.filter_pfb(data,mat)
+
     ##do the invers
-    time_stream = np.clip(pfb.inverse_pfb(data, 4).ravel(),-0.05,0.05)
+    time_stream = pfb.inverse_pfb(filtered_data, 4).ravel()
    
     ##cut the ends off
     lenz = len(time_stream)
-    time_stream = time_stream[int(0.3*lenz):-int(0.3*lenz)]
+    time_stream = time_stream[int(0.2*lenz):-int(0.2*lenz)]
 
-    ##snip off some data to make it a power of 2
-    ##should make it a hell of a lot faster
+    ##snip off some data to make it well divisible by the blocks
+    # should make it work better
     ##hoping we dont loose too much data :)
     ##also might deal with the edges well (we will see)
 
@@ -52,19 +59,19 @@ def spec_resolve(data, bins):
     else:
         snip = snip + 1
         time_stream = time_stream[int(snip/2) - 1 :int(-snip/2)]
-
-    ##dumb check
-    # if np.abs(int(len(time_stream)/multi_temp) - len(time_stream)/multi_temp) > 0.0001:
-    #     print("simon is dumb")
-    #do an estimate on what we are about to shit out
     
-    # if (good_len /(2*bins)) < 10:
-    #     print("not enough data")
-    #     exit(1)
+    if (good_len /(2*bins)) < 10:
+        print("not enough data")
+        exit(1)
+
+
+    ##lets try to flag the points that are too large
 
     
     #do the actual PFB
-    spec = pfb.pfb(time_stream, bins, ntap=4)
+    spec = pfb.pfb(time_stream, n_bins_init, ntap=4)
+
+    spec = np.mean(np.reshape(spec,[-1,bins, avg_num]), axis = 2)
 
     return spec
 
@@ -81,12 +88,14 @@ if __name__ == "__main__":
               help='Output plot directory [default: %default]')
     parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='data',
                       help='Baseband data directory [default: %default]')
-    #parser .add_option('-l', '--length', dest='readlen', type='int', default=1000, help='Length of data to read from each raw file [default: %default]')
+    parser .add_option('-l', '--length', dest='readlen', type='int', default=-1, help='Length of data to read from each raw file [default: %default]')
     parser.add_option('-z', '--dsfac', dest='dsfac', type='int', default=True,
               help='Downsampling factor for # time samples (if True, then all time samples are averaged together [default: %default]')
     parser.add_option('-c', '--ctime', dest='c_flag', action='store_true',
                     help='Use Ctime instead of real time [default: %default]')
-    parser.add_option('-b', '--bins', dest='nbins', type='int', default=1001,
+    parser.add_option('-f', '--fast', dest='fast', action='store_true',
+                    help='Unpack fast [default: %default]')
+    parser.add_option('-b', '--bins', dest='nbins', type='int', default=501,
               help='Number of output frequency bins [default: %default]')
     parser.add_option('-p', '--cores', dest='ncores', type='int', default=4,
               help='Number of cores to use [default: %default]')
@@ -114,7 +123,9 @@ if __name__ == "__main__":
         print('No files found in time range')
         exit(0)
 
-
+    fast = False
+    if opts.fast is True:
+        fast = True
 
     pol00 = None
     pol11 = None
@@ -125,7 +136,7 @@ if __name__ == "__main__":
         print("Reading", fname)
         tstamp = os.path.basename(fname).split(".")[0]
         tstamps.append(tstamp)
-        header, data = albatrostools.get_data(fname, items=int(1e4), unpack_fast=False, float=True)
+        header, data = albatrostools.get_data(fname, items=opts.readlen, unpack_fast=fast, float=True)
         ##unpack using c code do not forget to compile that stuff first!
 
 
@@ -136,8 +147,8 @@ if __name__ == "__main__":
             plot_auto = False
         else:
             plot_auto = True
-        fmin = header['channels'][0]*125.0/2048
-        fmax = header['channels'][-1]*125.0/2048
+        fmin = (header['channels'][0] - 1)*125.0/2048 ###added the padded zero!!!!
+        fmax = (header['channels'][-1] + 1)*125.0/2048 ##added the padded zero!!!!!
         
         ##heavy duty rebinning here:
         ##get variables set up
@@ -146,7 +157,7 @@ if __name__ == "__main__":
         n_bins = opts.nbins
         n_channels = header['channels'][-1]
 
-        fs = 2* n_channels * 125e6 / 2048
+        fs = 2* (n_channels+1) * 125e6 / 2048 ##added a zero on the right 
         time_bin_size = 2 * (n_bins) /fs
         #might be useful
 
@@ -156,14 +167,20 @@ if __name__ == "__main__":
         'pol1' : []
         }
         print(np.shape(data['pol0']))
+
+        ##create the mat for jon filtering
+        mat = pfb.make_large_pfb_mat(np.shape(data['pol0'])[1] + 2,4, 8) ##ADDED THE PADDING YO
+
+        
         ## the actual rebinning
         ##for both pollarizations
         with get_context("spawn").Pool() as pool:
             for key in ['pol0', 'pol1']:
                 print("re-binning:", key)
-                pol = data[key]
+                pol = np.zeros([np.shape(data[key])[0], np.shape(data[key])[1] + 2], dtype=complex)
+                pol[:,1:-1] = data[key] ##pad with zeros at either end this will ofset the frequencys
                 ##split up the job into lines per core
-                job = [(np.clip(pol[x:(x+lines_per_core), :],-0.1,0.1), n_bins) for x in range(0,np.shape(pol)[0]-1,lines_per_core)]
+                job = [(pol[x:(x+lines_per_core), :], n_bins, mat) for x in range(0,np.shape(pol)[0]-1,lines_per_core)]
                 ##assign the job
                 result = pool.starmap(spec_resolve, job)
                 ##collaps result
@@ -217,17 +234,17 @@ if __name__ == "__main__":
     vmax = np.median(pol01_mag) + 2*np.std(pol01_mag)
     pylab.imshow(pol01_mag, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     pylab.xlabel('Frequency (MHz)')
-    pylab.ylabel('(Down)samples')
+    pylab.ylabel('(Down)seconds')
     pylab.title('Pol01 magnitude')
     pylab.subplot(2,2,2)
     pylab.imshow(pol01_phase, vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext)
     pylab.xlabel('Frequency (MHz)')
-    pylab.ylabel('(Down)samples')
+    pylab.ylabel('(Down)seconds')
     pylab.title('Pol01 phase')
     pylab.subplot(2,2,3)
     pylab.plot(np.median(pol01_phase, axis=1), 'k-')
     pylab.axis([0, np.shape(pol01_mag)[0], -np.pi, np.pi])
-    pylab.xlabel('(Down)samples -- time')
+    pylab.xlabel('(Down)seconds -- time')
     pylab.ylabel('Median phase')
     pylab.title('Pol01 median phase versus time')
     pylab.subplot(2,2,4)
@@ -257,7 +274,7 @@ if __name__ == "__main__":
     vmax00 = np.median(pol00) + 2*np.std(pol00)
     pylab.imshow(pol00, vmin=vmin00, vmax=vmax00, aspect='auto', extent=myext)
     pylab.xlabel('Frequency (MHz)')
-    pylab.ylabel('(Down)samples')
+    pylab.ylabel('(Down)seconds')
     pylab.title('Pol00 magnitude')
 
     pylab.subplot(2,2,2)
@@ -265,7 +282,7 @@ if __name__ == "__main__":
     vmax11 = np.median(pol11) + 2*np.std(pol11)
     pylab.imshow(pol11, vmin=vmin11, vmax=vmax11, aspect='auto', extent=myext)
     pylab.xlabel('Frequency (MHz)')
-    pylab.ylabel('(Down)samples')
+    pylab.ylabel('(Down)seconds')
     pylab.title('Pol11 magnitude')
 
     pylab.subplot(2,2,3)
@@ -294,7 +311,7 @@ if __name__ == "__main__":
 
     pylab.imshow(pol00, vmin=vmin00, vmax=vmax00, aspect='auto', extent=myext)
     pylab.xlabel('Frequency (MHz)')
-    pylab.ylabel('(Down)samples')
+    pylab.ylabel('(Down)seconds')
     pylab.title('Pol00 magnitude')
     pylab.show()
 

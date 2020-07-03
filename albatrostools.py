@@ -5,19 +5,19 @@ import datetime
 import ctypes
 import time
 
-mylib=ctypes.cdll.LoadLibrary("libalbatrostools.so")
-unpack_4bit_c=mylib.unpack_4bit
-unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
-unpack_4bit_float_c=mylib.unpack_4bit_float
-unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
-bin_crosses_float_c=mylib.bin_crosses_float
-bin_crosses_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
-bin_crosses_double_c=mylib.bin_crosses_double
-bin_crosses_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
-bin_autos_float_c=mylib.bin_autos_float
-bin_autos_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
-bin_autos_double_c=mylib.bin_autos_double
-bin_autos_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+# mylib=ctypes.cdll.LoadLibrary("libalbatrostools.so")
+# unpack_4bit_c=mylib.unpack_4bit
+# unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+# unpack_4bit_float_c=mylib.unpack_4bit_float
+# unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+# bin_crosses_float_c=mylib.bin_crosses_float
+# bin_crosses_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+# bin_crosses_double_c=mylib.bin_crosses_double
+# bin_crosses_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+# bin_autos_float_c=mylib.bin_autos_float
+# bin_autos_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+# bin_autos_double_c=mylib.bin_autos_double
+# bin_autos_double_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
 
 
 

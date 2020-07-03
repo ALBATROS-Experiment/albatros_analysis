@@ -5,6 +5,87 @@ import numpy as np
 import scipy.linalg as la
 
 
+
+def sinc_hamming(ntap, lblock):
+    """Hamming-sinc window function.
+    Parameters
+    ----------
+    ntaps : integer
+        Number of taps.
+    lblock: integer
+        Length of block.
+    Returns
+    -------
+    window : np.ndarray[ntaps * lblock]
+    """
+
+    return sinc_window(ntap, lblock) * np.hamming(ntap * lblock)
+
+def sinc_hanning(ntap, lblock):
+    """Hanning-sinc window function.
+    
+    Parameters
+    ----------
+    ntaps : integer
+        Number of taps.
+    lblock: integer
+        Length of block.
+        
+    Returns
+    -------
+    window : np.ndarray[ntaps * lblock]
+    """
+    
+    return sinc_window(ntap, lblock) * np.hanning(ntap * lblock)
+
+def get_pfb_mat_sinc(nchan,ntap,window=sinc_hanning):
+    x=np.arange(-(nchan-1)*ntap,(nchan-1)*ntap)
+    x=x/(nchan-1)/2
+    #mysinc2=np.sinc(x)
+    mysinc=window(ntap,2*(nchan-1))
+    #print(np.std(mysinc-mysinc2))
+    mymat=np.zeros([nchan,len(mysinc)],dtype='complex')
+    for i in range(nchan):
+        mymat[i,:]=mysinc*np.exp(-2J*np.pi*x*i)
+    return mymat
+
+
+def filter_pfb(mypfb,mat,frac=0.85,dchunk=1):
+    pfb_out=0*mypfb
+    u,s,v=np.linalg.svd(mat)
+    ss=s[np.int(frac*len(s))]
+    s_filt=(s/ss)**2
+    s_filt[s_filt>1]=1
+    filt_mat=np.dot(np.conj(u),np.dot(np.diag(s_filt),u.T))
+
+    nchan=mypfb.shape[1]
+    nblock=filt_mat.shape[0]//nchan    
+
+    nrep=mypfb.shape[0]-nblock
+    for i in range(0,nrep,dchunk):
+        vec=np.ravel(mypfb[i:i+nblock,:])
+        vec_filt=np.dot(filt_mat,vec)
+        pfb_out[i:i+nblock,:]=pfb_out[i:i+nblock,:]+np.reshape(vec_filt,[nblock,nchan])
+    return pfb_out*dchunk/nblock
+
+
+def make_large_pfb_mat(nchan,ntap,nblock,window=sinc_hamming):
+    block=get_pfb_mat_sinc(nchan,ntap,window=window)
+    shift=2*(nchan-1)
+    nx=nblock*block.shape[0]
+    ny=shift*(nblock-1)+block.shape[1]
+    mat=np.zeros([nx,ny],dtype='complex')
+    
+    for i in range(nblock):
+        ix=i*nchan
+        iy=i*shift
+        mat[ix:ix+nchan,iy:iy+block.shape[1]]=block
+    return mat
+
+
+
+
+
 def sinc_window(ntap, lblock):
     """Sinc window function.
     
@@ -30,37 +111,8 @@ def sinc_window(ntap, lblock):
     return np.sinc(X / np.pi)
 
 
-def sinc_hanning(ntap, lblock):
-    """Hanning-sinc window function.
-    
-    Parameters
-    ----------
-    ntaps : integer
-        Number of taps.
-    lblock: integer
-        Length of block.
-        
-    Returns
-    -------
-    window : np.ndarray[ntaps * lblock]
-    """
-    
-    return sinc_window(ntap, lblock) * np.hanning(ntap * lblock)
 
-def sinc_hamming(ntap, lblock):
-    """Hamming-sinc window function.
-    Parameters
-    ----------
-    ntaps : integer
-        Number of taps.
-    lblock: integer
-        Length of block.
-    Returns
-    -------
-    window : np.ndarray[ntaps * lblock]
-    """
 
-    return sinc_window(ntap, lblock) * np.hamming(ntap * lblock)
 
 
 def pfb(timestream, nfreq, ntap=4, window=sinc_hamming):
