@@ -87,7 +87,7 @@ if __name__ == '__main__':
                       datetime.datetime(1970, 1, 1)).total_seconds()) + 86399
     inds = nm.where( (baseband_logfiles_ctimes >= ctstart) & (baseband_logfiles_ctimes <= ctstop) )[0]
     if len(inds) == 0:
-        print 'No files found within specified start and stop dates'
+        print('No files found within specified start and stop dates')
         exit(0)
     baseband_logfiles = baseband_logfiles[inds]
     baseband_logfiles_ctimes = baseband_logfiles_ctimes[inds]
@@ -150,35 +150,35 @@ if __name__ == '__main__':
                 if b != opts.bits:
                     continue
 
-        print '============================================='
-        print baseband_logfiles[ind]
-        print 'System state:', sys_state
-        print 'Start time:', str(datetime.datetime.utcfromtimestamp(baseband_logfiles_ctimes[ind]))
-        print 'Start ctime:', baseband_logfiles_ctimes[ind]
-        print 'Run length:', baseband_runtimes[ind]/60, 'minutes'
+        print('=============================================')
+        print(baseband_logfiles[ind])
+        print('System state:', sys_state)
+        print('Start time:', str(datetime.datetime.utcfromtimestamp(baseband_logfiles_ctimes[ind])))
+        print('Start ctime:', baseband_logfiles_ctimes[ind])
+        print('Run length:', baseband_runtimes[ind]/60, 'minutes')
         btxt = os.popen('grep "Baseband bits" '+baseband_logfiles[ind]+' | cut -d " " -f6-').readlines()[0]
-        print btxt.strip()
+        print(btxt.strip())
         ctxt = os.popen('grep "Channels" '+baseband_logfiles[ind]+' | cut -d " " -f6-').readlines()[0]
-        print ctxt.strip()
+        print(ctxt.strip())
         if config_logfile is None:
-            print 'Channel coeffs: no information found'
+            print('Channel coeffs: no information found')
         else:
             cctxt = os.popen('grep "Channel coeffs" '+config_logfile+' | cut -d " " -f6-').readlines()[0]
-            print cctxt.strip()
+            print(cctxt.strip())
         s = re.compile(r'(\d+)\:(\d+)$')
         if s.search(ctxt):
             c1 = int(s.search(ctxt).groups()[0])
             c2 = int(s.search(ctxt).groups()[1])
-            print 'Frequencies:', chan2freq(c1), '-', chan2freq(c2), 'MHz'
-            print 'Freq bandwidth:', chan2freq(c2)-chan2freq(c1), 'MHz'
+            print('Frequencies:', chan2freq(c1), '-', chan2freq(c2), 'MHz')
+            print('Freq bandwidth:', chan2freq(c2)-chan2freq(c1), 'MHz')
         if config_logfile is None:
-            print 'ADC bits used: no information found'
+            print('ADC bits used: no information found')
         else:
             atxt = os.popen('grep "ADC bits" '+config_logfile+' | cut -d " " -f4-').readlines()
             if len(atxt) > 0:
-                print atxt[0].strip()
+                print(atxt[0].strip())
             else:
-                print 'ADC bits used: no information found'
+                print('ADC bits used: no information found')
         if config_logfile is not None:
             ftxt = os.popen('grep "ADC initialisation failed" '+config_logfile+' | wc -l').readlines()[0]
-            print 'Total ADC initialization failures:', ftxt.strip()
+            print('Total ADC initialization failures:', ftxt.strip())

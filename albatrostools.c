@@ -74,6 +74,100 @@ void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nch
 }
 
 /*--------------------------------------------------------------------------------*/
+void unpack_1bit_float_busted(uint8_t *data, float *pol0, float *pol1, int ndat, int nchan)
+//this mapping is almost certainly wrong since it doesn't agree with python, but leaving in since as
+//of now, the python has not been confirmed to be correct
+{
+
+  //[0,0] -> [0,0]  0->0
+  //[0,1] -> [1,0]  1->nchan
+  //[0,2] -> [0,1]  2->1
+  //[0,3] -> [1,1]  3->nchan+1
+  //[1,0] -> [0,nchan/2]  nchan->nchan/2
+  //[1,1] -> [1,nchan/2]  nchan+1 ->nchan+nchan/2
+  //[1,2] -> [0,nchan/2+1]
+
+
+  //  int nn=ndat*nchan/2*4;
+  int nn=ndat*nchan;
+  //#pragma omp parallel for
+  for (int i=0;i<nn;i++) {
+    float r0c0=(data[i]>>7)&1;
+    float i0c0=(data[i]>>6)&1;
+    float r1c0=(data[i]>>5)&1;
+    float i1c0=(data[i]>>4)&1;
+
+    float r0c1=(data[i]>>3)&1;
+    float i0c1=(data[i]>>2)&1;
+    float r1c1=(data[i]>>1)&1;
+    float i1c1=(data[i]>>0)&1;
+
+    //if ( (i&1)==0) {
+
+    pol0[4*i+0]=2*r0c0-1;
+    pol0[4*i+1]=2*i0c0-1;
+    pol0[4*i+2]=2*r0c1-1;
+    pol0[4*i+3]=2*i0c1-1;
+
+
+    //pol0[2*i+0]=2*r0c0-1;
+    //pol0[2*i+1]=2*i0c0-1;
+    //pol0[2*i+2]=2*r0c1-1;
+    //pol0[2*i+3]=2*i0c1-1;
+
+
+
+      //pol0[4*i+0]=2*r0c0-1;
+      //pol0[4*i+1]=2*i0c0-1;
+      //pol0[4*i+2*nchan+0]=2*r0c1-1;
+      //pol0[4*i+2*nchan+1]=2*i0c1-1;
+      
+      pol1[4*i+0]=2*r1c0-1;
+      pol1[4*i+1]=2*i1c0-1;
+      pol1[4*i+2]=2*r1c1-1;
+      pol1[4*i+3]=2*i1c1-1;
+      //}
+      //else
+      //{
+      //}
+  }
+}
+
+/*--------------------------------------------------------------------------------*/
+void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int ndat, int nchan)
+{
+  //  int nn=ndat*nchan/2*4;
+  int nn=ndat*nchan;
+  for (int ii=0;ii<ndat;ii++) {
+    for (int jj=0;jj<nchan;jj++) {
+      int i=ii*nchan+jj;
+      
+      float r0c0=(data[i]>>7)&1;
+      float i0c0=(data[i]>>6)&1;
+      float r1c0=(data[i]>>5)&1;
+      float i1c0=(data[i]>>4)&1;
+
+      float r0c1=(data[i]>>3)&1;
+      float i0c1=(data[i]>>2)&1;
+      float r1c1=(data[i]>>1)&1;
+      float i1c1=(data[i]>>0)&1;
+      
+      pol0[4*ii*nchan+2*jj]=2*r0c0-1;
+      pol0[4*ii*nchan+2*jj+1]=2*i0c0-1;
+      pol0[(4*ii+2)*nchan+2*jj]=2*r0c1-1;
+      pol0[(4*ii+2)*nchan+2*jj+1]=2*i0c1-1;
+
+
+      pol1[4*ii*nchan+2*jj]=2*r1c0-1;
+      pol1[4*ii*nchan+2*jj+1]=2*i1c0-1;
+      pol1[(4*ii+2)*nchan+2*jj]=2*r1c1-1;
+      pol1[(4*ii+2)*nchan+2*jj+1]=2*i1c1-1;
+      
+      //}
+    }
+  }
+}
+/*--------------------------------------------------------------------------------*/
 void bin_crosses_float(float *pol0, float *pol1, float *sum, int ndata, int nchan, int chunk)
 {
   //printf("ndata/nchan/chunk are %d,%d,%d\n",ndata,nchan,chunk);

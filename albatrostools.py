@@ -10,6 +10,8 @@ unpack_4bit_c=mylib.unpack_4bit
 unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_4bit_float_c=mylib.unpack_4bit_float
 unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+unpack_1bit_float_c=mylib.unpack_1bit_float
+unpack_1bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 bin_crosses_float_c=mylib.bin_crosses_float
 bin_crosses_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
 bin_crosses_double_c=mylib.bin_crosses_double
@@ -34,12 +36,16 @@ def unpack_1_bit(data, num_channels):
     imag_pol0=numpy.ravel(numpy.column_stack((imag_pol0_chan0, imag_pol0_chan1)))
     real_pol1=numpy.ravel(numpy.column_stack((real_pol1_chan0, real_pol1_chan1)))
     imag_pol1=numpy.ravel(numpy.column_stack((imag_pol1_chan0, imag_pol1_chan1)))
-    real_pol0[real_pol0==0]=-1
-    imag_pol0[imag_pol0==0]=-1
-    real_pol1[real_pol1==0]=-1
-    imag_pol1[imag_pol1==0]=-1
-    pol0=real_pol0+1J*imag_pol0
-    pol1=real_pol1+1J*imag_pol1
+    if True:
+        real_pol0[real_pol0==0]=-1
+        imag_pol0[imag_pol0==0]=-1
+        real_pol1[real_pol1==0]=-1
+        imag_pol1[imag_pol1==0]=-1
+        pol0=real_pol0+1J*imag_pol0
+        pol1=real_pol1+1J*imag_pol1
+    else:
+        pol0=2*real_pol0+2J*imag_pol0-(1+1J)
+        pol1=2*real_pol1+2J*imag_pol1-(1+1J)
     del real_pol0
     del imag_pol0
     del real_pol1
@@ -72,6 +78,17 @@ def unpack_2_bit(data, num_channels):
     return pol0, pol1
     
 
+def unpack_1bit_fast(data,num_channels,float=False):
+    if float:
+        pol0=numpy.zeros([data.shape[0]*2,num_channels],dtype='complex64')
+        pol1=numpy.zeros([data.shape[0]*2,num_channels],dtype='complex64')
+        unpack_1bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1]);
+        
+    else:
+        return None
+    return pol0,pol1;
+
+    
 def unpack_4bit_fast(data,num_channels,float=False):
     if float:
         pol0=numpy.zeros([data.shape[0]//2,num_channels],dtype='complex64')
