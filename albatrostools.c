@@ -138,6 +138,7 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int ndat, int nc
 {
   //  int nn=ndat*nchan/2*4;
   int nn=ndat*nchan;
+#pragma omp parallel for
   for (int ii=0;ii<ndat;ii++) {
     for (int jj=0;jj<nchan;jj++) {
       int i=ii*nchan+jj;
@@ -173,8 +174,9 @@ void bin_crosses_float(float *pol0, float *pol1, float *sum, int ndata, int ncha
   //printf("ndata/nchan/chunk are %d,%d,%d\n",ndata,nchan,chunk);
   //take assumed complex data in *data, that's ndata by nchan, and sum conj(data)*data in units of the chunk size
   int nchunk=ndata/chunk;
-#pragma omp parallel for
+  //#pragma omp parallel for
   for (int i=0;i<nchunk;i++) {
+    printf("I is %d\n",i);
     int ik2=(2*i*nchan);
     //for (int j=0;j<2*nchan;j++) 
     //  sum[i*nchan+j]=2;
