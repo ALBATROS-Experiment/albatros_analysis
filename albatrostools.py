@@ -191,10 +191,13 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     header=get_header(file_name)
     file_data=open(file_name, "r")
     file_data.seek(8+header["header_bytes"]+byte_delta)
+    t1=time.time()
     data=numpy.fromfile(file_data, count=items, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(header["bytes_per_packet"]-4))])
+    t2=time.time()
+    print('took ',t2-t1,' seconds to read raw data on ',file_name)
     file_data.close()
     if header["bit_mode"]==1:
-        raw_spectra=data["spectra"].reshape(-1, header["length_channels"]/2)
+        raw_spectra=data["spectra"].reshape(-1, header["length_channels"]//2)
         pol0, pol1=unpack_1_bit(raw_spectra, header["length_channels"])
     if header["bit_mode"]==2:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"])
