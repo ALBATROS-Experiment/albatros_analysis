@@ -139,9 +139,7 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
             ##calculate compress the data into one row
             mean_pol00 = np.mean(np.abs(data['pol0'])**2, axis=0)
             mean_pol11 = np.mean(np.abs(data['pol1'])**2, axis=0)
-            mean_mag = np.mean(np.abs(corr), axis=0)
-            mean_phase = np.mean(np.angle(corr), axis=0)
-            mean_pol01 = P2R(mean_mag, mean_phase)
+            mean_pol01 = np.mean(corr, axis = 0)
 
             #get the index in auto spectra to which this time chunk of baseband corresponds
             start_index_auto = find_index(time_scale_auto, start_time_base)
