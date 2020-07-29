@@ -1,6 +1,7 @@
 running_local = True
 
 import numpy as np
+import pfb_helper as pfb
 
 import copy
 import pickle
@@ -8,7 +9,7 @@ import pickle
 import sys, os
 import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
-    print('no display found. Using non-interactive Agg backend')
+    #print('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
 
 import matplotlib.pyplot as plt
@@ -19,6 +20,19 @@ import albatrostools as alb
 from scipy import signal
 
 import cmath
+
+from multiprocessing import Pool, get_context
+
+def re_bin(data, nbin):
+    ##first switch to time domain
+    ts = pfb.inverse_pfb(data,4).ravel()
+    #snip off the start and end which are noizy af
+    lent = len(ts)
+    ts = ts[int(0.1 * lent): - int(0.1*lent)]
+    #lets just hope it isnt prime :)
+    #it has an fft deep inside it so this will be slow if its prime
+    spec = pfb.pfb(ts, nbin, ntap=4)
+    return spec
 
 def find_index(array, val):
     '''
@@ -36,7 +50,7 @@ def find_index(array, val):
 def P2R(radii, angles):
     return radii * np.exp(1j*angles)
 
-def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
+def get_comparison(start_time, stop_time, baseband_dir, auto_dir, freq_ranges):
     '''
         Gets the same data representation coming from auto and baseband
         returns dictionary of dictionaries of arrays:
@@ -74,7 +88,8 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
     results = {
         'dif' : copy.deepcopy(res_temp),
         'auto': copy.deepcopy(res_temp),
-        'base': copy.deepcopy(res_temp)
+        'base': copy.deepcopy(res_temp),
+        'high': copy.deepcopy(res_temp)
     }
 
     print("auto time length:", len(auto_files))
@@ -88,13 +103,13 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
         pol01r = scio.read(os.path.join(auto_file,'pol01r.scio'))
         pol01i = scio.read(os.path.join(auto_file,'pol01i.scio'))
         pol01 =  pol01r + 1J*pol01i
+        auto_start_times = np.fromfile(os.path.join(auto_file, 'time_gps_start.raw'))
+        auto_stop_times = np.fromfile(os.path.join(auto_file, 'time_gps_stop.raw'))
         
         ##get the start and end time and generate the time scale to match up with baseband later
-        start_time_auto = auto_times[index]
-        try:
-            end_time_auto = auto_times[index + 1]
-        except IndexError:
-            end_time_auto = start_time_auto + 60*60 ##add an hour
+        start_time_auto = auto_start_times[0]
+        end_time_auto = auto_stop_times[-1]
+
         time_delta_auto = (end_time_auto  - start_time_auto)
         time_scale_auto = np.linspace(start_time_auto,  end_time_auto, np.shape(pol00)[0])
 
@@ -117,9 +132,18 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
         ##loop through relevant files of baseband
         for base_n, base_file in enumerate(baseband_in_range):
             print("reading", str(base_file))
-            header, data = alb.get_data(base_file, items = 1000,unpack_fast=True, float= True) #change that back to -1 eventually
+            header, data = alb.get_data(base_file, items = -1,unpack_fast=True, float= True,byte_delta= -8) #change that back to -1 eventually
             fmin = header['channels'][0]*125.0/2048
             fmax = header['channels'][-1]*125.0/2048
+            littleflag = 0
+            for freq_range in freq_ranges:
+                if (np.abs(freq_range[0] - fmin) < 0.1 and  np.abs(freq_range[1] - fmax) < 0.1):
+                    ##this is the data we want!!
+                    littleflag += 1
+            #if little flag is still zero the data is trash
+            if littleflag == 0:
+                print("baseband data not in frequnecy range so skipping")
+                continue
             n_chan = header['channels'][-1] - header['channels'][0]
 
             ##used to check if frequency bins are the same from auto to baseband
@@ -129,10 +153,15 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
                 some_name = np.where(baseband_times == start_time_base)[0][0]
                 end_time_base = baseband_times[some_name +1]
             except IndexError:
-                end_time_base = start_time_base + 60*1 ##add a miniute or so
+                end_time_base = start_time_base + 30 ##add a miniute or so
+                print("made up end point")
             #print(end_time_base)
 
-            #time_delta_base = end_time_base -start_time_base
+
+            time_delta_base = end_time_base -start_time_base
+            if time_delta_base > 360:
+                end_time_base = start_time_base + 30
+                print("made up end point")
 
             # Calculate auto and cross correlations
             corr = data['pol0']*np.conj(data['pol1'])
@@ -141,9 +170,9 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
             mean_pol11 = np.mean(np.abs(data['pol1'])**2, axis=0)
             mean_pol01 = np.mean(corr, axis = 0)
 
-            #get the index in auto spectra to which this time chunk of baseband corresponds
-            start_index_auto = find_index(time_scale_auto, start_time_base)
-            end_index_auto = find_index(time_scale_auto, end_time_base)
+            #get the index in auto spectra to which this time chunk of baseband corresponds using real math this time woop woop
+            start_index_auto = find_index(auto_start_times, start_time_base)
+            end_index_auto = find_index(auto_stop_times, end_time_base)
 
 
             ##trying someting should correspond according to jon
@@ -151,17 +180,6 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
             fmin_index_auto = int(header['channels'][0])
             fmax_index_auto = int(header['channels'][-1] + 1)
 
-            ##soooo the frequencies dont seem to align ill look at it again in the morning :)
-
-            # if set(freq_base).issubset(set(freq_auto)):
-            #     pass
-            # else:
-            #     print("fuck my life will need serious rebinnig")
-            #     print("freq_base:")
-            #     print(freq_base)
-            #     print("freq_auto:")
-            #     print(freq_auto)
-            #     ##exit(1)
             
 
             #lets check that there is the correct number of bins
@@ -172,12 +190,7 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
                 print("auto_chan: " + str(fmax_index_auto - fmin_index_auto))
                 exit(1)
             
-            ##Realsitically if one of these checks fail both will.... 
-            ##to fix should sue scipy.signal.resample() to match it up
 
-
-            # fmin_index_auto = np.where(freq_auto == fmin)[0][0]
-            # fmax_index_auto = np.where(freq_auto == fmax)[0][0]
 
             print("comparing min freqeuncies: " + str(freq_auto[fmin_index_auto]) + " with " + str(fmin))
             print("comparing max freqeuncies: " + str(freq_auto[fmax_index_auto - 1]) + " with " + str(fmax))
@@ -237,7 +250,17 @@ def get_comparison(start_time, stop_time, baseband_dir, auto_dir):
             temp = nan_holder.copy()  
             temp[fmin_index_auto:fmax_index_auto] = mean_pol01
             results['base']['pol01'].append(temp)
-            
+            n_cores = 80
+            print("moving on to high res of baseband")
+            lines_per_core = int(1000)
+            high_res_bins = 500
+            with get_context("spawn").Pool() as pool:
+                for pol in ['pol0', 'pol1']:
+                    print("re-binning:", [pol])
+                    job = [(data[pol][x:(x+lines_per_core),:], high_res_bins) for x in range(0, np.shape(data[pol])[0]-1,lines_per_core)]
+                    result = pool.starmap(re_bin, job)
+                    result_key ='pol' + pol.split('l')[-1] + pol.split('l')[-1]
+                    results['high'][result_key].append(np.mean(np.abs(np.vstack(result)**2),axis = 0))
             print("appended some data we now have: " + str(len(results['base']['pol01'])) + " lines of goodness")
 
     return results, np.linspace(0,125,len(results['auto']['pol00'][0]), endpoint= False)
@@ -252,6 +275,17 @@ def collapse_nan(array):
     if len(result) ==0:
         print("bad frequency range selection")
     return result
+
+def collapse_nan_loc(array): ###returns array of locations 
+    loc = []
+    for index,row in  enumerate(array):  
+        if ~np.isnan(row[50]):
+            loc.append(index)
+        else:
+            pass
+    if len(loc) ==0:
+        print("bad freq range")
+    return loc
 
 def trim_freq(array, fmin_index, fmax_index):
     result = []
@@ -275,189 +309,231 @@ def trim_freq(array, fmin_index, fmax_index):
 ##middle row is baseband auto
 ##bottom row is mean of both
 
-out_dir = "/project/s/sievers/simont/mars_2019_tools/plots"
-start_time = "20190721_052255"
-stop_time = "20190721_150000"
-baseband_dir = "/project/s/sievers/mars2019/MARS1/albatros_north_baseband"
-auto_dir = "/project/s/sievers/mars2019/auto_cross/data_auto_cross"
-save_loc = "/project/s/sievers/simont/mars_2019_tools/plots/temp_plot.pick"
-compute = True
-if running_local is True:
-    save_loc = "data/temp_plot.pick"
-    out_dir = "plots"
-    compute = False
+if __name__ == "__main__":
 
-if compute is True:
-    results, freqs = get_comparison(start_time, stop_time, baseband_dir, auto_dir)
-    print("saving to: " + save_loc)
-    with open(save_loc, 'w') as dic_save:
-        pickle.dump(results, dic_save)
-else:
-    print("reading from: " + save_loc)
-    with open(save_loc, 'r') as dic_save:
-        results = pickle.load(dic_save)
-    freqs = np.linspace(0,125,len(results['auto']['pol00'][0]), endpoint= False)
+    out_dir = "/project/s/sievers/simont/mars_2019_tools/plots"
+    start_time = "20190721_052255"
+    stop_time = "20190721_150000"
+    baseband_dir = "/project/s/sievers/mars2019/MARS1/albatros_north_baseband"
+    auto_dir = "/project/s/sievers/mars2019/auto_cross/data_auto_cross"
+    save_loc = "/project/s/sievers/simont/mars_2019_tools/plots/temp_plot.pick"
+    compute = True
 
-for val in results["auto"]['pol00'][1]:
-    pass
-    #print(val)
-
-# fmin_index = find_index(freqs, 5.31)
-# print(fmin_index)
-# fmax_index = find_index(freqs, 12.63) -1
-# print(fmax_index)
-# ##now lets squash the pesky nans
-# data = trim_freq(results["base"]["pol00"], fmin_index, fmax_index)
-# print("data shape is", str(len(data)), str(len(data[0])))
-# data = collapse_nan(data)
-# print("data shape is", str(len(data)), str(len(data[0])))
-# data = np.array(data)
-
-
-freq_shift = 4 ##this better get switched to zero sometime in the near future nivek im looking at u
-
-for  pol in results["auto"]: ##should be pol00, pol01, pol11
     freq_ranges = [[5.31,12.63],[12.7,20.02]]
-    #freq_ranges = [[79.96,87.28]]
-    if  pol == "pol01":
-        print("working on phases")
-        ##we have complex stuff lets skip it
-        #time to plot the angles
-        # so lets go
-        plt.figure(figsize=(16,16))
-        
-        cell = 1
-        for freq_range in freq_ranges:
-            fmin_index = find_index(freqs, freq_range[0])
-            fmax_index = find_index(freqs, freq_range[1])
-            auto = trim_freq(results['auto'][pol], fmin_index + freq_shift, fmax_index)
-            auto = collapse_nan(auto)
-            auto = np.array(auto)
-            auto = np.angle(auto)
-            auto[auto < 0] += 2* np.pi
-            base = trim_freq(results['base'][pol], fmin_index , fmax_index- freq_shift)
-            base = collapse_nan(base)
-            base = np.array(base)
-            base = np.angle(base)
-            base[base<0] += 2 * np.pi
-            data = auto - base
-            plt.subplot(1,len(freq_ranges), cell)
-            cell += 1
+    
 
-            myExtent = np.array([freq_range[0], freq_range[1], np.shape(data)[0], 0])
-            print("le error" , np.shape(data)[0])
-            print("le error" , np.shape(data)[1])
-            aspect = float(np.shape(data)[0]) / float(np.shape(data)[1])
-            print(aspect)
-            plt.imshow(data, vmin=-np.pi, vmax= np.pi, extent=myExtent, aspect = 'auto')
-            plt.colorbar()
-            plt.xlabel('Frequency (MHz)')
-            plt.ylabel('Minutes (down)')
-            plt.title("Pol01 phase")
-        plt.suptitle("phase difference auto-cross")
-        plt.savefig(os.path.join(out_dir, str(pol)+".png"))
-        cell = 1
-        for row in results:
-            if row == "dif":
-                continue
+    if running_local is True:
+        save_loc = "data/temp_plot.pick"
+        out_dir = "plots"
+        compute = False
+
+    if compute is True:
+        results, freqs = get_comparison(start_time, stop_time, baseband_dir, auto_dir, freq_ranges)
+        print("saving to: " + save_loc)
+        with open(save_loc, 'wb') as dic_save:
+            pickle.dump(results, dic_save)
+    else:
+        print("reading from: " + save_loc)
+        with open(save_loc, 'rb') as dic_save:
+            results = pickle.load(dic_save)
+        freqs = np.linspace(0,125,len(results['auto']['pol00'][0]), endpoint= False)
+
+    for val in results["auto"]['pol00'][1]:
+        pass
+        #print(val)
+
+    # fmin_index = find_index(freqs, 5.31)
+    # print(fmin_index)
+    # fmax_index = find_index(freqs, 12.63) -1
+    # print(fmax_index)
+    # ##now lets squash the pesky nans
+    # data = trim_freq(results["base"]["pol00"], fmin_index, fmax_index)
+    # print("data shape is", str(len(data)), str(len(data[0])))
+    # data = collapse_nan(data)
+    # print("data shape is", str(len(data)), str(len(data[0])))
+    # data = np.array(data)
+
+
+    freq_shift = 0 ##this better get switched to zero sometime in the near future nivek im looking at u
+    # Set some global font sizes
+    font = {'family' : 'normal',
+            'weight' : 'normal',
+            'size'   : 14}
+    mpl.rc('font', **font)
+    for  pol in results["auto"]: ##should be pol00, pol01, pol11
+        #freq_ranges = [[79.96,87.28]]
+        if  pol == "pol01":
+            print("working on phases")
+            ##we have complex stuff lets skip it
+            #time to plot the angles
+            # so lets go
+            plt.figure(figsize=(16,16))
+            
+            cell = 1
             for freq_range in freq_ranges:
                 fmin_index = find_index(freqs, freq_range[0])
                 fmax_index = find_index(freqs, freq_range[1])
-                
-                if row == 'auto':
-                    fmin_index += freq_shift
-                elif row == 'base':
-                    fmax_index -= freq_shift
-         
-                data = trim_freq(results[row][pol], fmin_index, fmax_index)
-                data = collapse_nan(data)
-                data = np.array(data)
-                print(data[0,0])
-                data=np.angle(data)
-                data[ data< 0 ] += 2 *np.pi
-                plt.subplot(2,len(freq_ranges), cell)
+                auto = trim_freq(results['auto'][pol], fmin_index + freq_shift, fmax_index)
+                auto = collapse_nan(auto)
+                auto = np.array(auto)
+                auto = np.angle(auto)
+                auto[auto < 0] += 2* np.pi
+                base = trim_freq(results['base'][pol], fmin_index , fmax_index- freq_shift)
+                base = collapse_nan(base)
+                base = np.array(base)
+                base = np.angle(base)
+                base[base<0] += 2 * np.pi
+                data = auto - base
+                plt.subplot(1,len(freq_ranges), cell)
                 cell += 1
 
                 myExtent = np.array([freq_range[0], freq_range[1], np.shape(data)[0], 0])
-                plt.imshow(data, vmin = 0, vmax =2 * np.pi, extent=myExtent, aspect = 'auto')
+                plt.imshow(data, vmin=-np.pi, vmax= np.pi, extent=myExtent, aspect = 'auto')
                 plt.colorbar()
                 plt.xlabel('Frequency (MHz)')
                 plt.ylabel('Minutes (down)')
-                plt.title(row + " phase, pol01")
-        plt.suptitle("phase difference auto-cross")
-        plt.savefig(os.path.join(out_dir, str(pol)+"indi"+".png"))
-        continue
+                plt.title("Pol01 phase")
+            plt.suptitle("phase difference auto-cross")
+            plt.savefig(os.path.join(out_dir, str(pol)+".png"))
+            cell = 0
+            fig, axs = plt.subplots(2, len(freq_ranges), figsize=(16, 10), constrained_layout=True)
+            for row in results:
+                if row == "dif":
+                    continue
+                if row == "high":
+                    continue
+                for freq_range in freq_ranges:
+                    fmin_index = find_index(freqs, freq_range[0])
+                    fmax_index = find_index(freqs, freq_range[1])
+                    
+                    if row == 'auto':
+                        fmin_index += freq_shift
+                    elif row == 'base':
+                        fmax_index -= freq_shift
+            
+                    data = trim_freq(results[row][pol], fmin_index, fmax_index)
+                    data = collapse_nan(data)
+                    data = np.array(data)
+                    data=np.angle(data)
+                    #data[ data< 0 ] += 2 *np.pi
+                    ax = axs.flat[cell]
 
-        
-    ##initate the figs
-    plt.figure(figsize=(16,16))
+                    if cell ==0:
+                        ax.set_title('Direct', loc='left', horizontalalignment='right', verticalalignment='bottom')
+                        ax.yaxis.set_label_coords(-0.1,1.04)
+                    elif cell ==2:
+                        ax.set_xlabel('Frequency (MHz)')
+                        ax.set_ylabel('Time (Minutes)')
+                        ax.set_title('Baseband', loc='left', horizontalalignment='right', verticalalignment='bottom')
+                    if cell%2 ==0:
+                        data = data[0:-8,:]
+                    else:
+                        data = data[:,0:-1]
 
-    cell = 1
-    for row in results:##should be dif, auto ,base
-        if row == "dif":
-            ##we arent plotting that as of now 
+                    myExtent = np.array([freq_range[0], freq_range[1], np.shape(data)[0], 0])
+                    im = ax.imshow(data, vmin = -np.pi ,vmax =np.pi, extent=myExtent, aspect = 'auto', cmap='coolwarm')
+                    #ax.colorbar()
+                    #ax.set_xlabel('Frequency (MHz)')
+                    #ax.set_ylabel('Minutes (down)')
+
+
+                    cell += 1
+                    #plt.title(row + " phase, pol01")
+            #plt.suptitle("phase difference auto-cross")
+            fig.colorbar(im, ax=axs[:2,:], shrink=0.8)
+            plt.savefig(os.path.join(out_dir, str(pol)+"indi"+".png"))
             continue
-        for freq_range in freq_ranges: ##the two collumns
 
-            print("plotting" , pol , row , str(cell))
+            
+        ##initate the figs
+        fig, axs = plt.subplots(3, 2, figsize=(16, 10), constrained_layout=True)
 
-            ##iterate through the subplots 
-            plt.subplot(3,len(freq_ranges),cell)
+        cell = 0
+        for row in results:##should be dif, auto ,base
+            if row == "dif":
+                ##we arent plotting that as of now 
+                continue
+            if row == "high":
+                continue
+            for freq_range in freq_ranges: ##the two collumns
+
+                print("plotting" , pol , row , str(cell))
+
+                ##iterate through the subplots 
+                ax = axs.flat[cell]
+                cell += 1
+
+                #plt.title(str(pol) + str(row))
+                ##start by getting the bit of results that matters (or at least the interesting indecees)
+                fmin_index = find_index(freqs, freq_range[0])
+                fmax_index = find_index(freqs, freq_range[1]) -1
+                if row == "auto":
+                    fmin_index += freq_shift
+                elif row == "base":
+                    fmax_index -= freq_shift
+                # print(fmin_index)
+                # print(fmax_index)
+                ##now lets squash the pesky nans
+                data = trim_freq(results[row][pol], fmin_index, fmax_index)
+                print("data shape is", str(len(data)), str(len(data[0])))
+                data = collapse_nan(data)
+                data = np.abs(np.array(data))
+                if (cell-1)%2 ==0:
+                    data = data[0:-8,:]
+                
+                vmin = 0#np.median(data) - 2*np.std(data)
+                vmax = np.median(data) + 2*np.std(data)
+                #print(np.shape(data))
+                
+                myExtents = np.array([freq_range[0], freq_range[1], np.shape(data)[0],0])##should be in minutes give or take
+                im = ax.imshow(data, vmin=vmin, vmax=vmax, aspect='auto', extent=myExtents, cmap='YlOrRd')
+                if ((cell-1)%2)==0:
+                    if row == 'base':
+                        word = "Baseband"
+                    elif row == 'auto':
+                        word = "Direct"
+                    ax.set_title(word, loc='left', horizontalalignment='right', verticalalignment='bottom')
+                if cell -1 ==0:
+                    ax.yaxis.set_label_coords(-0.1,1.04)
+                if cell-1 == 2:
+                    ax.set_xlabel('Frequency (MHz)')
+                    ax.set_ylabel('Time (Minutes)')  
+                #plt.yaxis.set_label_coords(-0.1,1.04)
+        fig.colorbar(im, ax=axs[:2,:], shrink=0.8)
+        ##now we are only left with the last two 
+        for freq_range in freq_ranges:
+            ax = axs.flat[cell]
             cell += 1
+        
 
-            plt.title(str(pol) + str(row))
             ##start by getting the bit of results that matters (or at least the interesting indecees)
             fmin_index = find_index(freqs, freq_range[0])
             fmax_index = find_index(freqs, freq_range[1]) -1
-            if row == "auto":
-                fmin_index += freq_shift
-            elif row == "base":
-                fmax_index -= freq_shift
-            # print(fmin_index)
-            # print(fmax_index)
+
             ##now lets squash the pesky nans
-            data = trim_freq(results[row][pol], fmin_index, fmax_index)
-            print("data shape is", str(len(data)), str(len(data[0])))
+            data = trim_freq(results["auto"][pol], fmin_index + freq_shift, fmax_index)
+            loc = collapse_nan_loc(data) ##should get the index of fine shit
+            
             data = collapse_nan(data)
-            data = np.abs(np.array(data))
-            myExtents = np.array([freq_range[0], freq_range[1], np.shape(data)[0],0])##should be in minutes give or take
-            vmin = np.median(data) - 2*np.std(data)
-            vmax = np.median(data) + 2*np.std(data)
-            #print(np.shape(data))
-            plt.imshow(data, vmin=vmin, vmax=vmax, aspect='auto', extent=myExtents)
-            plt.xlabel('Frequency (MHz)')
-            plt.ylabel('(Down) minutes')
+            auto_data = np.mean(np.array(data),axis = 0)
+            mx = np.max(np.abs(auto_data))
+            auto_data = auto_data/mx
+            # data = trim_freq(results["base"][pol], fmin_index, fmax_index -  freq_shift)
+            # data = collapse_nan(data)
+            base_data = np.mean(np.array(results["high"][pol])[loc,:],axis = 0)
+            mx = np.max(np.abs(base_data))
+            base_data = base_data/mx
 
-    ##now we are only left with the last two 
-    for freq_range in freq_ranges:
-        plt.subplot(3,len(freq_ranges),cell)
-        cell += 1
-        plt.title("averages")
+            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(auto_data)),auto_data,  color='#f03523', linestyle='-', linewidth=3, label='Direct')
+            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(base_data)),base_data, 'k-', label='Baseband', linewidth=0.7)
+            
+            if cell-1 ==4:
+                ax.legend(loc='upper left')
+                ax.set_xlabel('Frequency (MHz)')
+                ax.set_ylabel('Magnitude')
+        if cell != 6:
+            print("simon should take a comp class lol")
 
-        ##start by getting the bit of results that matters (or at least the interesting indecees)
-        fmin_index = find_index(freqs, freq_range[0])
-        fmax_index = find_index(freqs, freq_range[1]) -1
-
-        ##now lets squash the pesky nans
-        data = trim_freq(results["auto"][pol], fmin_index + freq_shift, fmax_index)
-        data = collapse_nan(data)
-        auto_data = np.mean(np.array(data),axis = 0)
-        mx = np.max(np.abs(auto_data))
-        auto_data = auto_data/mx
-        data = trim_freq(results["base"][pol], fmin_index, fmax_index -  freq_shift)
-        data = collapse_nan(data)
-        base_data = np.mean(np.array(data),axis = 0)
-        mx = np.max(np.abs(base_data))
-        base_data = base_data/mx
-
-        plt.plot(signal.resample(freqs[fmin_index:fmax_index], len(auto_data)),auto_data, label="auto", color="blue")
-        plt.plot(signal.resample(freqs[fmin_index:fmax_index], len(base_data)),base_data, label="baseband", color="red")
-        plt.xlabel('Frequency (MHz)')
-        plt.ylabel('Magnitude')
-        plt.legend()
-    if cell != 7:
-        print("simon should take a comp class lol")
-
-    plt.suptitle("comparison " + str(pol))
-    plt.show()
-    plt.savefig(os.path.join(out_dir, str(pol)+".png"))
+        #plt.suptitle("comparison " + str(pol))
+        #plt.show()
+        plt.savefig(os.path.join(out_dir, str(pol)+".png"))

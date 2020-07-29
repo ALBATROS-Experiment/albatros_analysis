@@ -1,0 +1,1386 @@
+auto time length: 9
+baseband length: 474
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15636/1563686577
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686632.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  10 17
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 1 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686680.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  17 26
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 2 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686737.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  26 35
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 3 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686797.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  36 45
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 4 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686861.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  45 54
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 5 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686920.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  55 62
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 6 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563686972.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  63 71
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 7 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687028.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  71 81
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 8 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687090.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  81 90
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 9 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687152.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  91 100
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 10 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687214.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  100 110
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 11 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687278.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  110 118
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 12 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687330.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  118 127
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 13 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687386.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  127 138
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 14 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687458.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  138 150
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 15 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687533.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  150 161
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 16 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687607.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  161 170
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 17 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687666.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  170 181
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 18 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687737.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  181 190
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 19 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687792.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  190 199
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 20 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687849.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  199 208
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 21 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687909.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  208 217
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 22 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563687967.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  217 228
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 23 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688036.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  228 237
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 24 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688093.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  237 246
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 25 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688153.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  246 255
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 26 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688214.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  256 266
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 27 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688280.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  266 276
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 28 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688346.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  276 286
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 29 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688413.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  286 296
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 30 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688475.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  296 305
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 31 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688532.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  305 318
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 32 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688615.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  318 328
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 33 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688683.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  328 338
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 34 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688747.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  338 348
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 35 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688813.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  348 358
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 36 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688878.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  359 368
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 37 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688939.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  368 376
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 38 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563688993.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  376 388
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 39 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689066.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  388 397
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 40 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689125.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  397 406
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 41 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689184.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  406 416
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 42 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689252.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  417 425
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 43 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689310.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  426 435
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 44 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689371.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  435 443
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 45 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689425.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  443 452
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 46 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689484.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  453 463
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 47 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689552.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  463 475
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 48 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689627.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  475 483
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 49 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689684.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  484 494
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 50 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689753.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  494 504
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 51 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689815.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  504 515
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 52 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689885.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  515 525
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 53 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563689950.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  525 534
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 54 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563690012.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  535 544
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 55 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563690072.raw
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  544 554
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 56 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563690140.raw
+went to end of array
+comparing min freqeuncies: 12.6953125 with 12.6953125
+comparing max freqeuncies: 19.95849609375 with 19.95849609375
+indecess in time domain:  554 559
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 57 lines of goodness
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15636/1563693819
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563693878.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563693935.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694002.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694065.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694114.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694173.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694234.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694318.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694406.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694464.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694540.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694605.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694672.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694733.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694789.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694881.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563694936.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695002.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695064.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695123.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695185.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695272.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695340.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695397.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695456.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695520.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695584.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695640.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695700.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695759.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695811.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695877.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695932.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563695989.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696055.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696109.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696191.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696250.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696313.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696371.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696434.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696499.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696557.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696621.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696669.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696722.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696791.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696854.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696909.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563696968.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697024.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697075.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697142.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697197.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697255.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697310.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697372.raw
+baseband data not in frequnecy range so skipping
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15636/1563697452
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697521.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697589.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697647.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697699.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697757.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697819.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697875.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563697936.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698013.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698066.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698122.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698181.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698231.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698285.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698338.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698401.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698453.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698514.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698572.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698633.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698694.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698756.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698820.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698896.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563698950.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699010.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699077.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699140.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699202.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699266.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699345.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699393.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699456.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699534.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699594.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699675.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699737.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699804.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699869.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699921.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15636/1563699973.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700039.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700098.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700153.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700208.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700257.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700308.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700373.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700432.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700491.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700560.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700623.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700697.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700760.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700818.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700873.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700932.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563700979.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701035.raw
+baseband data not in frequnecy range so skipping
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563701119
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701175.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701227.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701284.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701342.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701398.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701461.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701524.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701585.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701642.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701701.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701777.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701833.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701880.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563701953.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702005.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702058.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702138.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702194.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702248.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702302.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702361.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702416.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702465.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702514.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702595.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702645.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702720.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702776.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702838.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702892.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702937.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563702992.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703044.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703103.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703160.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703241.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703301.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703359.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703407.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703469.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703524.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703579.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703627.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703680.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703731.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703795.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703855.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703921.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563703970.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704022.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704091.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704140.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704196.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704255.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704340.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704388.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704450.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704518.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704579.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704655.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563704711.raw
+baseband data not in frequnecy range so skipping
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563704747
+auto channels number should be 2048 2048
+no baseband in range: 1563704747.859454 1563708317.075886
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563708359
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708410.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708458.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708510.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708586.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708648.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708702.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708753.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708806.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708866.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708914.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563708973.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709019.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709072.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709128.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709184.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709243.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709318.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709372.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709450.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709517.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709585.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709649.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709698.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709758.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709817.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709867.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709928.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563709977.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710049.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710112.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710164.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710228.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710276.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710330.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710385.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710435.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710483.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710560.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710620.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710679.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710731.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710781.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710841.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710899.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563710956.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711013.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711074.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711145.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711200.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711264.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711327.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711388.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711437.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711491.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711550.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711616.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711673.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711732.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711793.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711849.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563711914.raw
+baseband data not in frequnecy range so skipping
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563712019
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712083.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712142.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712203.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712256.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712315.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712376.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712430.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712484.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712547.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712611.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712663.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712723.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712780.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712846.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712900.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563712963.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713017.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713081.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713158.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713205.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713265.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713334.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713383.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713438.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713493.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713545.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713605.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713660.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713720.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713785.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713843.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713898.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563713950.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714013.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714079.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714137.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714196.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714264.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714316.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714375.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714432.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714488.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714545.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714600.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714656.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714723.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714777.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714844.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714907.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563714966.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715030.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715092.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715152.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715210.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715264.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715342.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715394.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715454.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715515.raw
+baseband data not in frequnecy range so skipping
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563715568.raw
+baseband data not in frequnecy range so skipping
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563715648
+auto channels number should be 2048 2048
+no baseband in range: 1563715648.373549 1563719217.266599
+reading from /project/s/sievers/mars2019/auto_cross/data_auto_cross/15637/1563719258
+auto channels number should be 2048 2048
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719309.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  8 17
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 58 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719367.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  17 27
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 59 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719428.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  27 36
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 60 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719487.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  36 47
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 61 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719558.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  47 56
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 62 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719615.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  56 67
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 63 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719689.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  67 78
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 64 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719760.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  78 87
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 65 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719819.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  88 99
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 66 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719895.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  99 107
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 67 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563719943.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  107 119
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 68 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720023.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  119 128
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 69 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720079.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  128 136
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 70 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720133.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  136 145
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 71 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720191.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  145 154
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 72 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720248.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  154 163
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 73 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720304.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  163 172
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 74 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720366.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  172 182
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 75 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720429.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  182 192
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 76 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720491.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  192 200
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 77 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720546.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  200 210
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 78 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720608.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  210 221
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 79 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720681.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  221 230
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 80 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720735.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  230 240
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 81 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720800.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  240 248
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 82 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720853.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  248 257
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 83 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720910.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  257 265
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 84 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563720966.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  266 275
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 85 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563721029.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  275 284
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 86 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563721089.raw
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  285 295
+moving on to high res of baseband
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 87 lines of goodness
+reading /project/s/sievers/mars2019/MARS1/albatros_north_baseband/15637/1563721158.raw
+made up end point
+comparing min freqeuncies: 5.31005859375 with 5.31005859375
+comparing max freqeuncies: 12.5732421875 with 12.5732421875
+indecess in time domain:  295 300
+moving on to high res of baseband
+/scinet/niagara/intel/2018.2/intelpython3/lib/python3.6/site-packages/numpy/core/numeric.py:492: ComplexWarning: Casting complex values to real discards the imaginary part
+  return array(a, dtype, copy=False, order=order)
+base_auto.py:375: RuntimeWarning: invalid value encountered in less
+  auto[auto < 0] += 2* np.pi
+base_auto.py:380: RuntimeWarning: invalid value encountered in less
+  base[base<0] += 2 * np.pi
+base_auto.py:412: RuntimeWarning: invalid value encountered in less
+  data[ data< 0 ] += 2 *np.pi
+re-binning: ['pol0']
+re-binning: ['pol1']
+appended some data we now have: 88 lines of goodness
+saving to: /project/s/sievers/simont/mars_2019_tools/plots/temp_plot.pick
+plotting pol00 auto 1
+data shape is 88 119
+plotting pol00 auto 2
+data shape is 88 119
+plotting pol00 base 3
+data shape is 88 119
+plotting pol00 base 4
+data shape is 88 119
+plotting pol11 auto 1
+data shape is 88 119
+plotting pol11 auto 2
+data shape is 88 119
+plotting pol11 base 3
+data shape is 88 119
+plotting pol11 base 4
+data shape is 88 119
+working on phases
+
+scontrol show jobid 3773857
+JobId=3773857 JobName=simon_cool
+   UserId=simont(3099298) GroupId=sievers(6027914) MCS_label=N/A
+   Priority=2402478 Nice=0 Account=rrg-sievers QOS=normal
+   JobState=COMPLETING Reason=None Dependency=(null)
+   Requeue=0 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=02:30:56 TimeLimit=10:00:00 TimeMin=N/A
+   SubmitTime=2020-07-25T00:07:50 EligibleTime=2020-07-25T00:07:50
+   AccrueTime=2020-07-25T00:07:50
+   StartTime=2020-07-25T00:07:50 EndTime=2020-07-25T02:38:46 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2020-07-25T00:07:50
+   Partition=compute AllocNode:Sid=nia-login02:426603
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=nia0447
+   BatchHost=nia0447
+   NumNodes=1 NumCPUs=80 NumTasks=40 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   TRES=cpu=80,node=1,billing=40
+   Socks/Node=* NtasksPerN:B:S:C=40:0:*:* CoreSpec=*
+   MinCPUsNode=40 MinMemoryNode=0 MinTmpDiskNode=0
+   Features=[skylake|cascade] DelayBoot=00:00:00
+   OverSubscribe=NO Contiguous=0 Licenses=(null) Network=(null)
+   Command=/gpfs/fs0/project/s/sievers/simont/mars_2019_tools/base_auto.sh
+   WorkDir=/gpfs/fs0/project/s/sievers/simont/mars_2019_tools
+   StdErr=/gpfs/fs0/project/s/sievers/simont/mars_2019_tools/plot_out.txt
+   StdIn=/dev/null
+   StdOut=/gpfs/fs0/project/s/sievers/simont/mars_2019_tools/plot_out.txt
+   Power=
+   MailUser=simont@scinet.local MailType=FAIL
+
+sacct -j 3773857
+       JobID    JobName    Account    Elapsed  MaxVMSize     MaxRSS  SystemCPU    UserCPU ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- ---------- ---------- -------- 
+3773857      simon_cool rrg-sieve+   02:30:56                         10:18:40 5-15:41:43      0:0 
+3773857.bat+      batch rrg-sieve+   02:30:56 175329068K  32296644K   10:18:40 5-15:41:43      0:0 
+3773857.ext+     extern rrg-sieve+   02:30:56    137232K       852K   00:00:00   00:00:00      0:0 

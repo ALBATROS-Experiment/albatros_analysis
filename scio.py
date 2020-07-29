@@ -3,7 +3,7 @@ import os
 import bz2
 import gzip
 import multiprocessing
-
+import time
     
 
 class scio:
@@ -32,7 +32,7 @@ class scio:
             
     def __del__(self):
         if self.closed==False:
-            print( 'closing scio file ' + self.fname)
+            print('closing scio file ' + self.fname)
             self.fid.flush()        
             self.fid.close()
             self.closed=True
@@ -110,19 +110,30 @@ class scio:
 #        f.close()
 
 def _read_from_string(mystr):
-    icur=0
+    icur=0;
     ndim=numpy.fromstring(mystr[icur:icur+4],dtype='int32')[0]
     icur=icur+4
     if (ndim<0):
         diff=True
         ndim=-1*ndim
     else:
-        diff=False
-
+        diff=False        
+    #print 'ndim is ',ndim
     sz=numpy.fromstring(mystr[icur:icur+4*ndim],'int32')
     icur=icur+4*ndim
     mytype=numpy.fromstring(mystr[icur:icur+4],'int32')[0]
     icur=icur+4
+
+    #check for file size sanity
+    bytes_per_frame=int2nbyte(mytype)*numpy.product(sz)
+    cur_bytes=len(mystr)-icur
+    n_to_cut=numpy.remainder(cur_bytes,bytes_per_frame)
+    if n_to_cut>0:
+        #print 'current len: ',len(mystr)
+        print('We have a byte mismatch in reading scio file.  Truncating ' + repr(n_to_cut) + ' bytes.')
+        mystr=mystr[:-n_to_cut]
+        #print 'new len: ',len(mystr)
+        
     vec=numpy.fromstring(mystr[icur:],dtype=int2dtype(mytype))
 
     nmat=vec.size/numpy.product(sz)
@@ -150,7 +161,7 @@ def _read_file_as_string(fname):
         return mystr
 
     #if we get here, assume it's raw binary
-    f=open(fname)
+    f=open(fname,'rb')
     mystr=f.read()
     f.close()
     return mystr
@@ -175,11 +186,16 @@ def read(fname,strict=False):
                 try:
                     mystr=_read_file_as_string(fname)
                     if len(mystr)>0:
-                        return _read_from_string(mystr)
+                        try:  #try/except loop added by JLS 11 June 2019 to catch cases where string length is unexpected
+                            return _read_from_string(mystr)
+                        except:
+                            print('File ',fname,' appears to be garbled when parsing string of length ',len(mystr))
+                            return None
                     else:
                         return None
                 except:
                     pass
+    return None
     if fname[-4:]=='.bz2':
         return read_bz2(fname)
     f=open(fname)
@@ -206,11 +222,17 @@ def read(fname,strict=False):
     return mat
 
 def read_files(fnames,ncpu=0):
+    t1=time.time()
     if ncpu==0:
         ncpu=multiprocessing.cpu_count()
     p=multiprocessing.Pool(ncpu)
     data=p.map(read,fnames)
-
+    #without the p.terminate, the pool seems to last, which can cause the system to run out of processes.
+    #this isn't what the documentation says should happen (terminate is supposed to get called when p 
+    #gets garbage collected), but oh well...
+    p.terminate()      
+    t2=time.time()
+    #print 'took ',t2-t1, ' seconds to read files in scio.'
     return data
 
 
@@ -229,6 +251,12 @@ def int2dtype(myint):
     if (myint==-108):
         return 'uint64'
     
+def int2nbyte(myint):
+    nbyte=numpy.abs(myint)
+    if nbyte>100:
+        nbyte=nbyte-100
+    return nbyte
+
 def dtype2int(dtype_str):
     
     if (type(dtype_str)!=numpy.dtype):
@@ -261,4 +289,3 @@ def dtype2int(dtype_str):
     
     print('unknown dtype')
     return 0
-
