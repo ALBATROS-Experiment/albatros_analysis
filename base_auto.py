@@ -1,7 +1,9 @@
 running_local = True
 
 import numpy as np
+n = np
 import pfb_helper as pfb
+import scipy
 
 import copy
 import pickle
@@ -22,6 +24,7 @@ from scipy import signal
 import cmath
 
 from multiprocessing import Pool, get_context
+
 
 def re_bin(data, nbin):
     ##first switch to time domain
@@ -308,7 +311,9 @@ def trim_freq(array, fmin_index, fmax_index):
 ##top row is direct auto 
 ##middle row is baseband auto
 ##bottom row is mean of both
-
+az = []
+ap = []
+plotz = {}
 if __name__ == "__main__":
 
     out_dir = "/project/s/sievers/simont/mars_2019_tools/plots"
@@ -449,6 +454,7 @@ if __name__ == "__main__":
         fig, axs = plt.subplots(3, 2, figsize=(16, 10), constrained_layout=True)
 
         cell = 0
+        vmax = 0
         for row in results:##should be dif, auto ,base
             if row == "dif":
                 ##we arent plotting that as of now 
@@ -480,13 +486,41 @@ if __name__ == "__main__":
                 data = np.abs(np.array(data))
                 if (cell-1)%2 ==0:
                     data = data[0:-8,:]
+                    vmax = 6e10
+                else:
+                    vmax = 2e10
+
                 
-                vmin = 0#np.median(data) - 2*np.std(data)
-                vmax = np.median(data) + 2*np.std(data)
+                vmin = 0 #np.median(data) - 2*np.std(data)
+                
+                   
+                if row == "base":
+                    base_data = np.mean(data, axis=0)
+                    auto_data = trim_freq(results["auto"][pol], fmin_index, fmax_index)
+                    auto_data = collapse_nan(auto_data)
+                    auto_data = np.abs(auto_data)
+                    if (cell-1)%2 ==0:
+                        auto_data = auto_data[0:-8,:]
+                    auto_data = np.mean(auto_data, axis= 0)
+                    p = np.polyfit(base_data, auto_data, 1)
+                    data = data*p[0] + p[1]
+                    if (cell-1)%2 ==0:
+                        data = data/6e10
+                    else:
+                        data = data/2e10
+                    myExtents = np.array([freq_range[0], freq_range[1], np.shape(data)[0],0])##should be in minutes give or take
+                    im = ax.imshow(data, vmin=vmin, vmax = 1, aspect='auto', extent=myExtents, cmap='YlOrRd')
+                else:
+                    if (cell-1)%2 ==0:
+                        data = data/6e10
+                    else:
+                        data = data/2e10
+                    myExtents = np.array([freq_range[0], freq_range[1], np.shape(data)[0],0])##should be in minutes give or take
+                    im = ax.imshow(data, vmin=vmin, vmax = 1, aspect='auto', extent=myExtents, cmap='YlOrRd')
+                plotz[str(freq_range[0])+row+pol] = data
                 #print(np.shape(data))
                 
-                myExtents = np.array([freq_range[0], freq_range[1], np.shape(data)[0],0])##should be in minutes give or take
-                im = ax.imshow(data, vmin=vmin, vmax=vmax, aspect='auto', extent=myExtents, cmap='YlOrRd')
+                
                 if ((cell-1)%2)==0:
                     if row == 'base':
                         word = "Baseband"
@@ -498,6 +532,7 @@ if __name__ == "__main__":
                 if cell-1 == 2:
                     ax.set_xlabel('Frequency (MHz)')
                     ax.set_ylabel('Time (Minutes)')  
+                
                 #plt.yaxis.set_label_coords(-0.1,1.04)
         fig.colorbar(im, ax=axs[:2,:], shrink=0.8)
         ##now we are only left with the last two 
@@ -517,23 +552,91 @@ if __name__ == "__main__":
             data = collapse_nan(data)
             auto_data = np.mean(np.array(data),axis = 0)
             mx = np.max(np.abs(auto_data))
-            auto_data = auto_data/mx
+            print("auto max", mx)
+            auto_dataN = auto_data*5.84552513e-09 + 1.07022679e+01
+            
             # data = trim_freq(results["base"][pol], fmin_index, fmax_index -  freq_shift)
             # data = collapse_nan(data)
             base_data = np.mean(np.array(results["high"][pol])[loc,:],axis = 0)
             mx = np.max(np.abs(base_data))
-            base_data = base_data/mx
+            base_data = base_data 
+            print("base max", mx)
+            if cell == 5:
+                auto_dataN = auto_dataN/1200
+                base_dataN = base_data/1200
+            else:
+                auto_dataN = auto_dataN/190
+                base_dataN = base_data/190
+            dec_base = np.empty_like(auto_data)
+            for i in range(dec_base.size):
+                k = base_data.size/dec_base.size
+                dec_base[i] = np.mean(base_data[int(i*k):int((i+1)*k)])
+            p = np.polyfit(dec_base, auto_data, 1)
+            auto_data = (auto_data-p[1])/p[0]
 
-            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(auto_data)),auto_data,  color='#f03523', linestyle='-', linewidth=3, label='Direct')
-            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(base_data)),base_data, 'k-', label='Baseband', linewidth=0.7)
-            
+            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(auto_dataN)),auto_dataN,  color='#f03523', linestyle='-', linewidth=3, label='Direct')
+            ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(base_dataN)),base_dataN, 'k-', label='Baseband', linewidth=0.7)
+            ax.set_ylim(0,1)
+            ax.set_xlim(freq_range)
+            #ax.plot(np.linspace(freqs[fmin_index], freqs[fmax_index], len(dec_base)),dec_base, label='trash', color="pink")
             if cell-1 ==4:
                 ax.legend(loc='upper left')
                 ax.set_xlabel('Frequency (MHz)')
                 ax.set_ylabel('Magnitude')
+
+            if cell-1 ==5:
+                np.save('base.npy', base_data)
+                np.save('auto.npy', auto_data)
+                np.save('downsample.npy', dec_base)
+            ##curve fitting here 
+            
+
+            
+                
+            
+            data = trim_freq(results["base"][pol], fmin_index + freq_shift, fmax_index)
+            data = collapse_nan(data)
+            fit_data = np.array(np.mean(data, axis =0))
+            # if freq_range = [5.31,12.63]:
+            #     fit_data = fit_[0:-8,:]
+            #     auto_data = []
+            p = np.polyfit( np.abs(auto_data),np.abs(fit_data),1)
+            az.append(p)
+
+            # #from scipy import signal
+            # dec_base = congrid(base_data.reshape(-1,1), (auto_data.size,1)).ravel()
+            # for i in range(dec_base.size):
+            #     k = base_data.size/dec_base.size
+            #     dec_base[i] = np.mean(base_data[int(i*k):int((i+1)*k)])
+            # #dec_base = signal.resample(np.abs(base_data), len(auto_data))
+            # pp = np.polyfit(np.abs(auto_data), np.abs(dec_base),1)
+            # ap.append(pp)
+
         if cell != 6:
             print("simon should take a comp class lol")
 
         #plt.suptitle("comparison " + str(pol))
         #plt.show()
         plt.savefig(os.path.join(out_dir, str(pol)+".png"))
+    print(az)
+    print(np.mean(np.array(az),axis = 0))
+    print(ap)
+    print(np.mean(np.array(ap),axis = 0))
+    plt.clf()
+    plt.plot(np.mean(plotz["5.31basepol00"],axis=0), label="base")
+    plt.plot(np.mean(plotz["5.31autopol00"], axis=0), label="direct")
+    plt.legend()
+    plt.savefig("testing.png")
+    plt.clf()
+    plt.imshow(plotz["5.31basepol00"],vmin=0,vmax=6e10)
+    plt.colorbar()
+    plt.savefig("basetest.png")
+    plt.clf()
+    plt.imshow(plotz["5.31autopol00"],vmin=0, vmax=6e10)
+    plt.colorbar()
+    plt.savefig("autotest.png")
+
+
+    plt.clf()
+    
+
