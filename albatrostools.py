@@ -158,28 +158,45 @@ def correlate(pol0, pol1):
             pols["pol%d%d"%(i, j)]=data[i]*numpy.conj(data[j])
     return pols
 
-def get_header(file_name):
-    file_data=open(file_name, "rb")#,encoding='ascii')
+def get_header(file_name, gps_format='timestamp'):
+    file_data=open(file_name, "rb") #,encoding='ascii')
     #file_data=open(file_name, "r")
     #header_bytes=struct.unpack(">Q", numpy.fromfile(file_data,'int',1))[0]
     header_bytes=struct.unpack(">Q", file_data.read(8))[0]
     #print(header_bytes,type(header_bytes))
     header_raw=file_data.read(header_bytes)
     #header_raw=numpy.fromfile(file_data,'int8',header_bytes)
-    header_data=numpy.frombuffer(header_raw, dtype=[("bytes_per_packet", ">Q"), ("length_channels", ">Q"), ("spectra_per_packet", ">Q"), ("bit_mode", ">Q"), ("have_trimble", ">Q"), ("channels", ">%dQ"%(int((header_bytes-80)/8))), ("gps_week", ">Q"), ("gps_seconds", ">Q"), ("gps_lat", ">d"), ("gps_lon", ">d"), ("gps_elev", ">d")])
     file_data.close()
-    header={"header_bytes":8+header_bytes,
-            "bytes_per_packet":header_data["bytes_per_packet"][0],
-            "length_channels":header_data["length_channels"][0],
-            "spectra_per_packet":header_data["spectra_per_packet"][0],
-            "bit_mode":header_data["bit_mode"][0],
-            "have_trimble":header_data["have_trimble"][0],
-            "channels":header_data["channels"][0],
-            "gps_week":header_data["gps_week"][0],
-            "gps_seconds":header_data["gps_seconds"][0],
-            "gps_latitude":header_data["gps_lat"][0],
-            "gps_longitude":header_data["gps_lon"][0],
-            "gps_elevation":header_data["gps_elev"][0]}
+
+    header_data=numpy.frombuffer(header_raw, dtype=[("bytes_per_packet", ">Q"), ("length_channels", ">Q"), ("spectra_per_packet", ">Q"), ("bit_mode", ">Q"), ("have_trimble", ">Q"), ("channels", ">%dQ"%(int((header_bytes-8*10)/8))), ("gps_week", ">Q"), ("gps_seconds", ">Q"), ("gps_lat", ">d"), ("gps_lon", ">d"), ("gps_elev", ">d")])
+    if header_data["gps_week"][0] == 0:
+	# New header format with ctime GPS timestamp
+	header={"header_bytes":8+header_bytes,
+                "bytes_per_packet":header_data["bytes_per_packet"][0],
+                "length_channels":header_data["length_channels"][0],
+                "spectra_per_packet":header_data["spectra_per_packet"][0],
+                "bit_mode":header_data["bit_mode"][0],
+                "have_trimble":header_data["have_trimble"][0],
+                "channels":header_data["channels"][0],
+                "gps_timestamp":header_data["gps_seconds"][0],
+                "gps_latitude":header_data["gps_lat"][0],
+                "gps_longitude":header_data["gps_lon"][0],
+                "gps_elevation":header_data["gps_elev"][0]}
+    else:
+	# Old header format with GPS week and seconds
+	header={"header_bytes":8+header_bytes,
+                "bytes_per_packet":header_data["bytes_per_packet"][0],
+                "length_channels":header_data["length_channels"][0],
+                "spectra_per_packet":header_data["spectra_per_packet"][0],
+                "bit_mode":header_data["bit_mode"][0],
+                "have_trimble":header_data["have_trimble"][0],
+                "channels":header_data["channels"][0],
+                "gps_week":header_data["gps_week"][0],
+                "gps_seconds":header_data["gps_seconds"][0],
+                "gps_latitude":header_data["gps_lat"][0],
+                "gps_longitude":header_data["gps_lon"][0],
+                "gps_elevation":header_data["gps_elev"][0]}
+
     if header["bit_mode"]==1:
         header["channels"]=numpy.ravel(numpy.column_stack((header["channels"], header["channels"]+1)))
         header["length_channels"]=int(header["length_channels"]*2)
