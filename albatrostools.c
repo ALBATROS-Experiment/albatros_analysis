@@ -72,7 +72,36 @@ void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nch
 
   }
 }
+/*--------------------------------------------------------------------------------*/
+void unpack_2bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nchan)
+{
+  long nn=ndat*nchan;
+  uint8_t mask=3;
+#pragma omp parallel for
+  for (int i=0;i<nn;i++) {
+    uint8_t r0=(data[i]>>6)&mask;
+    uint8_t i0=(data[i]>>4)&mask;
+    uint8_t r1=(data[i]>>2)&mask;
+    uint8_t i1=(data[i])&mask;
+    pol0[2*i]=r0-1.0;
+    pol0[2*i+1]=i0-1.0;
+    pol1[2*i]=r1-1.0;
+    pol1[2*i+1]=i1-1.0;
+    if (pol0[2*i]<=0)
+      pol0[2*i]--;
+    if (pol0[2*i+1]<=0)
+      pol0[2*i+1]--;
+    if (pol1[2*i]<=0)
+      pol1[2*i]--;
 
+    if (pol1[2*i+1]<=0)
+      pol1[2*i+1]--;
+
+    //printf("Values are %d %d %d %d\n",r0,i0,r1,i1);
+    //if (i>10)
+    //  return;
+  }
+}
 /*--------------------------------------------------------------------------------*/
 void unpack_1bit_float_busted(uint8_t *data, float *pol0, float *pol1, int ndat, int nchan)
 //this mapping is almost certainly wrong since it doesn't agree with python, but leaving in since as

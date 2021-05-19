@@ -10,6 +10,8 @@ unpack_4bit_c=mylib.unpack_4bit
 unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_4bit_float_c=mylib.unpack_4bit_float
 unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+unpack_2bit_float_c=mylib.unpack_2bit_float
+unpack_2bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_1bit_float_c=mylib.unpack_1bit_float
 unpack_1bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 bin_crosses_float_c=mylib.bin_crosses_float
@@ -100,6 +102,12 @@ def unpack_4bit_fast(data,num_channels,float=False):
         unpack_4bit_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1])
 
     return pol0,pol1
+def unpack_2bit_fast(data,num_channels,float=True):
+    if float:
+        pol0=numpy.zeros([data.shape[0],num_channels],dtype='complex64')
+        pol1=numpy.zeros([data.shape[0],num_channels],dtype='complex64')
+        unpack_2bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1])
+        return pol0,pol1
 def unpack_4_bit(data, num_channels):
     #print('data shape is ',data.shape,data.dtype)
     #unpack_4bit_fast(data,num_channels)
@@ -169,9 +177,9 @@ def get_header(file_name, gps_format='timestamp'):
     file_data.close()
 
     header_data=numpy.frombuffer(header_raw, dtype=[("bytes_per_packet", ">Q"), ("length_channels", ">Q"), ("spectra_per_packet", ">Q"), ("bit_mode", ">Q"), ("have_trimble", ">Q"), ("channels", ">%dQ"%(int((header_bytes-8*10)/8))), ("gps_week", ">Q"), ("gps_seconds", ">Q"), ("gps_lat", ">d"), ("gps_lon", ">d"), ("gps_elev", ">d")])
+    # New header format with ctime GPS timestamp
     if header_data["gps_week"][0] == 0:
-	# New header format with ctime GPS timestamp
-	header={"header_bytes":8+header_bytes,
+        header={"header_bytes":8+header_bytes,
                 "bytes_per_packet":header_data["bytes_per_packet"][0],
                 "length_channels":header_data["length_channels"][0],
                 "spectra_per_packet":header_data["spectra_per_packet"][0],
@@ -183,8 +191,8 @@ def get_header(file_name, gps_format='timestamp'):
                 "gps_longitude":header_data["gps_lon"][0],
                 "gps_elevation":header_data["gps_elev"][0]}
     else:
-	# Old header format with GPS week and seconds
-	header={"header_bytes":8+header_bytes,
+        # Old header format with GPS week and seconds
+        header={"header_bytes":8+header_bytes,
                 "bytes_per_packet":header_data["bytes_per_packet"][0],
                 "length_channels":header_data["length_channels"][0],
                 "spectra_per_packet":header_data["spectra_per_packet"][0],
@@ -214,6 +222,10 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     t2=time.time()
     print('took ',t2-t1,' seconds to read raw data on ',file_name)
     file_data.close()
+    #print(data.shape,data.dtype)
+    #data2=numpy.fromfile(file_name,dtype='>I')
+    #print('new size is ',data2.shape,data2.dtype)
+
     if header["bit_mode"]==1:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"]//2)
         if unpack_fast:
@@ -227,7 +239,12 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
             pol0, pol1=unpack_1_bit(raw_spectra, header["length_channels"])
     if header["bit_mode"]==2:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"])
-        pol0, pol1=unpack_2_bit(raw_spectra, header["length_channels"])
+        if unpack_fast:
+            if float==False:
+                print('Ignoring request for double precision data at 2 bits with fast reader.')
+            pol0,pol1=unpack_2bit_fast(raw_spectra,header["length_channels"],True)
+        else:
+            pol0, pol1=unpack_2_bit(raw_spectra, header["length_channels"])
     if header["bit_mode"]==4:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"])
         if unpack_fast:
