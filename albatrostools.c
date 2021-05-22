@@ -73,6 +73,78 @@ void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nch
   }
 }
 /*--------------------------------------------------------------------------------*/
+void unpack_4bit_float_1chan(uint8_t *data,float *pol0, float *pol1, int ndat, int nchan,int ichan)
+{
+  uint8_t rmask=15;
+  uint8_t imask=255-15;
+
+  //  for (int i=0;i<6;i++) {
+  // uint8_t r=data[i]&rmask;
+  // uint8_t im=(data[i]&imask)>>4;
+  // printf("value %d is %d %d\n",i,r,im);
+  //}
+  long nn=ndat*nchan/2;
+#pragma omp parallel for
+  for (int ii=ichan;ii<nn;ii+=nchan) {
+    int i=(ii-ichan)/nchan;
+
+    uint8_t r=data[2*ii]&rmask;
+    uint8_t im=(data[2*ii]&imask)>>4;
+    pol0[2*i]=im;
+    pol0[2*i+1]=r;
+    if (pol0[2*i]>8)
+      pol0[2*i]-=16;
+    if (pol0[2*i+1]>8)
+      pol0[2*i+1]-=16;
+
+    r=data[2*ii+1]&rmask;
+    im=(data[2*ii+1]&imask)>>4;
+    pol1[2*i]=im;
+    pol1[2*i+1]=r;
+    if (pol1[2*i]>8)
+      pol1[2*i]-=16;
+    if (pol1[2*i+1]>8)
+      pol1[2*i+1]-=16;
+
+  }
+}
+/*--------------------------------------------------------------------------------*/
+void unpack_4bit_1chan(uint8_t *data,double *pol0, double *pol1, int ndat, int nchan,int ichan)
+{
+  uint8_t rmask=15;
+  uint8_t imask=255-15;
+
+  //  for (int i=0;i<6;i++) {
+  // uint8_t r=data[i]&rmask;
+  // uint8_t im=(data[i]&imask)>>4;
+  // printf("value %d is %d %d\n",i,r,im);
+  //}
+  long nn=ndat*nchan/2;
+#pragma omp parallel for
+  for (int ii=ichan;ii<nn;ii+=nchan) {
+    int i=(ii-ichan)/nchan;
+
+    uint8_t r=data[2*ii]&rmask;
+    uint8_t im=(data[2*ii]&imask)>>4;
+    pol0[2*i]=im;
+    pol0[2*i+1]=r;
+    if (pol0[2*i]>8)
+      pol0[2*i]-=16;
+    if (pol0[2*i+1]>8)
+      pol0[2*i+1]-=16;
+
+    r=data[2*ii+1]&rmask;
+    im=(data[2*ii+1]&imask)>>4;
+    pol1[2*i]=im;
+    pol1[2*i+1]=r;
+    if (pol1[2*i]>8)
+      pol1[2*i]-=16;
+    if (pol1[2*i+1]>8)
+      pol1[2*i+1]-=16;
+
+  }
+}
+/*--------------------------------------------------------------------------------*/
 void unpack_2bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nchan)
 {
   long nn=ndat*nchan;
@@ -205,7 +277,7 @@ void bin_crosses_float(float *pol0, float *pol1, float *sum, int ndata, int ncha
   int nchunk=ndata/chunk;
   //#pragma omp parallel for
   for (int i=0;i<nchunk;i++) {
-    printf("I is %d\n",i);
+    //printf("I is %d\n",i);
     int ik2=(2*i*nchan);
     //for (int j=0;j<2*nchan;j++) 
     //  sum[i*nchan+j]=2;

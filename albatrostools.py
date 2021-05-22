@@ -10,6 +10,12 @@ unpack_4bit_c=mylib.unpack_4bit
 unpack_4bit_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_4bit_float_c=mylib.unpack_4bit_float
 unpack_4bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
+
+unpack_4bit_float_1chan_c=mylib.unpack_4bit_float_1chan
+unpack_4bit_float_1chan_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+unpack_4bit_1chan_c=mylib.unpack_4bit_1chan
+unpack_4bit_1chan_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+
 unpack_2bit_float_c=mylib.unpack_2bit_float
 unpack_2bit_float_c.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int]
 unpack_1bit_float_c=mylib.unpack_1bit_float
@@ -90,7 +96,17 @@ def unpack_1bit_fast(data,num_channels,float=False):
         return None
     return pol0,pol1;
 
-    
+def unpack_4bit_fast_1chan(data,num_channels,ichan,float=False):
+    if float:
+        pol0=numpy.zeros(data.shape[0]//2,dtype='complex64')
+        pol1=numpy.zeros(data.shape[0]//2,dtype='complex64')
+        unpack_4bit_float_1chan_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1],ichan)
+    else:
+        pol0=numpy.zeros(data.shape[0]//2,dtype='complex128')
+        pol1=numpy.zeros(data.shape[0]//2,dtype='complex128')
+        unpack_4bit_1chan_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1],ichan)
+
+    return pol0,pol1
 def unpack_4bit_fast(data,num_channels,float=False):
     if float:
         pol0=numpy.zeros([data.shape[0]//2,num_channels],dtype='complex64')
@@ -134,7 +150,10 @@ def unpack_4_bit(data, num_channels):
 
 def bin_crosses(pol0,pol1,chunk=100):
     ndat=pol0.shape[0]
-    nchan=pol0.shape[1]
+    try:
+        nchan=pol0.shape[1]
+    except:
+        nchan=1
     nchunk=ndat//chunk
     print('nchunk is ',nchunk)
     if pol0.itemsize==8:
@@ -145,7 +164,7 @@ def bin_crosses(pol0,pol1,chunk=100):
         spec=numpy.zeros([nchunk,nchan],dtype='complex128')
         bin_crosses_double_c(pol0.ctypes.data,pol1.ctypes.data,spec.ctypes.data,ndat,nchan,chunk)
         
-    return spec
+    return numpy.squeeze(spec)
 def bin_autos(dat,chunk=100):
     ndat=dat.shape[0]
     nchan=dat.shape[1]
@@ -213,7 +232,7 @@ def get_header(file_name, gps_format='timestamp'):
         header["length_channels"]=int(header["length_channels"]/2)
     return header
 
-def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
+def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0,ichan=None):
     header=get_header(file_name)
     file_data=open(file_name, "r")
     file_data.seek(8+header["header_bytes"]+byte_delta)
@@ -222,9 +241,6 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     t2=time.time()
     print('took ',t2-t1,' seconds to read raw data on ',file_name)
     file_data.close()
-    #print(data.shape,data.dtype)
-    #data2=numpy.fromfile(file_name,dtype='>I')
-    #print('new size is ',data2.shape,data2.dtype)
 
     if header["bit_mode"]==1:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"]//2)
@@ -248,7 +264,10 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     if header["bit_mode"]==4:
         raw_spectra=data["spectra"].reshape(-1, header["length_channels"])
         if unpack_fast:
-            pol0, pol1=unpack_4bit_fast(raw_spectra, header["length_channels"],float)
+            if ichan is None:
+                pol0, pol1=unpack_4bit_fast(raw_spectra, header["length_channels"],float)
+            else:
+                pol0,pol1=unpack_4bit_fast_1chan(raw_spectra, header["length_channels"],ichan,float)
         else:
             pol0, pol1=unpack_4_bit(raw_spectra, header["length_channels"])
     # all_spec_num=[]
@@ -256,4 +275,8 @@ def get_data(file_name, items=-1,unpack_fast=False,float=False,byte_delta=0):
     #     all_spec_num.append(data["spec_num"]+i)
     # spec_num=numpy.ravel(numpy.column_stack(tuple(all_spec_num)))
     spec_num=data["spec_num"]
-    return header, {"spectrum_number":spec_num, "pol0":pol0, "pol1":pol1}
+    data={"spectrum_number":spec_num, "pol0":pol0, "pol1":pol1}
+    #if get_clocks:
+    #    data['clocks']=clocks
+    #return header, {"spectrum_number":spec_num, "pol0":pol0, "pol1":pol1}
+    return header,data
