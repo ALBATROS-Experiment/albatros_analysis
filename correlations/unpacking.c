@@ -96,10 +96,15 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int ndat, int nc
   }
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int ndat, int nchan, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int nspec, int ncol, short bit_depth)
 {
+	/*
+	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
+	*/
+
 	if (bit_depth == 4){
-		long nn=ndat*nchan/2;
+		printf("reaching here");
+		long nn=nspec*ncol;
 		for (int i = 0; i < nn; i++)
 		{
 			pol0[i] = data[2 * i];
@@ -107,7 +112,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int ndat, int nchan,
 		}
 	}
 	else if (bit_depth == 2){
-		long nn=ndat*nchan/2;
+		long nn=nspec*ncol/2;
 		uint8_t mask1 = 15;
 		uint8_t mask0 = 240;
 		for (int i = 0; i < nn; i++)
@@ -126,7 +131,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int ndat, int nchan,
 		}
 	}
 	else if (bit_depth == 1){
-		long nn=ndat*nchan/2;
+		long nn=nspec*ncol/2;
 		uint8_t mask = 3;
 		for (int i = 0; i < nn; i++)
 		{

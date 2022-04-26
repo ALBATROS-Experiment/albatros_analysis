@@ -178,10 +178,15 @@ class baseband_data_float:
 		
 		
 def sortpols(data, length_channels, bit_mode):
-	
+	# For packed data we don't need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
+	# number of rows should be nspec because we want to iterate over spectra while corr averaging in python
+
+	data1=data.copy()
 	if bit_mode == 4:
-		pol0 = numpy.zeros([data.shape[0]//2,length_channels],dtype='uint8', order = 'c')
-		pol1 = numpy.zeros([data.shape[0]//2,length_channels],dtype='uint8', order = 'c')
+		nspec = data1.shape[0]*data1.shape[1]//length_channels//2
+		ncols=length_channels
+		pol0 = numpy.zeros([nspec,ncols],dtype='uint8', order = 'c')
+		pol1 = numpy.zeros([nspec,ncols],dtype='uint8', order = 'c')
 	elif bit_mode == 2:
 		pol0 = numpy.zeros([data.shape[0]//4,length_channels],dtype='uint8', order = 'c')
 		pol1 = numpy.zeros([data.shape[0]//4,length_channels],dtype='uint8', order = 'c')
@@ -190,7 +195,7 @@ def sortpols(data, length_channels, bit_mode):
 		pol1 = numpy.zeros([data.shape[0]//8,length_channels],dtype='uint8', order = 'c')
 			
 	t1 = time.time()
-	sortpols_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1], bit_mode)
+	sortpols_c(data1.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,ncols, bit_mode)
 	t2 = time.time()
 	print("Took " + str(t2 - t1) + " to unpack")
 	
@@ -241,17 +246,11 @@ class baseband_data_packed:
 		
 		self.spec_num = numpy.array(data["spec_num"], dtype = numpy.dtype(numpy.uint64))
 		
-		self.dropped_packets = mylib.dropped_packets(data["spectra"].ctypes.data, self.spec_num.ctypes.data, len(self.spec_num), self.spectra_per_packet, self.length_channels, self.bit_mode)
-		print("Number of dropped packets: " + str(self.dropped_packets))
-		
-		if self.bit_mode == 4 or self.bit_mode == 2:
-			raw_spectra = data["spectra"].reshape(-1, self.length_channels)
-		elif self.bit_mode == 1:
-			raw_spectra = data["spectra"].reshape(-1, self.length_channels//2)
-		else:
-			print("Unknown bit mode")
-			
-		self.pol0, self.pol1 = sortpols(raw_spectra, self.length_channels, self.bit_mode)
+		# To be fixed later
+		# self.dropped_packets = mylib.dropped_packets(data["spectra"].ctypes.data, self.spec_num.ctypes.data, len(self.spec_num), self.spectra_per_packet, self.length_channels, self.bit_mode)
+		# print("Number of dropped packets: " + str(self.dropped_packets))
+
+		self.pol0, self.pol1 = sortpols(data['spectra'], self.length_channels, self.bit_mode)
     	
 	def print_header(self):
 		print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " + str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Have trimble = " + str(self.have_trimble) + ". Channels: " + str(self.channels) + " GPS week = " + str(self.gps_week)+ ". GPS timestamp = " + str(self.gps_timestamp) + ". GPS latitude = " + str(self.gps_latitude) + ". GPS longitude = " + str(self.gps_longitude) + ". GPS elevation = " + str(self.gps_elevation) + ".")
