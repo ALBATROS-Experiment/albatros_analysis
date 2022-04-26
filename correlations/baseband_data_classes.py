@@ -18,11 +18,14 @@ mylib.dropped_packets.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uin
 
 def unpack_4bit(data, length_channels, isfloat):
 	if isfloat:
-		pol0 = numpy.zeros([data.shape[0]//2,length_channels],dtype='complex64')
-		pol1 = numpy.zeros([data.shape[0]//2,length_channels],dtype='complex64')
-			
+		#nspec = no. of spectra = no. of rows
+		nspec = data.shape[0]*data.shape[1]//length_channels//2
+		pol0 = numpy.zeros([nspec,length_channels],dtype='complex64')
+		pol1 = numpy.zeros([nspec,length_channels],dtype='complex64')
+		print("num spec is", nspec)
+		data1=data.copy() #important to make sure no extra bytes leak in
 		t1 = time.time()
-		unpack_4bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1])
+		unpack_4bit_float_c(data1.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,length_channels)
 		t2 = time.time()
 		print("Took " + str(t2 - t1) + " to unpack")
 	else:
@@ -115,7 +118,7 @@ class baseband_data_float:
 		file_data=open(file_name, "rb") #,encoding='ascii')
 		header_bytes = struct.unpack(">Q", file_data.read(8))[0]
 		#setting all the header values
-		self.header_bytes = 8 + header_bytes
+		self.header_bytes = 8 + header_bytes # first 8 bytes were the no. of bytes in header data
 		self.bytes_per_packet = struct.unpack(">Q", file_data.read(8))[0]
 		self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
 		self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
@@ -155,12 +158,12 @@ class baseband_data_float:
 		
 		self.spec_num = numpy.array(data["spec_num"], dtype = numpy.dtype(numpy.uint64))
 		
-		self.dropped_packets = mylib.dropped_packets(data["spectra"].ctypes.data, self.spec_num.ctypes.data, len(self.spec_num), self.spectra_per_packet, self.length_channels, self.bit_mode)
-		print("Number of dropped packets: " + str(self.dropped_packets))
+		# Dropped packets stuff will be fixed
+		# self.dropped_packets = mylib.dropped_packets(data["spectra"].ctypes.data, self.spec_num.ctypes.data, len(self.spec_num), self.spectra_per_packet, self.length_channels, self.bit_mode)
+		# print("Number of dropped packets: " + str(self.dropped_packets))
 		
 		if self.bit_mode == 4:
-			raw_spectra = data["spectra"].reshape(-1, self.length_channels)
-			self.pol0, self.pol1 = unpack_4bit(raw_spectra, self.length_channels, True)
+			self.pol0, self.pol1 = unpack_4bit(data["spectra"], self.length_channels, True)
 		elif self.bit_mode == 2:
 			raw_spectra = data["spectra"].reshape(-1, self.length_channels)
 			self.pol0, self.pol1 = unpack_2bit(raw_spectra, self.length_channels, True)
