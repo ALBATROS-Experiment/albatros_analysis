@@ -49,12 +49,12 @@ class Baseband:
 	
 	def get_hist(self, mode=-1):
 		# mode = 0 for pol0, 1 for pol1, -1 for both
-		self.hist = unpk.hist(self.raw_data, self.bit_depth, mode)
+		return unpk.hist(self.raw_data, self.length_channels, self.bit_mode, mode)
 
 
 class BasebandFloat(Baseband):
-	def __init__(self, file_name, spec_selection = False, low_specnum = 0, high_specnum = 0):
-		super.__init__(self, file_name, spec_selection = False, low_specnum = 0, high_specnum = 0)
+	def __init__(self, file_name):
+		super().__init__(self, file_name)
 
 		if self.bit_mode == 4:
 			self.pol0, self.pol1 = unpk.unpack_4bit(self.raw_data, self.length_channels, True)
@@ -72,16 +72,12 @@ class BasebandFloat(Baseband):
 class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
 	def __init__(self, file_name):
-		super.__init__(self, file_name, spec_selection = False, low_specnum = 0, high_specnum = 0)
+		super().__init__(file_name)
 
 		specdiff=numpy.diff(self.spec_num)
 		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
 		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]-1).astype('uint32')
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32') # number of missing spectra for each location
-		
-		# To be fixed later
-		# self.dropped_packets = mylib.dropped_packets(data["spectra"].ctypes.data, self.spec_num.ctypes.data, len(self.spec_num), self.spectra_per_packet, self.length_channels, self.bit_mode)
-		# print("Number of dropped packets: " + str(self.dropped_packets))
 
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.missing_loc, self.missing_num)
     	

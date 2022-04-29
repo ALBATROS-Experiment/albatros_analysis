@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <omp.h>
 
-void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, const uint8_t nbins, int8_t mode)
+void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, uint8_t nbins, int8_t mode)
 {/*
 	Default implementation assumes bins are 0 indexed, of width = 1, and nbins = len(hist)-1.
 	Bin convention is [l,r). First bin left edge is included. Last bin right edge is excluded.
@@ -14,7 +14,7 @@ void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, const uint8_t
 	-1 	= both pols
 	
 */
-	for(k=0;k<=nbins;k++) hist[k]=0;
+	for(int k=0;k<=nbins;k++) hist[k]=0;
 
     #pragma omp parallel default(none) firstprivate(data_len, nbins, mode) shared(data, hist)
     {
@@ -24,7 +24,7 @@ void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, const uint8_t
         for(int k=0;k<=nbins;k++) hist_pvt[k]=0; //initialize
         
         #pragma omp for nowait
-        for(int k=0;k<data_len;k++)
+        for(int i=0;i<data_len;i++)
         {
 			if(mode==0)
 			{
@@ -176,7 +176,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 	printf("%d nspec\n", nspec);
 	// fflush(stdout);
 	if (bit_depth == 4){
-		
+		#pragma omp parallel for firstprivate(delta,mstart,nspec,ncol,missing_loc,missing_len,missing_num) shared(data, pol0, pol1)
 		for(int j=0; j < nspec; j++)
 		{
 			for(int m = mstart; m < missing_len; m++)

@@ -2,6 +2,7 @@ import numpy
 import ctypes
 import time
 import os
+import sys
 
 mylib=ctypes.cdll.LoadLibrary(os.path.realpath(__file__+r"/..")+"/lib_unpacking.so")
 unpack_4bit_float_c = mylib.unpack_4bit_float
@@ -14,7 +15,7 @@ sortpols_c = mylib.sortpols
 sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,\
 	 ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short]
 hist_4bit_c = mylib.hist_4bit
-hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint8]
+hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 
 def hist(data, length_channels, bit_depth, mode):
 
@@ -22,8 +23,12 @@ def hist(data, length_channels, bit_depth, mode):
     histvals = numpy.zeros(nbins+1, dtype='uint64')
 
     if(bit_depth==4):
-        nspec = data.shape[0]*data.shape[1]//length_channels//2
-        hist_4bit_c(data, nspec, histvals, nbins, mode)
+        nspec = (data.shape[0]*data.shape[1]//length_channels//2)
+        print(sys.getsizeof(nspec),"bytes")
+        t1=time.time()
+        hist_4bit_c(data.ctypes.data, nspec*length_channels, histvals.ctypes.data, nbins, mode)
+        t2=time.time()
+        print("time taken for histogramming", t2-t1)
     
     return histvals
 
