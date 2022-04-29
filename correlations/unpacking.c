@@ -1,6 +1,66 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <omp.h>
+
+void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, const uint8_t nbins, int8_t mode)
+{/*
+	Default implementation assumes bins are 0 indexed, of width = 1, and nbins = len(hist)-1.
+	Bin convention is [l,r). First bin left edge is included. Last bin right edge is excluded.
+
+	Mode: 
+	0 	= pol0 only
+	1 	= pol1
+	-1 	= both pols
+	
+*/
+	for(k=0;k<=nbins;k++) hist[k]=0;
+
+    #pragma omp parallel default(none) firstprivate(data_len, nbins, mode) shared(data, hist)
+    {
+        uint64_t hist_pvt[nbins+1];
+		uint8_t r, im, imask=15, rmask=240;
+
+        for(int k=0;k<=nbins;k++) hist_pvt[k]=0; //initialize
+        
+        #pragma omp for nowait
+        for(int k=0;k<data_len;k++)
+        {
+			if(mode==0)
+			{
+				im=data[2*i]&imask;
+    			r=(data[2*i]&rmask)>>4;
+				++hist_pvt[r];
+				++hist_pvt[im];
+			}
+			else if(mode==1)
+			{
+				im=data[2*i+1]&imask;
+    			r=(data[2*i+1]&rmask)>>4;
+				++hist_pvt[r];
+				++hist_pvt[im];
+			}
+			else if(mode==-1)
+			{
+				im=data[2*i]&imask;
+    			r=(data[2*i]&rmask)>>4;
+				++hist_pvt[r];
+				++hist_pvt[im];
+
+				im=data[2*i+1]&imask;
+    			r=(data[2*i+1]&rmask)>>4;
+				++hist_pvt[r];
+				++hist_pvt[im];
+			}
+			// add else to exit
+
+        }
+        #pragma omp critical
+        {
+            for(int k=0;k<=nbins;k++) hist[k]+=hist_pvt[k];
+        }
+    }
+}
 
 void myfunc()
 {
