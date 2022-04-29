@@ -1,5 +1,11 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+
+void myfunc()
+{
+	printf("Finally yea");
+}
 
 void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int nspec, int nchan)
 {
@@ -95,21 +101,47 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int ndat, int nc
     }
   }
 }
+int cmpfunc(const void * a, const void * b) {
+   return ( *(uint8_t*)a - *(uint8_t*)b );
+}
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int nspec, int ncol, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_loc, uint32_t *missing_num, size_t missing_len, int nspec, int ncol, short bit_depth)
 {
 	/*
 	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
+	Remember: pol0/pol1 size is larger than nspec rows. It accounts for missing spectra too.
 	*/
+	int delta = 0, mstart = 0;
 
+	printf("%d nspec\n", nspec);
+	// fflush(stdout);
 	if (bit_depth == 4){
-		printf("reaching here");
-		long nn=nspec*ncol;
-		for (int i = 0; i < nn; i++)
+		
+		for(int j=0; j < nspec; j++)
 		{
-			pol0[i] = data[2 * i];
-			pol1[i] = data[2 * i + 1];
+			for(int m = mstart; m < missing_len; m++)
+			{
+				
+				if(missing_loc[m]<j)
+				{	
+					delta=delta+missing_num[m];
+					// printf("HERE %d %d %d %d\n", m, j, missing_loc[m],delta);
+					mstart+=1; 
+				}
+				else
+				{
+					break;
+				}
+				
+			}
+			for (int i = 0; i < ncol; i++)
+			{
+
+				pol0[(j+delta)*ncol+i] = data[2 * (j*ncol+i)];
+				pol1[(j+delta)*ncol+i] = data[2 * (j*ncol+i) + 1];
+			}
 		}
+
 	}
 	else if (bit_depth == 2){
 		long nn=nspec*ncol/2;
