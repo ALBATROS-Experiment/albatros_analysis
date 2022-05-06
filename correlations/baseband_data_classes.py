@@ -78,6 +78,6 @@ class BasebandPacked(Baseband):
 		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
 		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]-1).astype('uint32')
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32') # number of missing spectra for each location
-
+		print(self.missing_loc,"\n",self.missing_num)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.missing_loc, self.missing_num)
     	
