@@ -15,7 +15,7 @@ import numpy as np
 obj=bdc.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
 xx=np.sum(obj.pol0,axis=1)
 wherezero=np.where(xx==0)
-# np.savetxt('/scratch/s/sievers/mohanagr/dump.txt',wherezero)
+np.savetxt('/scratch/s/sievers/mohanagr/dump.txt',wherezero)
 # check=np.sum(obj.pol0,axis=1)==0
 # print(check.sum()) # should be 27990
 

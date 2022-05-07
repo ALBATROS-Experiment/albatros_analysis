@@ -165,7 +165,7 @@ int cmpfunc(const void * a, const void * b) {
    return ( *(uint8_t*)a - *(uint8_t*)b );
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_loc, uint32_t *missing_num, size_t missing_len, int nspec, int ncol, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_loc, uint32_t *missing_num, size_t missing_len, int nrow, int ncol, short bit_depth)
 {
 	/*
 	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
@@ -174,7 +174,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 	int delta = 0, mstart = 0;
 	int flag = 1;
 
-	printf("%d nspec\n", nspec);
+	printf("%d nspec\n", nrow);
 	printf("%d num missing\n", missing_len);
 	for(int i=0;i<missing_len;i++)
 	{
@@ -182,58 +182,66 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 	}
 	// fflush(stdout);
 	if (bit_depth == 4){
-		#pragma omp parallel for firstprivate(delta,mstart,nspec,ncol,missing_loc,missing_len,missing_num,flag) shared(data, pol0, pol1)
-		for(int j=0; j < nspec; j++)
+		#pragma omp parallel for firstprivate(delta,mstart,nrow,ncol,missing_loc,missing_len,missing_num,flag) shared(data, pol0, pol1)
+		for(int j=0; j < nrow; j++)
 		{	
-			// if(j+delta >= 3922070)
-			// {
-			// 	printf("ERROR:j is %d and delta is %d\n", j, delta);
-			// }
-
+			int l=0,r=0;
 			if(flag)
 			{
+				// first initialize delta for the thread
+				
 				printf("Init val of delta for all threads: %d\n", delta);
 				for(int i=0;i<missing_len; i++)
 				{
-					if(j>missing_loc[i])
+					l=missing_loc[i];
+					r=missing_loc[i]+missing_num[i]-1;
+					if(j<l)
+					{
+						mstart=i; 
+						break;
+					}
+					else if(j>r)
 					{
 						delta = delta + missing_num[i];
 					}
-					// else
-					// {
-					// 	break;
-					// }
+					else if(j>=l&&j<=r)
+					{
+						delta = delta + j - l;
+						mstart = i;
+						break;
+					}
 				}
 				printf("final delta is %d and j is %d\n", delta, j);
 				flag=0;
 			}
-			for(int m = mstart; m < missing_len; m++) //missing len = 24
-			{
-				
-				if(missing_loc[m]<(j+delta))
-				{	
-					delta=delta+missing_num[m];
-					// printf("HERE %d %d %d %d\n", m, j, missing_loc[m],delta);
-					mstart+=1; 
-					// printf("++ mstart, now %d, pointing at %d,%d | delta %d, next non-zero spec: %d\n",mstart, missing_loc[mstart], missing_num[mstart],delta, j+delta);
-				}
-				else
-				{
-					break;
-				}
-				
-			}
-			for (int i = 0; i < ncol; i++)
-			{
+			l=missing_loc[mstart]; r=missing_loc[mstart]+missing_num[mstart]-1;
 
-				pol0[(j+delta)*ncol+i] = data[2 * (j*ncol+i)];
-				pol1[(j+delta)*ncol+i] = data[2 * (j*ncol+i) + 1];
+			if(j>=l && j<r)
+			{
+				delta=delta+1;
+				continue;
 			}
+			else if(j==r)
+			{
+				delta=delta+1;
+				++mstart;
+				continue;
+			}
+			else
+			{
+				for (int i = 0; i < ncol; i++)
+				{
+
+					pol0[j*ncol+i] = data[2 * ((j-delta)*ncol+i)];
+					pol1[j*ncol+i] = data[2 * ((j-delta)*ncol+i) + 1];
+				}
+			}
+			
 
 		}
 	}
 	else if (bit_depth == 2){
-		long nn=nspec*ncol/2;
+		long nn=nrow*ncol/2;
 		uint8_t mask1 = 15;
 		uint8_t mask0 = 240;
 		for (int i = 0; i < nn; i++)
@@ -252,7 +260,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 		}
 	}
 	else if (bit_depth == 1){
-		long nn=nspec*ncol/2;
+		long nn=nrow*ncol/2;
 		uint8_t mask = 3;
 		for (int i = 0; i < nn; i++)
 		{
