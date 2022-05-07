@@ -187,23 +187,24 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 		{	
 			// if(j+delta >= 3922070)
 			// {
-			// 	//printf("ERROR");
+			// 	printf("ERROR:j is %d and delta is %d\n", j, delta);
 			// }
 
 			if(flag)
 			{
+				printf("Init val of delta for all threads: %d\n", delta);
 				for(int i=0;i<missing_len; i++)
 				{
 					if(j>missing_loc[i])
 					{
 						delta = delta + missing_num[i];
 					}
-					else
-					{
-						break;
-					}
+					// else
+					// {
+					// 	break;
+					// }
 				}
-				printf("init delta is %d and j is %d\n", delta);
+				printf("final delta is %d and j is %d\n", delta, j);
 				flag=0;
 			}
 			for(int m = mstart; m < missing_len; m++) //missing len = 24
