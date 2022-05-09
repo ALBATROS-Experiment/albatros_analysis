@@ -1,13 +1,14 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
-import mars_2019_tools.scio as scio
+import  scio
 import argparse
 
 if __name__ == "__main__":
 	"Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
 	parser = argparse.ArgumentParser()
 	parser.add_argument("data_dir", type=str, help="Auto/cross-spectra location. Ex: ~/data_auto_cross/16171/161700000")
-	parser.add_argument("-o", "--output_dir", type=str, default="/home/baobab/Desktop/Tristan/MontStHilaire/plots", help="Output directory for plots")
+	parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
 	parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
 	args = parser.parse_args()
@@ -77,6 +78,7 @@ if __name__ == "__main__":
 	plt.colorbar()
 
 	plt.subplot(2,3,2)
+	plt.title('Basic stats for frequency bins')
 	plt.plot(freq, pol00_max, 'r-', label='Max')
 	plt.plot(freq, pol00_min, 'b-', label='Min')
 	plt.plot(freq, pol00_mean, 'k-', label='Mean')
@@ -104,9 +106,12 @@ if __name__ == "__main__":
 	plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
 	plt.title('pol01 phase')
 	plt.colorbar()
+
+	args.data_dir=os.path.abspath(args.data_dir)
 	timestamp = args.data_dir.split('/')[-1]
 	plt.suptitle(str(timestamp))
-	outfile = args.output_dir + '/' + args.data_dir.split('/')[-1] + '.png'
+
+	outfile = os.path.normpath(args.output_dir + '/' + timestamp + '.png')
 	plt.savefig(outfile)
 	print('Wrote ' + outfile)
 	if args.show == True:
