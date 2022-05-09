@@ -85,7 +85,7 @@ def sortpols(data, length_channels, bit_mode, missing_loc, missing_num):
 		nspec = data1.shape[0]*data1.shape[1]//length_channels//2
 		nrows =  int(nspec + missing_num.sum()) #nrows is nspec + missing spectra that'll be added as zeros
 		ncols = length_channels # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
-		print(type(nspec), type(nrows),type(ncols))
+		# print(type(nspec), type(nrows),type(ncols))
 		pol0 = numpy.zeros([nrows,ncols],dtype='uint8', order = 'c')
 		pol1 = numpy.zeros([nrows,ncols],dtype='uint8', order = 'c')
 	elif bit_mode == 2:

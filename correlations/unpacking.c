@@ -169,17 +169,17 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 {
 	/*
 	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
-	Remember: pol0/pol1 size is larger than nspec rows. It accounts for missing spectra too.
+	Remember: pol0/pol1 size is larger than nspec. It accounts for missing spectra too.
 	*/
 	int delta = 0, mstart = 0;
 	int flag = 1;
 
-	printf("%d nspec\n", nrow);
-	printf("%d num missing\n", missing_len);
-	for(int i=0;i<missing_len;i++)
-	{
-		printf("%d:%d\n",missing_loc[i], missing_num[i]);
-	}
+	// printf("%d nspec\n", nrow);
+	// printf("%d num missing\n", missing_len);
+	// for(int i=0;i<missing_len;i++)
+	// {
+	// 	printf("%d:%d\n",missing_loc[i], missing_num[i]);
+	// }
 	// fflush(stdout);
 	if (bit_depth == 4){
 		#pragma omp parallel for firstprivate(delta,mstart,nrow,ncol,missing_loc,missing_len,missing_num,flag) shared(data, pol0, pol1)
@@ -190,7 +190,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 			{
 				// first initialize delta for the thread
 				
-				printf("Init val of delta for all threads: %d\n", delta);
+				// printf("Init val of delta for all threads: %d\n", delta);
 				for(int i=0;i<missing_len; i++)
 				{
 					l=missing_loc[i];
@@ -211,7 +211,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 						break;
 					}
 				}
-				printf("final delta is %d and j is %d\n", delta, j);
+				// printf("final delta is %d and j is %d\n", delta, j);
 				flag=0;
 			}
 			l=missing_loc[mstart]; r=missing_loc[mstart]+missing_num[mstart]-1;
