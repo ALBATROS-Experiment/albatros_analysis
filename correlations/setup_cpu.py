@@ -14,3 +14,6 @@ def build():
         os.system("gcc -shared -o \""+ path + "/lib_correlations_cpu.so\" -fPIC -fopenmp \"" + path + "/correlations_cpu.c\"")
     else:
         print("Cannot find the file correlations_cpu.c in the directory "+path)
+
+if(__name__=="__main__"):
+    build()
