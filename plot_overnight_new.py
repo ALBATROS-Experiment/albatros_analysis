@@ -35,13 +35,13 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	# parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
 	# parser.set_description(__doc__)
+	parser.add_argument('data_dir', type=str,help='Direct data directory')
 	parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS")
 	parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS")
 	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='/project/s/sievers/mohanagr/plots',
-			  help='Output plot directory [default: %default]')
-	parser.add_argument('-d', '--datadir', dest='data_dir', type=str, default='/project/s/sievers/simont/mars_computed',
-					  help='Baseband data directory [default: %default]')
-	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in secconds [default: %default]')
+			  help='Output plot directory')
+	
+	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
 	parser.add_argument("-l", "--logplot", dest='logplot',action="store_true", help="Plot in logscale")
 	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
 	args = parser.parse_args()
