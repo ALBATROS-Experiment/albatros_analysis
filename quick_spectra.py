@@ -40,8 +40,15 @@ if __name__ == "__main__":
 	pol11_min = np.min(pol11, axis=0)
 
 	med = np.median(pol00)
-	vmax = med + 2*np.std(pol00)
-	vmin = np.max([10**6.6, med - 2*np.std(pol00)])
+
+	xx=np.ravel(pol00).copy()
+	u=np.percentile(xx,99)
+	b=np.percentile(xx,1)
+	xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
+	stddev = np.std(xx_clean)
+	vmin= max(med - 2*stddev,10**7)
+	vmax = med + 2*stddev
+	
 	pmax = np.max(pol00)
 	axrange = [0, 125, 0, pmax]
 

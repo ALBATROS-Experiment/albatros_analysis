@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
     parser.set_description(__doc__)
-    parser.add_option('-o', '--outdir', dest='outdir',type='str', default='/project/s/sievers/simont/baseband_plots/computed',
+    parser.add_option('-o', '--outdir', dest='outdir',type='str', default='/project/s/sievers/mohanagr/',
 		      help='Output plot directory [default: %default]')
     parser.add_option('-d', '--datadir', dest='data_dir', type='str', default='/project/s/sievers/simont/mars_computed',
                       help='Baseband data directory [default: %default]')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
 
     if len(args) != 2:
-        print 'Please specify start and stop times.  Run with -h for more usage info.'
+        print('Please specify start and stop times.  Run with -h for more usage info.')
         exit(0)
     time_start = args[0]
     time_stop = args[1]
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     
     ctime_start = sft.timestamp2ctime(time_start)
     ctime_stop = sft.timestamp2ctime(time_stop)
-    print('In cTime from: ' + str(ctime_start) + '. to: ' + str(ctime_stop))
+    print('In cTime from: ' + str(ctime_start) + ' to ' + str(ctime_stop))
 
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
     #lets figure out how to group them
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     data_set_index = 0
     temp_data =[]
     data_set =[]
-    print(data_subdirs)
+    print(data_subdirs, "data subdirs")
     for index, val in enumerate(data_subdirs):
         if index == 0:
             prev_val = int(os.path.basename(val))
@@ -75,10 +75,12 @@ if __name__ == '__main__':
             temp_data=[]
             time_interval = 0
         print(time_interval)
+    if(temp_data):
+        data_set.append(temp_data)
 
-    data_set.append(temp_data)
-
-    
+    print(data_set, "dataset")
+    p00=sft.readin_append(data_set[0], opts.data_dir, 'pol00.scio.bz2', scio.read)
+    sys.exit()
    
     for data_subdir in data_set:
 
@@ -112,9 +114,9 @@ if __name__ == '__main__':
         if opts.c_flag is True:
             pol01_min = nm.median(pol01m) - 2*nm.std(pol01m)
             pol01_max = nm.median(pol01m) + 2*nm.std(pol01m)
-        print(nm.shape(pol00_med))
+        # print(nm.shape(pol00_med))
 
-        print(pol00_mean)
+        # print(pol00_mean)
         vmin = nm.median(pol00) - 2*nm.std(pol00)
         vmax = nm.median(pol00) + 2*nm.std(pol00)
         axrange = [0, 125, 0, 1e11]
@@ -184,7 +186,7 @@ if __name__ == '__main__':
         
         pylab.suptitle(tstamp+' | '+str(tstamp_ctime), fontsize='large')
 
-        outfile = plot_dir+'/'+tstamp+'.png'
+        outfile = os.path.join(plot_dir,tstamp+'.png')
         pylab.savefig(outfile)
         print('Wrote ' + outfile)
         pylab.close()

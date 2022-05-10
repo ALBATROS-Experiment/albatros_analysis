@@ -111,7 +111,6 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     times_coarse = os.listdir(dir_parent)
     times_coarse.sort()
     s = re.compile(r'(\d{10})')  # We'll use this to search for 10-digit time strings
-
     fnames = []
     for time_coarse in times_coarse:
         try:
@@ -128,7 +127,8 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
                 if s.search(f):
                     tstamp = int(s.search(f).groups()[0])
                     if tstamp >= time_start and tstamp <= time_stop:
-                        fnames.append(dir_parent+'/'+time_coarse+'/'+f)
+                        # fnames.append(dir_parent+'/'+time_coarse+'/'+f)
+                        fnames.append(os.path.join(dir_parent,time_coarse,f))
         except:
             pass
     fnames.sort()
@@ -207,13 +207,14 @@ def readin_computed(fname):
 
 def readin_append(dir_names, base_file_path, file_name, function):
     for index, dir_name in enumerate(dir_names):
-        file_path = os.path.join(base_file_path, dir_name[:5], dir_name, file_name)
+        file_path = os.path.join(base_file_path, dir_name, file_name)
+        # print(file_path)
         if index ==0:
             data = function(file_path)
-            print("initiate")
+            # print("initiate")
         else:
             data = np.append(data,function(file_path), axis = 0)
-            print("append so shape is now")
-            print(np.shape(data))
-    print(np.shape(data))
+            # print("append so shape is now")
+            # print(np.shape(data))
+    # print(np.shape(data))
     return data 
