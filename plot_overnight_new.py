@@ -93,17 +93,15 @@ if __name__ == '__main__':
 	pol11 = pol11[1:,:]
 	pol01r = pol01r[1:,:]
 	pol01i = pol01i[1:,:]
-	pol01 = pol01r + 1J*pol01i
-	pol01m = np.abs(pol01)
-	pol01p = np.angle(pol01)
+	
 
 	if(args.blocksize):
 		pol00=get_avg(pol00,block=args.blocksize)
 		pol11=get_avg(pol11,block=args.blocksize)
-		pol01m=get_avg(pol01m,block=args.blocksize)
-		pol01p=get_avg(pol01p,block=args.blocksize)
+		pol01r=get_avg(pol01r,block=args.blocksize)
+		pol01i=get_avg(pol01i,block=args.blocksize)
 
-	
+	pol01 = pol01r + 1J*pol01i
 
 	freq = np.linspace(0, 125, np.shape(pol00)[1])
 
@@ -181,14 +179,16 @@ if __name__ == '__main__':
 	plt.legend(loc='lower right', fontsize='small')
 
 	plt.subplot(2,3,3)
-	plt.imshow(np.log10(pol01m), vmin=3,vmax=8,aspect='auto', extent=myext)
+	plt.imshow(np.log10(np.abs(pol01)), vmin=3,vmax=8,aspect='auto', extent=myext)
 	plt.title('pol01 magnitude')
 	plt.colorbar()
 
 	plt.subplot(2,3,6)
-	plt.imshow(pol01p, vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
+	plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
 	plt.title('pol01 phase')
 	plt.colorbar()
+
+	plt.suptitle('Averaged over {} chunks'.format(args.blocksize))
 
 	outfile = os.path.join(args.outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
 	plt.savefig(outfile)
