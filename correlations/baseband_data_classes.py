@@ -4,7 +4,8 @@ import time
 import ctypes
 import os
 import sys
-from . import unpacking as unpk
+import unpacking as unpk
+# from . import unpacking as unpk
 
 class Baseband:
 	def __init__(self, file_name):
@@ -35,7 +36,7 @@ class Baseband:
 		t1 = time.time()
 		data = numpy.fromfile(file_data, count= -1, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(self.bytes_per_packet-4))])
 		t2 = time.time()
-		print('took ',t2-t1,' seconds to read raw data on ', file_name)
+		print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
 		file_data.close()
 		
 		self.spec_num = numpy.array(data["spec_num"], dtype = numpy.dtype(numpy.uint64))
@@ -78,6 +79,6 @@ class BasebandPacked(Baseband):
 		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
 		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32') # number of missing spectra for each location
-		print(self.missing_loc,"\n",self.missing_num)
+		# print(self.missing_loc,"\n",self.missing_num)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.missing_loc, self.missing_num)
     	

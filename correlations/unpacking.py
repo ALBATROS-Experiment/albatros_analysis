@@ -99,6 +99,6 @@ def sortpols(data, length_channels, bit_mode, missing_loc, missing_num):
 	sortpols_c(data1.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,missing_loc.ctypes.data,\
 		missing_num.ctypes.data, missing_num.shape[0], nrows, ncols, bit_mode)
 	t2 = time.time()
-	print("Took " + str(t2 - t1) + " to unpack")
+	print(f"Took {(t2 - t1):5.3f} to unpack")
 	
 	return pol0, pol1
