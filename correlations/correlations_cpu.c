@@ -5,7 +5,8 @@
 void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol)
 {
 	/*
-		This is for fine control over what rows to correlate for some given data
+		This is for fine control over what rows to correlate for some given data.
+		Data is assumed to consist of only one pol (already sortpol'd).
 
 		data: nspec * ncol array. ncol = nchan only for 4 bit
 
@@ -36,22 +37,27 @@ void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol
 
 void avg_autocorr_4bit(uint8_t * data, uint64_t * corr, uint32_t nspec, uint32_t ncol)
 {
+	/*
+		Returns an array of nchan elements. Sum over all spectra for each channel. 
+		Division by appropriate spectra count will be taken care by python frontend.
+	*/
+
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
 	uint64_t sum = 0;
 
-	for(int i = 0; i<1; i++)
+	for(int i = 0; i<ncol; i++)
 	{	
 		sum = 0;
 
 		#pragma omp parallel for default(none) firstprivate(imask,rmask,nspec,ncol,i) shared(data) reduction(+: sum)
-		for(int j = 0; j<64; j++)
+		for(int j = 0; j<nspec; j++)
 		{
 			int8_t im=data[j*ncol+i]&imask;
 			int8_t r=(data[j*ncol+i]&rmask)>>4;
 			if (r > 8){r = r - 16;}
 			if (im > 8){im = im - 16;}
-			printf("data %d, r %d, im %d\n", data[j*ncol+i], r, im);
+			// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
 			sum = sum + r*r + im*im;
 		}
 		// implicit barrier here

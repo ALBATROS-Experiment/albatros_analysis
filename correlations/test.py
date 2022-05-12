@@ -2,9 +2,10 @@
  
 import baseband_data_classes as bdc2
 import correlations as cr
+import numpy as np
+import time
 
 # histogram check 
-
 # obj=bdc.Baseband('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
 # obj=bdc.Baseband('/project/s/sievers/albatros/uapishka/baseband/snap3/16276/1627622856.raw')
 # hist=obj.get_hist(mode=-1)
@@ -23,7 +24,16 @@ obj=bdc2.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/162
 
 newauto = cr.autocorr_4bit(obj.pol0)
 
-# new_avgauto = cr.avg_autocorr_4bit(obj.pol0)
+t1=time.time()
+manual_sum = np.sum(newauto,axis=0)
+t2=time.time()
+print(f"time taken for manual sum {t2-t1:5.3f}")
 
-print(newauto)
+new_avgauto = cr.avg_autocorr_4bit(obj.pol0)
+
+print(manual_sum-new_avgauto)
+
+fig,ax=plt.subplots(1,1)
+ax.imshow(np.log10(psd),aspect='auto')
+# print(new_avgauto)
 
