@@ -38,7 +38,7 @@ if __name__ == '__main__':
 	parser.add_argument('data_dir', type=str,help='Direct data directory')
 	parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS")
 	parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS")
-	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='/project/s/sievers/mohanagr/plots',
+	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
 			  help='Output plot directory')
 	
 	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
