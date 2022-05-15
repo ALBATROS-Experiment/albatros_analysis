@@ -9,52 +9,40 @@ import numpy as np
 import scio, datetime, time
 import SNAPfiletools as sft
 import argparse
-
+from datetime import datetime
 
 #============================================================
+def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
+	'''
+	Given the path to a Big data directory (i.e. directory that has as subdirectories 
+	the directories labeled by the first 4 digits of the ctime date), gets all the data 
+	in some time interval.
 
-def get_avg(arr,block=50):
-    iters=arr.shape[0]//block
-    leftover=arr.shape[0]%block
-    print(arr.shape, iters, leftover)
-    if(leftover>0.5*block):
-        result=np.zeros((iters+1,arr.shape[1]))
-    else:
-        result=np.zeros((iters,arr.shape[1]))
-        
-    for i in range(0,iters):
-        result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
-    
-    if(leftover>0.5*block):
-        result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
-        
-    return result
+	Paramaters:
+	-----------
 
-if __name__ == '__main__':
+	data_dir: str
+		path to data directory
 
-	parser = argparse.ArgumentParser()
-	# parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
-	# parser.set_description(__doc__)
-	parser.add_argument('data_dir', type=str,help='Direct data directory')
-	parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS")
-	parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS")
-	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
-			  help='Output plot directory')
+	time_start, time_stop: str
+		desired start and stop time, either in yyyymmdd_hhmmss or ctime
+
+	ctime: bool
+		if times given in ctime or not
+	'''
+
 	
-	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
-	parser.add_argument("-l", "--logplot", dest='logplot',action="store_true", help="Plot in logscale")
-	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
-	args = parser.parse_args()
-
-
-
-	data_dir = args.data_dir
-	plot_dir = args.outdir
-	#print(data_dir)
 	
-	ctime_start = sft.timestamp2ctime(args.time_start)
-	ctime_stop = sft.timestamp2ctime(args.time_stop)
-	print('In cTime from: ' + str(ctime_start) + ' to ' + str(ctime_stop))
+	if ctime:
+		ctime_start = time_start
+		ctime_stop = time_stop
+
+	else:
+		ctime_start = sft.timestamp2ctime(time_start)
+		ctime_stop = sft.timestamp2ctime(time_stop)
+	
+	print(f'Reading data from {ctime_start} to {ctime_stop}')
+	print(f"In real time (UTC): {datetime.utcfromtimestamp(int(ctime_start))} to {datetime.utcfromtimestamp(int(ctime_stop))}")
 
 	#all the dirs between the timestamps. read all, append, average over chunk length
 	data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
@@ -86,13 +74,60 @@ if __name__ == '__main__':
 		pol01i=np.append(pol01i,d,axis=0)
 
 	t2=time.time()
-	print('time taken for append',t2-t1)
+	print('Time taken to concatenate data:',t2-t1)
 	print(pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
 	# Remove starting data chunk if it's bad :(
 	pol00 = pol00[1:,:]
 	pol11 = pol11[1:,:]
 	pol01r = pol01r[1:,:]
 	pol01i = pol01i[1:,:]
+
+	return ctime_start, ctime_stop, pol00, pol11, pol01r, pol01i
+
+
+
+def get_avg(arr,block=50):
+    iters=arr.shape[0]//block
+    leftover=arr.shape[0]%block
+    print(arr.shape, iters, leftover)
+    if(leftover>0.5*block):
+        result=np.zeros((iters+1,arr.shape[1]))
+    else:
+        result=np.zeros((iters,arr.shape[1]))
+        
+    for i in range(0,iters):
+        result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
+    
+    if(leftover>0.5*block):
+        result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
+        
+    return result
+
+
+def main():
+
+	parser = argparse.ArgumentParser()
+	# parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
+	# parser.set_description(__doc__)
+	parser.add_argument('data_dir', type=str,help='Direct data directory')
+	parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime")
+	parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime")
+	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
+			  help='Output plot directory')
+	
+	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
+	parser.add_argument("-l", "--logplot", dest='logplot',action="store_true", help="Plot in logscale")
+	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
+	args = parser.parse_args()
+
+	
+	plot_dir = args.outdir
+	data_dir = args.data_dir
+	time_start = args.time_start
+	time_stop = args.time_stop
+
+	
+	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(data_dir, time_start, time_stop,ctime=False)
 	
 
 	if(args.blocksize):
@@ -192,4 +227,10 @@ if __name__ == '__main__':
 
 	outfile = os.path.join(args.outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
 	plt.savefig(outfile)
+	
 	print('Wrote ' + outfile)
+
+
+
+if __name__ == '__main__':
+	main()
