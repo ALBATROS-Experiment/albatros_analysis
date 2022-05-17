@@ -117,7 +117,7 @@ def get_num_missing(s_idx, e_idx, missing_loc, missing_num):
     return sum
                 
 
-def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4, polcross=False):
+def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
     
     idxstart, fileidx, files = get_init_info(path, init_timestamp)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
@@ -129,7 +129,10 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4, polcross=Fals
     assert(obj.bit_mode==bitmode)
     nchan=obj.pol0.shape[1]
     objlen=obj.pol0.shape[0]
-    psd=np.zeros((nchunks,nchan),dtype='float64')
+    pol00=np.zeros((nchunks,nchan),dtype='float64')
+    pol11=np.zeros((nchunks,nchan),dtype='float64')
+    pol01=np.zeros((nchunks,nchan),dtype='complex64')
+
     fc=0 #file counter
     st=time.time()
 
@@ -141,7 +144,10 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4, polcross=Fals
             l=objlen-idxstart
             if(l<rem):
                 missing_spec_gap += get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
-                psd[i,:]=psd[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+objlen,:]) 
+                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+objlen,:])
+                pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
+                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
+
                 #if the code is here another part of chunk will be read from next file. 
                 # So it WILL go to the else block, and that's where we'll divide. Just adding here.
 
@@ -157,14 +163,17 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4, polcross=Fals
                 
             else:
                 missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                print(f"file spec gap: {file_spec_gap}, missing spec gap: {missing_spec_gap}")
-                psd[i,:]=(psd[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                # print(f"file spec gap: {file_spec_gap}, missing spec gap: {missing_spec_gap}")
+                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
                 break
         print(i+1," blocks read")
     et=time.time()
     print(f"time taken {et-st:4.2f}")
-    return psd,channels
+    return pol00,pol11,pol01,channels
+
 
 if __name__=="__main__":
 
@@ -172,15 +181,19 @@ if __name__=="__main__":
     init_t = 1627202094
     acclen = 393216
     nchunks = 560
-    psd,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
+    pol00,pol11,pol01,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
     print(channels)
-    print(psd)
-    np.savetxt('/scratch/s/sievers/mohanagr/autospec.txt',psd)
+    np.savetxt('/scratch/s/sievers/mohanagr/pol00_4.txt',pol00)
+    np.savetxt('/scratch/s/sievers/mohanagr/pol01_4.txt',pol01)
+
     from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,1)
-    img=ax.imshow(np.log10(psd),aspect='auto')
-    plt.colorbar(img)
-    plt.savefig('/scratch/s/sievers/mohanagr/psd.png')
+    fig,ax=plt.subplots(1,2)
+    fig.set_size_inches(10,4)
+    img1=ax[0].imshow(np.log10(np.abs(pol01)),aspect='auto')
+    img2=ax[1].imshow(np.angle(pol01),aspect='auto',vmin=-np.pi,vmax=np.pi)
+    plt.colorbar(img1,ax=ax[0])
+    plt.colorbar(img2,ax=ax[1])
+    plt.savefig('/scratch/s/sievers/mohanagr/pol01.png')
 
 
 

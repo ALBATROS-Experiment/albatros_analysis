@@ -33,7 +33,6 @@ new_avgauto = cr.avg_autocorr_4bit(obj.pol0)
 
 print(manual_sum-new_avgauto)
 
-fig,ax=plt.subplots(1,1)
-ax.imshow(np.log10(psd),aspect='auto')
+
 # print(new_avgauto)
 
