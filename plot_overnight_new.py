@@ -76,7 +76,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop):
 	print('Time taken to concatenate data:',t2-t1)
 	print("pol00, pol11,pol01r, pol01i shape:", pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
 	
-	return ctime_start, ctime_stop, pol00, pol11, pol01r, pol01i
+	return pol00, pol11, pol01r, pol01i
 
 
 #============================================================
@@ -142,7 +142,7 @@ def main():
 		ctime_stop = int(args.time_stop)
 		
 	
-	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
+	pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
 	
 	if(args.blocksize): #averages over given blocksize
 		pol00=get_avg(pol00,block=args.blocksize)
