@@ -81,23 +81,27 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop):
 
 #============================================================
 def get_avg(arr,block=50):
-    iters=arr.shape[0]//block
-    leftover=arr.shape[0]%block
-    print(arr.shape, iters, leftover)
-    if(leftover>0.5*block):
-        result=np.zeros((iters+1,arr.shape[1]))
-    else:
-        result=np.zeros((iters,arr.shape[1]))
-        
-    for i in range(0,iters):
-        result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
+	'''
+	Averages some array over a given block size
+	'''
+	
+	iters=arr.shape[0]//block
+	leftover=arr.shape[0]%block
+	print(arr.shape, iters, leftover)
+	if(leftover>0.5*block):
+	    result=np.zeros((iters+1,arr.shape[1]))
+	else:
+	    result=np.zeros((iters,arr.shape[1]))
+	
+	for i in range(0,iters):
+	    result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
     
-    if(leftover>0.5*block):
-        result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
+	if(leftover>0.5*block):
+	    result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
         
-    return result
+	return result
 
-
+#============================================================
 def get_stats(pol_arr):
 	'''
 	Given a 2D array containing some data chunk, returns the 
@@ -121,7 +125,7 @@ def main():
 	
 	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
 	parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
-	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
+	parser.add_argument("-a", "--avglen",dest="blocksize",default=0,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
 
 	parser.add_argument("-p", "--plottype",dest="plottype",default="full",type=str,
 		help="Type of plot to generate. 'full': pol00 and pol11 waterfall autospectra, min/max/mean/med autospectra, waterfall cross spectra. 'autospec': same as 1, but no cross spectra")
@@ -144,7 +148,7 @@ def main():
 	
 	pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
 	
-	if(args.blocksize): #averages over given blocksize
+	if(args.blocksize) is not 0: #averages over given blocksize
 		pol00=get_avg(pol00,block=args.blocksize)
 		pol11=get_avg(pol11,block=args.blocksize)
 		pol01r=get_avg(pol01r,block=args.blocksize)
