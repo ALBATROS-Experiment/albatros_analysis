@@ -1,6 +1,8 @@
 import glob, time, datetime, os, re
 import numpy as np
 import scio
+from tabulate import tabulate
+
 
 #============================================================
 def read_field_many_fast(dirs,tag,dtype='float64',return_missing=False):
@@ -218,3 +220,22 @@ def readin_append(dir_names, base_file_path, file_name, function):
             # print(np.shape(data))
     # print(np.shape(data))
     return data 
+
+
+#============================================================  
+def files_to_human_time(parent_dir):
+    '''
+    Author: Joelle, May 2022
+
+    Given path to a directory that contains timestamp directories
+    (e.g. 16528/ which contains 1652700704/ and etc), gives the 
+    human time of each timestamp directory it contains.
+    '''
+
+    files = np.sort(np.array(os.listdir(parent_dir),dtype=int))
+    utc_dates = [datetime.datetime.utcfromtimestamp(i).strftime("%m-%d-%Y  %H:%M:%S")for i in files]
+    local_dates = [datetime.datetime.fromtimestamp(i).strftime("%m-%d-%Y  %H:%M:%S")for i in files]
+    
+    d = np.vstack((files,utc_dates,local_dates)).T
+    print(tabulate(d,headers=["Timestamp","UTC date","Local timezone date"],stralign="center"))
+
