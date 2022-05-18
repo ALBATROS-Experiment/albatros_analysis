@@ -14,11 +14,10 @@ from datetime import datetime
 #============================================================
 def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
 	'''
-	Given the path to a Big data directory (i.e. directory that has as subdirectories 
-	the directories labeled by the first 4 digits of the ctime date), gets all the data 
-	in some time interval.
+	Given the path to a Big data directory (i.e. directory contains the directories 
+	labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
 
-	Paramaters:
+	Parameters:
 	-----------
 
 	data_dir: str
@@ -28,24 +27,35 @@ def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
 		desired start and stop time, either in yyyymmdd_hhmmss or ctime
 
 	ctime: bool
-		if times given in ctime or not
+		if times given in ctime or not (dont think this param is actually necessary,
+		could prob automatically detect if the given times are ctime)
+
+	Returns:
+	--------
+
+	cimte_start, ctime_stop: int
+		start and stop times in ctime
+
+	pol00,pol11,pol01r,pol01i: array
+		2D arrays containing the data for given time interval for autospectra 
+		as well as cross spectra. pol00 corresponds to adc0 and pol11 to adc3
 	'''
 
-	
-	
 	if ctime:
-		ctime_start = time_start
-		ctime_stop = time_stop
+		ctime_start = int(time_start)
+		ctime_stop = int(time_stop)
 
 	else:
-		ctime_start = sft.timestamp2ctime(time_start)
-		ctime_stop = sft.timestamp2ctime(time_stop)
+		ctime_start = int(sft.timestamp2ctime(time_start))
+		ctime_stop = int(sft.timestamp2ctime(time_stop))
 	
 	print(f'Reading data from {ctime_start} to {ctime_stop}')
-	print(f"In real time (UTC): {datetime.utcfromtimestamp(int(ctime_start))} to {datetime.utcfromtimestamp(int(ctime_stop))}")
+	print(f"In UTC time: {datetime.utcfromtimestamp(ctime_start)} to {datetime.utcfromtimestamp(ctime_stop)}")
+	print(f"In local time: {datetime.fromtimestamp(ctime_start)} to {datetime.fromtimestamp(ctime_stop)}")
 
 	#all the dirs between the timestamps. read all, append, average over chunk length
 	data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
+	
 	new_dirs = [d+'/pol00.scio.bz2' for d in data_subdirs]
 	datpol00 = scio.read_files(new_dirs)
 	new_dirs = [d+'/pol11.scio.bz2' for d in data_subdirs]
@@ -75,17 +85,12 @@ def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
 
 	t2=time.time()
 	print('Time taken to concatenate data:',t2-t1)
-	print(pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
-	# Remove starting data chunk if it's bad :(
-	pol00 = pol00[1:,:]
-	pol11 = pol11[1:,:]
-	pol01r = pol01r[1:,:]
-	pol01i = pol01i[1:,:]
-
+	print("pol00, pol11,pol01r, pol01i shape:", pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
+	
 	return ctime_start, ctime_stop, pol00, pol11, pol01r, pol01i
 
 
-
+#============================================================
 def get_avg(arr,block=50):
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
@@ -103,31 +108,24 @@ def get_avg(arr,block=50):
         
     return result
 
-
+#============================================================
 def main():
 
 	parser = argparse.ArgumentParser()
-	# parser.set_usage('python plot_overnight_data.py <start time as YYYYMMDD_HHMMSS> <stop time as YYYYMMDD_HHMMSS> [options]')
+	# parser.set_usage('python plot_overnight_data.py <data directory> <start time as YYYYMMDD_HHMMSS or ctime> <stop time as YYYYMMDD_HHMMSS or ctime> [options]')
 	# parser.set_description(__doc__)
 	parser.add_argument('data_dir', type=str,help='Direct data directory')
 	parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime")
 	parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime")
 	parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
-			  help='Output plot directory')
+			  help='Output plot directory [default: .]')
 	
 	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
-	parser.add_argument("-l", "--logplot", dest='logplot',action="store_true", help="Plot in logscale")
+	parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
 	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
 	args = parser.parse_args()
-
 	
-	plot_dir = args.outdir
-	data_dir = args.data_dir
-	time_start = args.time_start
-	time_stop = args.time_stop
-
-	
-	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(data_dir, time_start, time_stop,ctime=False)
+	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, args.time_start, args.time_stop,ctime=True)
 	
 
 	if(args.blocksize):
@@ -182,7 +180,6 @@ def main():
 
 	plt.subplot(2,3,1)
 
-	print(pol00.shape)
 	plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
 	plt.title('pol00')
 	cb00 = plt.colorbar()
