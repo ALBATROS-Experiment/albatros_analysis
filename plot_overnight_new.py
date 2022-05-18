@@ -123,11 +123,16 @@ def main():
 	parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
 	parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
 	parser.add_argument("-a", "--avglen",dest="blocksize",default=False,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
+
+	parser.add_argument("-p", "--plottype",dest="plottype",default="full",type=str,
+		help="Type of plot to generate. 'full': pol00 and pol11 waterfall autospectra, min/max/mean/med autospectra, waterfall cross spectra. 'autospec': same as 1, but no cross spectra")
+	
+	
 	args = parser.parse_args()
 	
 	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, args.time_start, args.time_stop,ctime=True)
 	
-
+	
 	if(args.blocksize):
 		pol00=get_avg(pol00,block=args.blocksize)
 		pol11=get_avg(pol11,block=args.blocksize)
