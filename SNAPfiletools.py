@@ -104,9 +104,18 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     This function assumes that the parent directory has the directory
     structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
     fine time stamp>.
-    - time_start, time_stop = start/stop times in ctime
-    - dir_parent = parent directory, e.g. /path/to/data_100MHz
-    - fraglen = # digits in coarse time fragments
+
+    Paramaters:
+    -----------
+    time_start, time_stop: int 
+        start/stop times in ctime 
+    
+    dir_parent: str
+        parent directory, e.g. /path/to/data_100MHz
+    
+    fraglen: int 
+        number of digits in coarse time fragments
+    
     Returns list of files in specified time range.
     """
 
