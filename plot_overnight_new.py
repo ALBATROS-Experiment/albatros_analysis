@@ -6,13 +6,13 @@ if os.environ.get('DISPLAY','') == '':
 
 from matplotlib import pyplot as plt
 import numpy as np
-import scio, datetime, time
+import scio, datetime, time, re
 import SNAPfiletools as sft
 import argparse
 from datetime import datetime
 
 #============================================================
-def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
+def get_data_arrs(data_dir, ctime_start, ctime_stop):
 	'''
 	Given the path to a Big data directory (i.e. directory contains the directories 
 	labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -23,12 +23,8 @@ def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
 	data_dir: str
 		path to data directory
 
-	time_start, time_stop: str
-		desired start and stop time, either in yyyymmdd_hhmmss or ctime
-
-	ctime: bool
-		if times given in ctime or not (dont think this param is actually necessary,
-		could prob automatically detect if the given times are ctime)
+	ctime_start, ctime_stop: str
+		desired start and stop time in ctime
 
 	Returns:
 	--------
@@ -41,13 +37,6 @@ def get_data_arrs(data_dir, time_start, time_stop, ctime = True):
 		as well as cross spectra. pol00 corresponds to adc0 and pol11 to adc3
 	'''
 
-	if ctime:
-		ctime_start = int(time_start)
-		ctime_stop = int(time_stop)
-
-	else:
-		ctime_start = int(sft.timestamp2ctime(time_start))
-		ctime_stop = int(sft.timestamp2ctime(time_stop))
 	
 	print(f'Reading data from {ctime_start} to {ctime_stop}')
 	print(f"In UTC time: {datetime.utcfromtimestamp(ctime_start)} to {datetime.utcfromtimestamp(ctime_stop)}")
@@ -108,6 +97,16 @@ def get_avg(arr,block=50):
         
     return result
 
+
+def get_stats(pol_arr):
+	'''
+	Given a 2D array containing some data chunk, returns the 
+	min,median,mean, and max over that chunk.
+	'''
+
+	return [np.min(data_arr,axis=0), np.median(data_arr,axis=0), 
+			np.mean(data_arr,axis=0), np.max(data_arr,axis=0)]
+
 #============================================================
 def main():
 
@@ -130,10 +129,22 @@ def main():
 	
 	args = parser.parse_args()
 	
+	# figuring out if human time or ctime was passed with pattern matching
+	human_time_regex = re.compile((r'\d\d\d\d\d\d\d\d_\d\d\d\d\d\d'))
+	mo = human_time_regex.search(args.time_start)
+
+	try:
+		match = mo.group() # time_start matches pattern, must convert to ctime
+		ctime_start = sft.timestamp2ctime(time_start)
+		ctime_stop = sft.timestamp2ctime(time_stop)
+	except:
+		ctime_start = int(args.time_start)
+		ctime_stop = int(args.time_stop)
+		print("hello")
+	
 	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, args.time_start, args.time_stop,ctime=True)
 	
-	
-	if(args.blocksize):
+	if(args.blocksize): #averages over given blocksize
 		pol00=get_avg(pol00,block=args.blocksize)
 		pol11=get_avg(pol11,block=args.blocksize)
 		pol01r=get_avg(pol01r,block=args.blocksize)
