@@ -140,9 +140,9 @@ def main():
 	except:
 		ctime_start = int(args.time_start)
 		ctime_stop = int(args.time_stop)
-		print("hello")
+		
 	
-	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, args.time_start, args.time_stop,ctime=True)
+	ctime_start, ctime_stop, pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
 	
 	if(args.blocksize): #averages over given blocksize
 		pol00=get_avg(pol00,block=args.blocksize)
