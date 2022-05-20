@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <omp.h>
 
@@ -35,34 +36,102 @@ void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol
 
 }
 
+// void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t ncol)
+// {
+// 	/*
+// 		Returns an array of nchan elements. Sum over all spectra for each channel. 
+// 		Division by appropriate spectra count will be taken care by python frontend.
+// 	*/
+
+// 	for(int i=0;i<ncol;i++)
+// 	{
+// 		corr[i]=0;
+// 	}
+	
+// 	uint8_t imask=15;
+//   	uint8_t rmask=255-15;
+// 	int64_t sum = 0; //should be more than enough. also eventually if data stored as float64 in autocorravg.py, should be compatible
+
+// 	for(int i = 0; i<ncol; i++)
+// 	{	
+// 		sum = 0;
+
+// 		#pragma omp parallel for default(none) firstprivate(imask,rmask,nspec,ncol,i) shared(data) reduction(+: sum)
+// 		for(int j = 0; j<nspec; j++)
+// 		{
+// 			int8_t im=data[j*ncol+i]&imask;
+// 			int8_t r=(data[j*ncol+i]&rmask)>>4;
+// 			if (r > 8){r = r - 16;}
+// 			if (im > 8){im = im - 16;}
+// 			// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
+// 			sum = sum + r*r + im*im;
+// 		}
+// 		// implicit barrier here
+// 		corr[i] = sum;
+// 	}	
+
+// 	printf("Last element from C %d \n", data[nspec*ncol-1]);
+// }
+
 void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t ncol)
 {
 	/*
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
 		Division by appropriate spectra count will be taken care by python frontend.
 	*/
+	// printf("Shapes are %d %d\n",nspec,ncol);
+	// for(int i =0;i<3;i++)
+	// {
+	// 	printf("\n");
+	// 	for(int j=0;j<ncol;j++)
+	// 	{
+	// 		printf("%d ",data[i*ncol+j]);
+	// 		fflush(stdout);
+	// 	}
+	// }
+	// printf("\n");
 
+	for(int i=0;i<ncol;i++)
+	{
+		corr[i]=0;
+	}
+	
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
-	int64_t sum = 0; //should be more than enough. also eventually if data stored as float64 in autocorravg.py, should be compatible
+	//int64_t sum = 0; //should be more than enough. also eventually if data stored as float64 in autocorravg.py, should be compatible
 
-	for(int i = 0; i<ncol; i++)
-	{	
-		sum = 0;
-
-		#pragma omp parallel for default(none) firstprivate(imask,rmask,nspec,ncol,i) shared(data) reduction(+: sum)
-		for(int j = 0; j<nspec; j++)
+	int64_t sum_pvt[ncol];
+	
+	#pragma omp parallel default(none) firstprivate(imask,rmask,nspec,ncol,sum_pvt) shared(data,corr)
+	{
+		for(int i =0;i<ncol;i++)
 		{
-			int8_t im=data[j*ncol+i]&imask;
-			int8_t r=(data[j*ncol+i]&rmask)>>4;
-			if (r > 8){r = r - 16;}
-			if (im > 8){im = im - 16;}
-			// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
-			sum = sum + r*r + im*im;
+			sum_pvt[i] = 0 ;
 		}
-		// implicit barrier here
-		corr[i] = sum;
-	}	
+
+		#pragma omp for nowait
+		for(int i = 0; i<nspec; i++)
+		{
+			for(int j=0; j<ncol; j++)
+			{
+				int8_t im=data[i*ncol+j]&imask;
+				int8_t r=(data[i*ncol+j]&rmask)>>4;
+				if (r > 8){r = r - 16;}
+				if (im > 8){im = im - 16;}
+				// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
+				sum_pvt[j] = sum_pvt[j] + r*r + im*im;
+			}
+		}
+		#pragma omp critical
+		{
+			for(int i =0; i<ncol; i++)
+			{
+				corr[i] = corr[i] + sum_pvt[i];
+			}
+		}
+
+	}
+	// printf("Last element from C %d \n", data[nspec*ncol-1]);
 }
 
 void avg_autocorr_4bit_raw()

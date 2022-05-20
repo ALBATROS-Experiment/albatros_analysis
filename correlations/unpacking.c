@@ -171,8 +171,17 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
 	Remember: pol0/pol1 size is larger than nspec. It accounts for missing spectra too.
 	*/
-	int delta = 0, mstart = 0;
+	uint32_t delta = 0, mstart = 0;
 	int flag = 1;
+
+	int nn = nrow*ncol;
+	
+	#pragma omp parallel for shared(pol0,pol1)
+	for(int i=0;i<nn;i++)
+	{
+		pol0[i]=0;
+		pol1[i]=0;
+	}
 
 	// printf("%d nspec\n", nrow);
 	// printf("%d num missing\n", missing_len);
@@ -185,7 +194,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_lo
 		#pragma omp parallel for firstprivate(delta,mstart,nrow,ncol,missing_loc,missing_len,missing_num,flag) shared(data, pol0, pol1)
 		for(int j=0; j < nrow; j++)
 		{	
-			int l=0,r=0;
+			uint32_t l=0,r=0;
 			if(flag)
 			{
 				// first initialize delta for the thread

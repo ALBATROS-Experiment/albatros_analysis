@@ -30,12 +30,16 @@ def autocorr_4bit(pol):
 	return corr
 
 def avg_autocorr_4bit(pol):
-
+#310,321,481,   0, 310, 321, 481, 498, 541]
 	data=pol.copy()
-	corr = np.zeros(data.shape[1],dtype='int64',order='c') #will be put in float64 in frontend script 
+	# print("data being passed from python is", data)
+	corr = np.empty(data.shape[1],dtype='int64',order='c') #will be put in float64 in frontend script 
 	t1=time.time()
 	avg_autocorr_4bit_c(data.ctypes.data, corr.ctypes.data, data.shape[0], data.shape[1])
 	t2=time.time()
+	# print(corr.strides)
+	# print("last element from python", data[-1][-1])
+
 	print(f"time taken for avg_corr {t2-t1:5.3f}s")
 	return corr
 

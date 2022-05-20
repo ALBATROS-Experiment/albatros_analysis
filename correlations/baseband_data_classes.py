@@ -24,7 +24,7 @@ class Baseband:
 		self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
 		self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
 		self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
-			
+
 		if self.bit_mode == 1:
 			self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
 			self.length_channels = int(self.length_channels * 2)
@@ -67,7 +67,7 @@ class BasebandFloat(Baseband):
 			self.pol0, self.pol1 = unpk.unpack_1bit(raw_spectra, self.length_channels, True)
 		else:
 			print("Unknown bit depth")
-    
+	
 	
 
 class BasebandPacked(Baseband):
@@ -81,4 +81,4 @@ class BasebandPacked(Baseband):
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32') # number of missing spectra for each location
 		# print(self.missing_loc,"\n",self.missing_num)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.missing_loc, self.missing_num)
-    	
+		# print(self.pol0.strides)
