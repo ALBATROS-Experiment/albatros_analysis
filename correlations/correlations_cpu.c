@@ -79,17 +79,6 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t 
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
 		Division by appropriate spectra count will be taken care by python frontend.
 	*/
-	// printf("Shapes are %d %d\n",nspec,ncol);
-	// for(int i =0;i<3;i++)
-	// {
-	// 	printf("\n");
-	// 	for(int j=0;j<ncol;j++)
-	// 	{
-	// 		printf("%d ",data[i*ncol+j]);
-	// 		fflush(stdout);
-	// 	}
-	// }
-	// printf("\n");
 
 	for(int i=0;i<ncol;i++)
 	{
@@ -98,7 +87,6 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t 
 	
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
-	//int64_t sum = 0; //should be more than enough. also eventually if data stored as float64 in autocorravg.py, should be compatible
 
 	int64_t sum_pvt[ncol];
 	
@@ -131,7 +119,6 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t 
 		}
 
 	}
-	// printf("Last element from C %d \n", data[nspec*ncol-1]);
 }
 
 void avg_autocorr_4bit_raw()

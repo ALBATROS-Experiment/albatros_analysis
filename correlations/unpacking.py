@@ -12,8 +12,7 @@ unpack_2bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_
 unpack_1bit_float_c = mylib.unpack_1bit_float
 unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 sortpols_c = mylib.sortpols
-sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,\
-	 ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short]
+sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short]
 hist_4bit_c = mylib.hist_4bit
 hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 
@@ -76,14 +75,17 @@ def unpack_1bit(data, length_channels, isfloat):
 	return pol0, pol1
 
 
-def sortpols(data, length_channels, bit_mode, missing_loc, missing_num):
+def sortpols(data, length_channels, bit_mode, spec_num):
 	# For packed data we don't need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
 	# number of rows should be nspec because we want to iterate over spectra while corr averaging in python
-	assert(missing_loc.shape[0]==missing_num.shape[0])
 	data1 = data.copy()
+	sp_num = spec_num.copy() # don't trust slices anymore
 	if bit_mode == 4:
-		nspec = data1.shape[0]*data1.shape[1]//length_channels//2
-		nrows =  int(nspec + missing_num.sum()) #nrows is nspec + missing spectra that'll be added as zeros
+		spectra_per_packet = data1.shape[1]//length_channels//2
+		nspec = data1.shape[0]*spectra_per_packet
+		nrows =  int(spec_num[-1] + spectra_per_packet) #nrows is nspec + missing spectra that'll be added as zeros
+		print(type(spectra_per_packet), type(data1.shape[0]))
+		print(f"nrows: {nrows}, nspec: {nspec}")
 		ncols = length_channels # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
 		# print(type(nspec), type(nrows),type(ncols))
 		pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
@@ -96,8 +98,7 @@ def sortpols(data, length_channels, bit_mode, missing_loc, missing_num):
 		pol1 = numpy.zeros([data.shape[0]//8,length_channels],dtype='uint8', order = 'c')
 			
 	t1 = time.time()
-	sortpols_c(data1.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,missing_loc.ctypes.data,\
-		missing_num.ctypes.data, missing_num.shape[0], nrows, ncols, bit_mode)
+	sortpols_c(data1.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, sp_num.ctypes.data, data1.shape[0], ncols, spectra_per_packet, bit_mode)
 	t2 = time.time()
 	print(f"Took {(t2 - t1):5.3f} to unpack")
 	

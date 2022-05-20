@@ -1,12 +1,12 @@
  #temporary testing file
  
-import baseband_data_classes as bdc2
+from correlations import baseband_data_classes as bdc
 import correlations as cr
 import numpy as np
 import time
 
 # histogram check 
-obj=bdc.Baseband('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
+obj=bdc.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
 # obj=bdc.Baseband('/project/s/sievers/albatros/uapishka/baseband/snap3/16276/1627622856.raw')
 # hist=obj.get_hist(mode=-1)
 # hist_str = ','.join([str(n) for n in hist])

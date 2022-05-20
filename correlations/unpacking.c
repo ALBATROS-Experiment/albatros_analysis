@@ -165,180 +165,37 @@ int cmpfunc(const void * a, const void * b) {
    return ( *(uint8_t*)a - *(uint8_t*)b );
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint32_t *missing_loc, uint32_t *missing_num, size_t missing_len, int nrow, int ncol, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int ncols, int spectra_per_packet, short bit_depth)
 {
-	/*
-	ncol is not always equal to nchan for packed data. 1 byte=1chan only for 4 bit
-	Remember: pol0/pol1 size is larger than nspec. It accounts for missing spectra too.
-	*/
-	uint32_t delta = 0, mstart = 0;
-	int flag = 1;
 
-	int nn = nrow*ncol;
+	int nn = npackets*spectra_per_packet*ncols;
+	printf("Oi!\n");
 	
-	#pragma omp parallel for shared(pol0,pol1)
+	#pragma omp parallel for
 	for(int i=0;i<nn;i++)
 	{
 		pol0[i]=0;
 		pol1[i]=0;
 	}
 
-	// printf("%d nspec\n", nrow);
-	// printf("%d num missing\n", missing_len);
-	// for(int i=0;i<missing_len;i++)
-	// {
-	// 	printf("%d:%d\n",missing_loc[i], missing_num[i]);
-	// }
-	// fflush(stdout);
-	if (bit_depth == 4){
-		#pragma omp parallel for firstprivate(delta,mstart,nrow,ncol,missing_loc,missing_len,missing_num,flag) shared(data, pol0, pol1)
-		for(int j=0; j < nrow; j++)
-		{	
-			uint32_t l=0,r=0;
-			if(flag)
-			{
-				// first initialize delta for the thread
-				
-				// printf("Init val of delta for all threads: %d\n", delta);
-				for(int i=0;i<missing_len; i++)
-				{
-					l=missing_loc[i];
-					r=missing_loc[i]+missing_num[i]-1;
-					if(j<l)
-					{
-						mstart=i; 
-						break;
-					}
-					else if(j>r)
-					{
-						delta = delta + missing_num[i];
-					}
-					else if(j>=l&&j<=r)
-					{
-						delta = delta + j - l;
-						mstart = i;
-						break;
-					}
-				}
-				// printf("final delta is %d and j is %d\n", delta, j);
-				flag=0;
-			}
-			l=missing_loc[mstart]; r=missing_loc[mstart]+missing_num[mstart]-1;
-
-			if(j>=l && j<r)
-			{
-				delta=delta+1;
-				continue;
-			}
-			else if(j==r)
-			{
-				delta=delta+1;
-				++mstart;
-				continue;
-			}
-			else
-			{
-				for (int i = 0; i < ncol; i++)
-				{
-
-					pol0[j*ncol+i] = data[2 * ((j-delta)*ncol+i)];
-					pol1[j*ncol+i] = data[2 * ((j-delta)*ncol+i) + 1];
-				}
-			}
-			
-
-		}
-	}
-	else if (bit_depth == 2){
-		long nn=nrow*ncol/2;
-		uint8_t mask1 = 15;
-		uint8_t mask0 = 240;
-		for (int i = 0; i < nn; i++)
-		{
-			switch (i % 2)
-			{
-				case 0:
-				  pol0[i/2] = data[i] & mask0;
-				  pol1[i/2] = (data[i] & mask1) << 4;
-				  break;
-				case 1:
-				  pol0[i/2] += (data[i] & mask0) >> 4;
-				  pol1[i/2] += data[i] & mask1;
-				  break;
-			}
-		}
-	}
-	else if (bit_depth == 1){
-		long nn=nrow*ncol/2;
-		uint8_t mask = 3;
-		for (int i = 0; i < nn; i++)
-		{
-			switch (i % 4)
-			{
-				case 0:
-				  pol0[i/4] = ((data[i/2] >> 6) & mask) << 6;
-				  pol1[i/4] = ((data[i/2] >> 4) & mask) << 6;
-				  break;
-				case 1:
-				  pol0[i/4] = ((data[i/2] >> 2) & mask) << 4;
-				  pol1[i/4] = (data[i/2] & mask) << 4;
-				  break;
-				case 2:
-				  pol0[i/4] = ((data[i/2] >> 6) & mask) << 2;
-				  pol1[i/4] = ((data[i/2] >> 4) & mask) << 2;
-				  break;
-				case 3:
-				  pol0[i/4] = (data[i/2] >> 2) & mask;
-				  pol1[i/4] = data[i/2] & mask;
-				  break; 
-			}
-		}
-	}
-	else printf("sortpols unknown bit depth");
-}
-
-unsigned int dropped_packets (uint8_t *data, unsigned long *spec_num, unsigned int num_packets, const int spectra_per_packet, int nchan, short bit_depth)
-{
-	if (num_packets >= 2)
+	if (bit_depth == 4)
 	{
-		unsigned int num_dropped = 0;
-		unsigned int entries_per_packet;
-		if (bit_depth == 4)
+		int c1 = 2*ncols;
+		int c2 = 2*ncols*spectra_per_packet;
+		#pragma omp parallel for
+		for(int i = 0; i<npackets; i++)
 		{
-			entries_per_packet = 2 * nchan * spectra_per_packet;
-		}
-		else if (bit_depth == 2) 
-		{
-			entries_per_packet = nchan * spectra_per_packet;
-		}
-		else if (bit_depth == 1)
-		{
-			entries_per_packet = nchan * spectra_per_packet/2; //This is supposed to divide evenly. If it doesn't, that means the packet ends in the middle of a byte, which would be bad
-		}
-		else return 0;
-
-		for (unsigned int j = 0; j < num_packets - 1; j++)
-		{
-			if (spec_num[j + 1] - spec_num[j] != spectra_per_packet)
+			for(int j=0; j<spectra_per_packet; j++)
 			{
-				num_dropped++;
-				const unsigned int initial = entries_per_packet * j;
-				const unsigned int bound = initial + entries_per_packet;
-				for (unsigned int i = initial; i < bound; i++)
-				{
-					data[i] = 0;
+				for(int k=0; k<ncols; k++)
+				{	
+					pol0[(spec_num[i]+j)*ncols+k] = data[i*c2 + j*c1 + 2*k];
+					pol1[(spec_num[i]+j)*ncols+k] = data[i*c2 + j*c1 + 2*k+1];
 				}
 			}
 		}
-		return num_dropped;
-	}
-	else 
-	{
-		printf("There are fewer than 2 packets in the dropped packets function\n");
-		return 0;
 	}
 }
-
 
 
 
