@@ -149,8 +149,8 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
                 # print(obj.pol0, "form while lop")
                 p0 = obj.pol0[idxstart:idxstart+objlen,:].copy() # try making a copy here before passing
                 pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(p0)
-                # pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
-                # pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
+                pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
+                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
 
                 #if the code is here another part of chunk will be read from next file. 
                 # So it WILL go to the else block, and that's where we'll divide. Just adding here.
@@ -173,9 +173,9 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
                 # p0 = obj.pol0[idxstart:idxstart+rem,:] #copy here before passing
                 p0 = np.ones((rem,nchan),dtype='uint8',order='c')
                 # print("Strides for p0", p0.strides)
-                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(p0))#/(acclen-file_spec_gap-missing_spec_gap)
-                # pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
-                # pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(p0))/(acclen-file_spec_gap-missing_spec_gap)
+                pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
                 break
         print(i+1," blocks read")
@@ -189,28 +189,28 @@ if __name__=="__main__":
     init_path = '/project/s/sievers/albatros/uapishka/baseband/snap1/16272/16272*'
     init_t = 1627202094
     acclen = 393216
-    nchunks = 1
+    nchunks = 560
     pol00_1,pol11_1,pol01_1,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
     print("RUN 1 DONE")
-    pol00_2,pol11_2,pol01_2,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
-    print("RUN 2 DONE")
-    diff=np.sum(np.abs(pol00_1-pol00_2),axis=1)
-    check=np.where(diff!=0)
-    print(check)
-    print(diff[check[0]])
-    print(diff)
+    # pol00_2,pol11_2,pol01_2,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
+    # # print("RUN 2 DONE")
+    # diff1=np.sum(np.abs(pol00_1-pol00_2),axis=1)
+    # diff2=np.sum(np.abs(pol11_1-pol11_2),axis=1)
+    # diff3=np.sum(np.abs(pol01_1-pol01_2),axis=1)
+
+    # print(diff1,diff2,diff3)
 
     # np.savetxt('/scratch/s/sievers/mohanagr/pol00_5.txt',pol00)
-    # np.savetxt('/scratch/s/sievers/mohanagr/pol01_5.txt',pol01)
+    np.savetxt('/scratch/s/sievers/mohanagr/pol01_final.txt',pol01_1)
 
-    # from matplotlib import pyplot as plt
-    # fig,ax=plt.subplots(1,2)
-    # fig.set_size_inches(10,4)
-    # img1=ax[0].imshow(np.log10(np.abs(pol01)),aspect='auto')
-    # img2=ax[1].imshow(np.angle(pol01),aspect='auto',vmin=-np.pi,vmax=np.pi)
-    # plt.colorbar(img1,ax=ax[0])
-    # plt.colorbar(img2,ax=ax[1])
-    # plt.savefig('/scratch/s/sievers/mohanagr/pol01.png')
+    from matplotlib import pyplot as plt
+    fig,ax=plt.subplots(1,2)
+    fig.set_size_inches(10,4)
+    img1=ax[0].imshow(np.log10(np.abs(pol01_1)),aspect='auto')
+    img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
+    plt.colorbar(img1,ax=ax[0])
+    plt.colorbar(img2,ax=ax[1])
+    plt.savefig('/scratch/s/sievers/mohanagr/pol01.png')
 
 
 

@@ -84,7 +84,7 @@ def sortpols(data, length_channels, bit_mode, spec_num):
 		spectra_per_packet = data1.shape[1]//length_channels//2
 		nspec = data1.shape[0]*spectra_per_packet
 		nrows =  int(spec_num[-1] + spectra_per_packet) #nrows is nspec + missing spectra that'll be added as zeros
-		print(type(spectra_per_packet), type(data1.shape[0]))
+		# print(type(spectra_per_packet), type(data1.shape[0]))
 		print(f"nrows: {nrows}, nspec: {nspec}")
 		ncols = length_channels # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
 		# print(type(nspec), type(nrows),type(ncols))
