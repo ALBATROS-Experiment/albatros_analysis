@@ -36,43 +36,6 @@ void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol
 
 }
 
-// void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t ncol)
-// {
-// 	/*
-// 		Returns an array of nchan elements. Sum over all spectra for each channel. 
-// 		Division by appropriate spectra count will be taken care by python frontend.
-// 	*/
-
-// 	for(int i=0;i<ncol;i++)
-// 	{
-// 		corr[i]=0;
-// 	}
-	
-// 	uint8_t imask=15;
-//   	uint8_t rmask=255-15;
-// 	int64_t sum = 0; //should be more than enough. also eventually if data stored as float64 in autocorravg.py, should be compatible
-
-// 	for(int i = 0; i<ncol; i++)
-// 	{	
-// 		sum = 0;
-
-// 		#pragma omp parallel for default(none) firstprivate(imask,rmask,nspec,ncol,i) shared(data) reduction(+: sum)
-// 		for(int j = 0; j<nspec; j++)
-// 		{
-// 			int8_t im=data[j*ncol+i]&imask;
-// 			int8_t r=(data[j*ncol+i]&rmask)>>4;
-// 			if (r > 8){r = r - 16;}
-// 			if (im > 8){im = im - 16;}
-// 			// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
-// 			sum = sum + r*r + im*im;
-// 		}
-// 		// implicit barrier here
-// 		corr[i] = sum;
-// 	}	
-
-// 	printf("Last element from C %d \n", data[nspec*ncol-1]);
-// }
-
 void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t ncol)
 {
 	/*
@@ -164,32 +127,54 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t ns
 
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
-	int32_t sum_r, sum_im = 0; //+2.1bil to -2.4bil, should be enough, and compatible with float32
+	//+2.1bil to -2.4bil, should be enough, and compatible with float32
+	int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
 
-	for(int i = 0; i<ncol; i++)
-	{	
-		sum_r = 0;
-		sum_im = 0;
+	for(int i=0; i<ncol; i++)
+	{
+		xcorr[2*i]=0;
+		xcorr[2*i+1]=0;
+	}
 
-		#pragma omp parallel for default(none) firstprivate(imask,rmask,nspec,ncol,i) shared(data0,data1) reduction(+: sum_r,sum_im)
-		for(int j = 0; j<nspec; j++)
+	#pragma omp parallel private(sum_r_pvt,sum_im_pvt)
+	{
+		//init
+		for(int i=0;i<ncol;i++)
 		{
-			int8_t im0=data0[j*ncol+i]&imask;
-			int8_t r0=(data0[j*ncol+i]&rmask)>>4;
-			if (r0 > 8){r0 = r0 - 16;}
-			if (im0 > 8){im0 = im0 - 16;}
-
-			int8_t im1=data1[j*ncol+i]&imask;
-			int8_t r1=(data1[j*ncol+i]&rmask)>>4;
-			if (r1 > 8){r1 = r1 - 16;}
-			if (im1 > 8){im1 = im1 - 16;}
-			// printf("int8r %d, r*r = %d\n", (int8_t)r, prod);
-			sum_r = sum_r + r0*r1 + im0*im1;
-			sum_im = sum_im + r1*im0 - r0*im1;
+			sum_r_pvt[i]=0;
+			sum_im_pvt[i]=0;
 		}
-		// implicit barrier here
-		xcorr[2*i] = sum_r;
-		xcorr[2*i+1] = sum_im;
-	}	
-}
 
+		#pragma omp for nowait
+		for(int i=0; i<nspec; i++)
+		{
+			for(int j=0; j<ncol; j++)
+			{
+				int8_t im0=data0[i*ncol+j]&imask;
+				int8_t r0=(data0[i*ncol+j]&rmask)>>4;
+				if (r0 > 8){r0 = r0 - 16;}
+				if (im0 > 8){im0 = im0 - 16;}
+				
+
+				int8_t im1=data1[i*ncol+j]&imask;
+				int8_t r1=(data1[i*ncol+j]&rmask)>>4;
+				if (r1 > 8){r1 = r1 - 16;}
+				if (im1 > 8){im1 = im1 - 16;}
+				// printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
+
+				sum_r_pvt[j] = sum_r_pvt[j] + r0*r1 + im0*im1;
+				sum_im_pvt[j] = sum_im_pvt[j] + r1*im0 - r0*im1;
+			}
+		}
+		#pragma omp critical
+		{
+			for(int k=0; k<ncol; k++)
+			{
+				// printf("setting real xcorr of k=%d as %d\n",k, sum_r_pvt[k]);
+				xcorr[2*k] = xcorr[2*k] + sum_r_pvt[k];
+				xcorr[2*k+1] = xcorr[2*k+1] + sum_im_pvt[k];
+			}
+		}
+	}
+
+}
