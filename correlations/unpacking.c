@@ -130,45 +130,35 @@ void unpack_2bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nch
   }
 }
 
-void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int ndat, int nchan)
+void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int nchan)
 {
-  int nn=ndat*nchan;
-#pragma omp parallel for
-  for (int ii=0;ii<ndat;ii++) {
-    for (int jj=0;jj<nchan;jj++) {
-      int i=ii*nchan+jj;
-      
-      float r0c0=(data[i]>>7)&1;
-      float i0c0=(data[i]>>6)&1;
-      float r1c0=(data[i]>>5)&1;
-      float i1c0=(data[i]>>4)&1;
+  uint64_t nn=nspec*nchan/2; //length of the read raw data in bytes. nn is total bytes
+  #pragma omp parallel for
+  for (uint64_t i = 0; i<nn; i++) {
+    float r0c0=(data[i]>>7)&1;
+    float i0c0=(data[i]>>6)&1;
+    float r1c0=(data[i]>>5)&1;
+    float i1c0=(data[i]>>4)&1;
+    float r0c1=(data[i]>>3)&1;
+    float i0c1=(data[i]>>2)&1;
+    float r1c1=(data[i]>>1)&1;
+    float i1c1=(data[i]>>0)&1;
 
-      float r0c1=(data[i]>>3)&1;
-      float i0c1=(data[i]>>2)&1;
-      float r1c1=(data[i]>>1)&1;
-      float i1c1=(data[i]>>0)&1;
-      
-      pol0[4*ii*nchan+2*jj]=2*r0c0-1;
-      pol0[4*ii*nchan+2*jj+1]=2*i0c0-1;
-      pol0[(4*ii+2)*nchan+2*jj]=2*r0c1-1;
-      pol0[(4*ii+2)*nchan+2*jj+1]=2*i0c1-1;
-
-
-      pol1[4*ii*nchan+2*jj]=2*r1c0-1;
-      pol1[4*ii*nchan+2*jj+1]=2*i1c0-1;
-      pol1[(4*ii+2)*nchan+2*jj]=2*r1c1-1;
-      pol1[(4*ii+2)*nchan+2*jj+1]=2*i1c1-1;
-    }
+    pol0[4*i]   = 2*r0c0-1;
+    pol0[4*i+1] = 2*i0c0-1;
+    pol1[4*i]   = 2*r1c0-1;
+    pol1[4*i+1] = 2*i1c0-1;
+    pol0[4*i+2] = 2*r0c1-1;
+    pol0[4*i+3] = 2*i0c1-1;
+    pol1[4*i+2] = 2*r1c1-1;
+    pol1[4*i+3] = 2*i1c1-1;
   }
 }
-int cmpfunc(const void * a, const void * b) {
-   return ( *(uint8_t*)a - *(uint8_t*)b );
-}
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int ncols, int spectra_per_packet, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int nrows, int ncols, int spectra_per_packet, short bit_depth)
 {
 
-	int nn = npackets*spectra_per_packet*ncols;
+	int nn = nrows*ncols;
 	printf("Oi!\n");
 	
 	#pragma omp parallel for
@@ -195,6 +185,35 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
 			}
 		}
 	}
+  else if(bit_depth == 1)
+  {
+    int c1 = 2*ncols;
+		int c2 = 2*ncols*spectra_per_packet;
+    #pragma omp parallel for
+    for(int i=0;i<npackets;i++)
+    {
+      for(int j=0;j<spectra_per_packet;j++)
+      {
+        for(int k=0;k<ncols;k++)
+        {
+          long idx = i*c2 + j*c1 + 2*k;
+          //byte 1
+          uint8_t p0c0 = (data[idx])&192;
+          uint8_t p1c0 = (data[idx])&48;
+          uint8_t p0c1 = (data[idx])&12;
+          uint8_t p1c1 = (data[idx])&3;
+          //byte 2
+          uint8_t p0c2 = (data[idx+1])&192;
+          uint8_t p1c2 = (data[idx+1])&48;
+          uint8_t p0c3 = (data[idx+1])&12 ;
+          uint8_t p1c3 = (data[idx+1])&3;
+
+          pol0[(spec_num[i]+j)*ncols+k] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
+          pol1[(spec_num[i]+j)*ncols+k] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
+        }
+      }
+    }
+  }
 }
 
 

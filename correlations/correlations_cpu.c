@@ -176,5 +176,179 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t ns
 			}
 		}
 	}
-
 }
+
+void avg_xcorr_1bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nchan, const uint32_t nspec, const uint32_t ncol)
+{
+	printf("enter func\n");
+	//+2.1bil to -2.4bil, should be enough, and compatible with float32
+	int32_t sum_r_pvt[nchan], sum_im_pvt[nchan];
+
+	for(int i=0; i<nchan; i++)
+	{
+		xcorr[2*i]=0;
+		xcorr[2*i+1]=0;
+	}
+	printf("nspec is %d\n", nspec);
+	//#pragma omp parallel private(sum_r_pvt,sum_im_pvt)
+	//{
+		printf("INSIDE BLOCK\n");
+		//init
+		for(int i=0;i<nchan;i++)
+		{
+			sum_r_pvt[i]=0;
+			sum_im_pvt[i]=0;
+		}
+
+		printf("About to enter OUTER FOR\n");
+		printf("nspec is %d\n", nspec);
+		//#pragma omp for nowait
+		for(int i=0; i<nspec; i++)
+		{
+			printf("HELL\n");
+			fflush(stdout);
+			int8_t c0r0,c0i0,c1r0,c1i0,c2r0,c2i0,c3r0,c3i0,c0r1,c0i1,c1r1,c1i1,c2r1,c2i1,c3r1,c3i1;
+			int idx, colidx;
+			printf("enter outer for\n");
+			// deal with the very last byte later. see switch-case below.
+			for(int j=0; j<ncol-1; j++)
+			{
+				idx = i*ncol + j;
+				c0r0 = (data0[idx]>>7)&1;
+				c0i0 = (data0[idx]>>6)&1;
+				c1r0 = (data0[idx]>>5)&1;
+				c1i0 = (data0[idx]>>4)&1;
+				c2r0 = (data0[idx]>>3)&1;
+				c2i0 = (data0[idx]>>2)&1;
+				c3r0 = (data0[idx]>>1)&1;
+				c3i0 = (data0[idx])&1;
+
+				c0r1 = (data1[idx]>>7)&1;  
+				c0i1 = (data1[idx]>>6)&1;
+				c1r1 = (data1[idx]>>5)&1;
+				c1i1 = (data1[idx]>>4)&1;
+				c2r1 = (data1[idx]>>3)&1;
+				c2i1 = (data1[idx]>>2)&1;
+				c3r1 = (data1[idx]>>1)&1;
+				c3i1 = (data1[idx])&1;		
+				colidx = 4*j;
+				sum_r_pvt[colidx] = sum_r_pvt[colidx]     - 2*(c0r0^c0r1 + c0i0^c0i1)+2;
+				sum_im_pvt[colidx] = sum_im_pvt[colidx]   - 2*(c0r1^c0i0 - c0r0^c0i1);
+				sum_r_pvt[colidx+1] = sum_r_pvt[colidx+1]   - 2*(c1r0^c1r1 + c1i0^c1i1)+2;
+				sum_im_pvt[colidx+1] = sum_im_pvt[colidx+1] - 2*(c1r1^c1i0 - c1r0^c1i1);
+				sum_r_pvt[colidx+2] = sum_r_pvt[colidx+2]   - 2*(c2r0^c2r1 + c2i0^c2i1)+2;
+				sum_im_pvt[colidx+2] = sum_im_pvt[colidx+2] - 2*(c2r1^c2i0 - c2r0^c2i1);
+				sum_r_pvt[colidx+3] = sum_r_pvt[colidx+3]   - 2*(c3r0^c3r1 + c3i0^c3i1)+2;
+				sum_im_pvt[colidx+3] = sum_im_pvt[colidx+3] - 2*(c3r1^c3i0 - c3r0^c3i1);
+			}
+			int j = ncol-1;
+			idx = i*ncol + j;
+			colidx = 4*j;
+			printf("about to hit switch when j = %d and colid = %d\n",j,colidx);
+			switch(nchan%4)
+			{	
+				case 0:
+					printf("Inside switch, j = %d, colidx = %d\n", j, colidx);
+					c0r0 = (data0[idx]>>7)&1;
+					c0i0 = (data0[idx]>>6)&1;
+					c1r0 = (data0[idx]>>5)&1;
+					c1i0 = (data0[idx]>>4)&1;
+					c2r0 = (data0[idx]>>3)&1;
+					c2i0 = (data0[idx]>>2)&1;
+					c3r0 = (data0[idx]>>1)&1;
+					c3i0 = (data0[idx])&1;
+					printf("Byte passed for pol0 is %d\n", data0[idx]);
+					printf("Bit signature is %d%d%d%d%d%d%d%d\n",c0r0,c0i0,c1r0,c1i0,c2r0,c2i0,c3r0,c3i0);
+
+					c0r1 = (data1[idx]>>7)&1;  
+					c0i1 = (data1[idx]>>6)&1;
+					c1r1 = (data1[idx]>>5)&1;
+					c1i1 = (data1[idx]>>4)&1;
+					c2r1 = (data1[idx]>>3)&1;
+					c2i1 = (data1[idx]>>2)&1;
+					c3r1 = (data1[idx]>>1)&1;
+					c3i1 = (data1[idx])&1;		
+					
+					printf("Byte passed for pol1 is %d\n", data1[idx]);
+					printf("Bit signature is %d%d%d%d%d%d%d%d\n",c0r1,c0i1,c1r1,c1i1,c2r1,c2i1,c3r1,c3i1);
+					sum_r_pvt[colidx] = sum_r_pvt[colidx]     - 2*(c0r0^c0r1 + c0i0^c0i1)+2;
+					sum_im_pvt[colidx] = sum_im_pvt[colidx]   - 2*(c0r1^c0i0 - c0r0^c0i1);
+					sum_r_pvt[colidx+1] = sum_r_pvt[colidx+1]   - 2*(c1r0^c1r1 + c1i0^c1i1)+2;
+					sum_im_pvt[colidx+1] = sum_im_pvt[colidx+1] - 2*(c1r1^c1i0 - c1r0^c1i1);
+
+					printf("435 chan init val 0? %d %d\n", sum_r_pvt[colidx+2], sum_im_pvt[colidx+2]);
+					printf("c2r0 %d c2r1 %d c2i0 %d c2i1 %d\n", c2r0,c2r1,c2i0,c2i1);
+					printf("1 xor 1 %d\n", 1^1);
+					printf("c2r0^c2r1 %d c2i0^c2i1 %d \n", c2r0^c2r1,c2i0^c2i1);
+					printf("mod val %d \n", -2*((1^1)+(1^1))+2);
+					sum_r_pvt[colidx+2] = sum_r_pvt[colidx+2]   - 2*(c2r0^c2r1 + c2i0^c2i1)+2;
+					sum_im_pvt[colidx+2] = sum_im_pvt[colidx+2] - 2*(c2r1^c2i0 - c2r0^c2i1);
+
+					printf("435 chan final val %d %d\n", sum_r_pvt[colidx+2], sum_im_pvt[colidx+2]);
+
+					sum_r_pvt[colidx+3] = sum_r_pvt[colidx+3]   - 2*(c3r0^c3r1 + c3i0^c3i1)+2;
+					sum_im_pvt[colidx+3] = sum_im_pvt[colidx+3] - 2*(c3r1^c3i0 - c3r0^c3i1);
+					break;
+				case 3:
+					c0r0 = (data0[idx]>>7)&1;
+					c0i0 = (data0[idx]>>6)&1;
+					c1r0 = (data0[idx]>>5)&1;
+					c1i0 = (data0[idx]>>4)&1;
+					c2r0 = (data0[idx]>>3)&1;
+					c2i0 = (data0[idx]>>2)&1;
+
+					c0r1 = (data1[idx]>>7)&1;  
+					c0i1 = (data1[idx]>>6)&1;
+					c1r1 = (data1[idx]>>5)&1;
+					c1i1 = (data1[idx]>>4)&1;
+					c2r1 = (data1[idx]>>3)&1;
+					c2i1 = (data1[idx]>>2)&1;
+
+					sum_r_pvt[colidx] = sum_r_pvt[colidx]     - 2*(c0r0^c0r1 + c0i0^c0i1)+2;
+					sum_im_pvt[colidx] = sum_im_pvt[colidx]   - 2*(c0r1^c0i0 - c0r0^c0i1);
+					sum_r_pvt[colidx+1] = sum_r_pvt[colidx+1]   - 2*(c1r0^c1r1 + c1i0^c1i1)+2;
+					sum_im_pvt[colidx+1] = sum_im_pvt[colidx+1] - 2*(c1r1^c1i0 - c1r0^c1i1);
+					sum_r_pvt[colidx+2] = sum_r_pvt[colidx+2]   - 2*(c2r0^c2r1 + c2i0^c2i1)+2;
+					sum_im_pvt[colidx+2] = sum_im_pvt[colidx+2] - 2*(c2r1^c2i0 - c2r0^c2i1);
+					break;
+				case 2:
+					c0r0 = (data0[idx]>>7)&1;
+					c0i0 = (data0[idx]>>6)&1;
+					c1r0 = (data0[idx]>>5)&1;
+					c1i0 = (data0[idx]>>4)&1;
+
+					c0r1 = (data1[idx]>>7)&1;  
+					c0i1 = (data1[idx]>>6)&1;
+					c1r1 = (data1[idx]>>5)&1;
+					c1i1 = (data1[idx]>>4)&1;
+
+					sum_r_pvt[colidx] = sum_r_pvt[colidx]     - 2*(c0r0^c0r1 + c0i0^c0i1)+2;
+					sum_im_pvt[colidx] = sum_im_pvt[colidx]   - 2*(c0r1^c0i0 - c0r0^c0i1);
+					sum_r_pvt[colidx+1] = sum_r_pvt[colidx+1]   - 2*(c1r0^c1r1 + c1i0^c1i1)+2;
+					sum_im_pvt[colidx+1] = sum_im_pvt[colidx+1] - 2*(c1r1^c1i0 - c1r0^c1i1);
+					break;
+				case 1:
+					c0r0 = (data0[idx]>>7)&1;
+					c0i0 = (data0[idx]>>6)&1;
+
+					c0r1 = (data1[idx]>>7)&1;  
+					c0i1 = (data1[idx]>>6)&1;
+
+					sum_r_pvt[colidx] = sum_r_pvt[colidx]     - 2*(c0r0^c0r1 + c0i0^c0i1)+2;
+					sum_im_pvt[colidx] = sum_im_pvt[colidx]   - 2*(c0r1^c0i0 - c0r0^c0i1);
+					break;
+			}
+
+		}
+		//#pragma omp critical
+		{
+			for(int k=0; k<nchan; k++)
+			{
+				// printf("setting real xcorr of k=%d as %d\n",k, sum_r_pvt[k]);
+				xcorr[2*k] = xcorr[2*k] + sum_r_pvt[k];
+				xcorr[2*k+1] = xcorr[2*k+1] + sum_im_pvt[k];
+			}
+		}
+	//}
+}
+

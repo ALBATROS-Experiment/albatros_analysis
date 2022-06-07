@@ -55,7 +55,7 @@ class Baseband:
 
 class BasebandFloat(Baseband):
 	def __init__(self, file_name):
-		super().__init__(self, file_name)
+		super().__init__(file_name)
 
 		if self.bit_mode == 4:
 			self.pol0, self.pol1 = unpk.unpack_4bit(self.raw_data, self.length_channels, True)
@@ -63,8 +63,7 @@ class BasebandFloat(Baseband):
 			raw_spectra = self.raw_data.reshape(-1, self.length_channels)
 			self.pol0, self.pol1 = unpk.unpack_2bit(raw_spectra, self.length_channels, True)
 		elif self.bit_mode == 1:
-			raw_spectra = self.raw_data.reshape(-1, self.length_channels//2)
-			self.pol0, self.pol1 = unpk.unpack_1bit(raw_spectra, self.length_channels, True)
+			self.pol0, self.pol1 = unpk.unpack_1bit(self.raw_data, self.length_channels, True)
 		else:
 			print("Unknown bit depth")
 	

@@ -1,12 +1,18 @@
  #temporary testing file
  
 from correlations import baseband_data_classes as bdc
-import correlations as cr
+from correlations import correlations as cr
 import numpy as np
 import time
 
+
+objnew = bdc.BasebandPacked("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
+z=cr.avg_xcorr_1bit(objnew.pol0[0,:].reshape(1,-1),objnew.pol0[0,:].reshape(1,-1),436)
+print(z)
+print(objnew.pol0[0,-1], "last byte")
+
 # histogram check 
-obj=bdc.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
+# obj=bdc.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
 # obj=bdc.Baseband('/project/s/sievers/albatros/uapishka/baseband/snap3/16276/1627622856.raw')
 # hist=obj.get_hist(mode=-1)
 # hist_str = ','.join([str(n) for n in hist])
