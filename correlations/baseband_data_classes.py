@@ -81,6 +81,7 @@ class BasebandPacked(Baseband):
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
 		spec_idx = self.spec_num - self.spec_num[0]
-		
+		# print(self.spectra_per_packet)
+		# unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, spec_idx)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, spec_idx)
 		# print(self.pol0.strides)

@@ -90,12 +90,16 @@ def sortpols(data, length_channels, bit_mode, spec_num):
 		# print(type(nspec), type(nrows),type(ncols))
 		pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 		pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
-	elif bit_mode == 2:
-		pol0 = numpy.zeros([data.shape[0]//4,length_channels],dtype='uint8', order = 'c')
-		pol1 = numpy.zeros([data.shape[0]//4,length_channels],dtype='uint8', order = 'c')
 	elif bit_mode == 1:
-		pol0 = numpy.zeros([data.shape[0]//8,length_channels],dtype='uint8', order = 'c')
-		pol1 = numpy.zeros([data.shape[0]//8,length_channels],dtype='uint8', order = 'c')
+		spectra_per_packet = data.shape[1]*2//length_channels
+		print("calculated spec per packet", spectra_per_packet)
+		ncols = length_channels//4 # each byte in new array can store 4 channels
+		nspec = data1.shape[0]*spectra_per_packet
+		nrows = int(spec_num[-1] + spectra_per_packet)
+		print(nrows,nspec,ncols)
+		pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
+		pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
+		return
 			
 	t1 = time.time()
 	sortpols_c(data1.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, sp_num.ctypes.data, data1.shape[0], ncols, spectra_per_packet, bit_mode)

@@ -4,6 +4,7 @@ import glob
 import time
 from correlations import baseband_data_classes as bdc
 from correlations import correlations as cr
+# from correlations import baseband_data_classes as bdc2
 
 print("imported autocorravg module successfully")
 
@@ -45,53 +46,6 @@ def get_init_info(path, init_timestamp):
     
     return idxstart, fileidx, files
 
-def get_avg_slow(path, init_timestamp, acclen, nchunks, bitmode=1, polcross=False):
-    '''
-    Utility for averaging autospectra for over baseband files of one antenna. S
-    Slow because it uses the "float" (and not packed) version of reading files. 
-    Autospectra multiplication is also carried out in python making it slower.
-    '''
-    
-    idxstart, fileidx, files = get_init_info(path, init_timestamp)
-    print("Starting at: ",idxstart, "in filenum: ",fileidx)
-    print(files[fileidx])
-    
-    obj = bdc.baseband_data_float(files[fileidx])
-    channels=obj.channels
-    assert(obj.pol0.shape[0]==obj.pol1.shape[0])
-    assert(obj.bit_mode==bitmode)
-    nchan=obj.pol0.shape[1]
-    objlen=obj.pol0.shape[0]
-    psd=np.zeros((nchunks,nchan),dtype='complex128')
-    fc=0 #file counter
-    st=time.time()
-
-    for i in range(nchunks):
-        rem=acclen #remaining
-        
-        while(True):
-            l=objlen-idxstart
-            if(l<rem):
-                psd[i,:]=psd[i,:]+np.sum(obj.pol0[idxstart:objlen,:]*\
-                                         np.conj(obj.pol1[idxstart:objlen,:]), axis=0)
-                fc+=1
-                idxstart=0
-                del obj
-                obj = bdc.baseband_data_float(files[fileidx+fc])
-                objlen=obj.pol0.shape[0]
-                assert(obj.pol0.shape[0]==obj.pol1.shape[0])
-                rem-=l
-                
-            else:
-                psd[i,:]=psd[i,:]+np.sum(obj.pol0[idxstart:idxstart+rem,:]*\
-                                         np.conj(obj.pol1[idxstart:idxstart+rem,:]), axis=0)
-                idxstart+=rem
-                break
-        print(i+1," blocks read")
-    et=time.time()
-    print(f"time taken {et-st:4.2f}")
-    return psd,channels
-
 def get_num_missing(s_idx, e_idx, missing_loc, missing_num):
 
     sum = 0
@@ -123,6 +77,7 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
     print(files[fileidx])
     
+    # obj = bdc2.baseband_data_packed(files[fileidx])
     obj = bdc.BasebandPacked(files[fileidx])
     channels=obj.channels
     assert(obj.pol0.shape[0]==obj.pol1.shape[0])
@@ -132,11 +87,11 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
     pol00=np.zeros((nchunks,nchan),dtype='float64',order='c')
     pol11=np.zeros((nchunks,nchan),dtype='float64',order='c')
     pol01=np.zeros((nchunks,nchan),dtype='complex64',order='c')
-    obj.pol0[:]=obj.pol0-obj.pol0+254
+    # obj.pol0[:]=obj.pol0-obj.pol0+254
     fc=0 #file counter
     st=time.time()
-    print(type(obj.pol0))
-    print(obj.pol0.dtype,obj.pol0.strides)
+    # print(type(obj.pol0))
+    # print(obj.pol0.dtype,obj.pol0.strides)
     for i in range(nchunks):
         rem=acclen #remaining
         missing_spec_gap=0
@@ -145,10 +100,12 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
         while(True):
             l=objlen-idxstart
             if(l<rem):
-                # missing_spec_gap += get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
+                # print("less than rem:", "idxstart l objlen", idxstart, l, objlen)
+                missing_spec_gap += get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
                 # print(obj.pol0, "form while lop")
-                p0 = obj.pol0[idxstart:idxstart+objlen,:].copy() # try making a copy here before passing
-                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(p0)
+                # p0 = obj.pol0[idxstart:idxstart+objlen,:] # try making a copy here before passing
+                # pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(p0)
+                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+objlen,:])
                 pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
                 pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
 
@@ -158,22 +115,26 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
                 fc+=1
                 idxstart=0
                 file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
-                del obj
+                # del obj
+                # obj = bdc2.baseband_data_packed(files[fileidx+fc])
                 obj = bdc.BasebandPacked(files[fileidx+fc])
-                obj.pol0[:]=obj.pol0-obj.pol0+254
+                # obj.pol0[:]=obj.pol0-obj.pol0+254
                 file_spec_gap += obj.spec_num[0]
                 objlen=obj.pol0.shape[0]
                 # assert(obj.pol0.shape[0]==obj.pol1.shape[0])
                 rem-=l
+                # print("rem updated to ", rem, "idxstart", 0, "new objlen", objlen)
             else:
+                # print("normal. idxstart", idxstart, "reading for rem", rem)
                 # print("Strides for pol00", pol00.strides)
-                # missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
                 # print(f"file spec gap: {file_spec_gap}, missing spec gap: {missing_spec_gap}")
                 # print(obj.pol0,"while loop else")
                 # p0 = obj.pol0[idxstart:idxstart+rem,:] #copy here before passing
-                p0 = np.ones((rem,nchan),dtype='uint8',order='c')
+                # p0 = np.ones((rem,nchan),dtype='uint8',order='c')
                 # print("Strides for p0", p0.strides)
-                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(p0))/(acclen-file_spec_gap-missing_spec_gap)
+                # pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(p0))/(acclen-file_spec_gap-missing_spec_gap)
+                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
@@ -187,21 +148,21 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
 if __name__=="__main__":
 
     init_path = '/project/s/sievers/albatros/uapishka/baseband/snap1/16272/16272*'
-    init_t = 1627202094
+    # /project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627204039.raw
+    init_t = 1627202094#1627204039
     acclen = 393216
     nchunks = 560
     pol00_1,pol11_1,pol01_1,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
     print("RUN 1 DONE")
-    # pol00_2,pol11_2,pol01_2,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
-    # # print("RUN 2 DONE")
-    # diff1=np.sum(np.abs(pol00_1-pol00_2),axis=1)
-    # diff2=np.sum(np.abs(pol11_1-pol11_2),axis=1)
-    # diff3=np.sum(np.abs(pol01_1-pol01_2),axis=1)
-
-    # print(diff1,diff2,diff3)
+    pol00_2,pol11_2,pol01_2,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
+    print("RUN 2 DONE")
+    diff1=np.sum(np.abs(pol00_1-pol00_2),axis=1)
+    diff2=np.sum(np.abs(pol00_1-pol00_2),axis=1)
+    diff3=np.sum(np.abs(pol00_1-pol00_2),axis=1)
+    print(diff1,diff2,diff3)
 
     # np.savetxt('/scratch/s/sievers/mohanagr/pol00_5.txt',pol00)
-    np.savetxt('/scratch/s/sievers/mohanagr/pol01_final.txt',pol01_1)
+    # np.savetxt('/scratch/s/sievers/mohanagr/pol01_final.txt',pol01_1)
 
     from matplotlib import pyplot as plt
     fig,ax=plt.subplots(1,2)
