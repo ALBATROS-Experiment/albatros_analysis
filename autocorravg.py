@@ -69,6 +69,26 @@ def get_num_missing(s_idx, e_idx, missing_loc, missing_num):
                     sum+= e_idx - s_idx
                     break
     return sum
+
+def get_rows_from_specnum(spec1,spec2, spec_num, spectra_per_packet):
+
+    l = np.searchsorted(spec_num,spec1,side='left')
+    r = np.searchsorted(spec_num,spec1,side='left')
+
+    diff1 = spec1-spec_num[l]
+    diff2 = spec2-spec_num[r] 
+
+    if(diff1<spectra_per_packet):
+        idx1 = l*spectra_per_packet + diff1
+    else:
+        idx1 = (l+1)*spectra_per_packet
+
+    if(diff2<spectra_per_packet):
+        idx2 = r*spectra_per_packet + diff2
+    else:
+        idx2 = (r+1)*spectra_per_packet
+
+    return idx1,idx2
                 
 
 def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
@@ -77,7 +97,6 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
     print(files[fileidx])
     
-    # obj = bdc2.baseband_data_packed(files[fileidx])
     obj = bdc.BasebandPacked(files[fileidx])
     channels=obj.channels
     assert(obj.pol0.shape[0]==obj.pol1.shape[0])
@@ -87,11 +106,10 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
     pol00=np.zeros((nchunks,nchan),dtype='float64',order='c')
     pol11=np.zeros((nchunks,nchan),dtype='float64',order='c')
     pol01=np.zeros((nchunks,nchan),dtype='complex64',order='c')
-    # obj.pol0[:]=obj.pol0-obj.pol0+254
+
     fc=0 #file counter
     st=time.time()
-    # print(type(obj.pol0))
-    # print(obj.pol0.dtype,obj.pol0.strides)
+
     for i in range(nchunks):
         rem=acclen #remaining
         missing_spec_gap=0
@@ -102,9 +120,7 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
             if(l<rem):
                 # print("less than rem:", "idxstart l objlen", idxstart, l, objlen)
                 missing_spec_gap += get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
-                # print(obj.pol0, "form while lop")
-                # p0 = obj.pol0[idxstart:idxstart+objlen,:] # try making a copy here before passing
-                # pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(p0)
+
                 pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+objlen,:])
                 pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
                 pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
@@ -116,27 +132,82 @@ def get_avg_fast(path, init_timestamp, acclen, nchunks, bitmode=4):
                 idxstart=0
                 file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
                 # del obj
-                # obj = bdc2.baseband_data_packed(files[fileidx+fc])
+
                 obj = bdc.BasebandPacked(files[fileidx+fc])
-                # obj.pol0[:]=obj.pol0-obj.pol0+254
+
                 file_spec_gap += obj.spec_num[0]
                 objlen=obj.pol0.shape[0]
-                # assert(obj.pol0.shape[0]==obj.pol1.shape[0])
+
                 rem-=l
-                # print("rem updated to ", rem, "idxstart", 0, "new objlen", objlen)
+
             else:
-                # print("normal. idxstart", idxstart, "reading for rem", rem)
-                # print("Strides for pol00", pol00.strides)
                 missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                # print(f"file spec gap: {file_spec_gap}, missing spec gap: {missing_spec_gap}")
-                # print(obj.pol0,"while loop else")
-                # p0 = obj.pol0[idxstart:idxstart+rem,:] #copy here before passing
-                # p0 = np.ones((rem,nchan),dtype='uint8',order='c')
-                # print("Strides for p0", p0.strides)
-                # pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(p0))/(acclen-file_spec_gap-missing_spec_gap)
                 pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                idxstart+=rem
+                break
+        print(i+1," blocks read")
+    et=time.time()
+    print(f"time taken {et-st:4.2f}")
+    return pol00,pol11,pol01,channels
+
+def get_avg_fast_1bit(path, init_timestamp, acclen, nchunks):
+    
+    idxstart, fileidx, files = get_init_info(path, init_timestamp)
+    print("Starting at: ",idxstart, "in filenum: ",fileidx)
+    print(files[fileidx])
+    
+    obj = bdc.BasebandPacked(files[fileidx])
+    channels=obj.channels
+    assert(obj.pol0.shape[0]==obj.pol1.shape[0])
+    assert(obj.bit_mode==1)
+    nchan=obj.pol0.shape[1]
+
+    objlen=obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
+
+    pol00=np.zeros((nchunks,nchan),dtype='float64',order='c')
+    pol11=np.zeros((nchunks,nchan),dtype='float64',order='c')
+    pol01=np.zeros((nchunks,nchan),dtype='complex64',order='c')
+
+    fc=0 #file counter
+    st=time.time()
+
+    for i in range(nchunks):
+        rem=acclen #remaining
+        missing_spec_gap=0
+        file_spec_gap=0
+        # print("MISSING:", obj.missing_loc, obj.missing_num)
+        while(True):
+            l=objlen-idxstart
+            if(l<rem):
+                # print("less than rem:", "idxstart l objlen", idxstart, l, objlen)
+                rowstart, rowend = get_rows_from_specnum(idxstart,idxstart+objlen,obj.spec_num,obj.spectra_per_packet)
+                missing_spec_gap += get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
+                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[rowstart:rowend,:])
+                pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[rowstart:rowend,:])
+                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[rowstart:rowend,:], obj.pol1[rowstart:rowend,:])
+
+                #if the code is here another part of chunk will be read from next file. 
+                # So it WILL go to the else block, and that's where we'll divide. Just adding here.
+
+                fc+=1
+                idxstart=0
+                file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
+                # del obj
+
+                obj = bdc.BasebandPacked(files[fileidx+fc])
+
+                file_spec_gap += obj.spec_num[0]
+                objlen=obj.pol0.shape[0]
+
+                rem-=l
+            else:
+                missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                rowstart, rowend = get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_num,obj.spectra_per_packet)
+                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[rowstart:rowend,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[rowstart:rowend,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:]))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
                 break
         print(i+1," blocks read")

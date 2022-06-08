@@ -54,7 +54,7 @@ def unpack_1bit(data, length_channels, isfloat):
 		pol0 = numpy.zeros([nspec,length_channels],dtype='complex64')
 		pol1 = numpy.zeros([nspec,length_channels],dtype='complex64')
 		t1 = time.time()
-		unpack_1bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,data.shape[0],data.shape[1])
+		unpack_1bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,length_channels)
 		t2 = time.time()
 		print("Took " + str(t2 - t1) + " to unpack")
 	else:
@@ -82,8 +82,7 @@ def sortpols(data, length_channels, bit_mode, spec_num):
 		print("calculated spec per packet", spectra_per_packet)
 		ncols = numpy.ceil(length_channels/4).astype(int) # if num channels is not 4x, there will be fractional byte at the end
 		nspec = data1.shape[0]*spectra_per_packet
-		nrows = int(spec_num[-1] + spectra_per_packet)
-		print(nrows,nspec,ncols)
+		nrows = nspec # fundamentally we cannot insert 0s in 1 bit because there's no 0 level
 		pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 		pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 			

@@ -155,7 +155,7 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int n
   }
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int nrows, int ncols, int spectra_per_packet, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int nrows, int ncols, int spectra_per_packet, int nchan, short bit_depth)
 {
 
 	int nn = nrows*ncols;
@@ -187,16 +187,36 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
 	}
   else if(bit_depth == 1)
   {
-    int c1 = 2*ncols;
-		int c2 = 2*ncols*spectra_per_packet;
+    uint64_t nn=nspec*nchan/4; //length of the read raw data in bytes/2.
+    // I want to read two bytes at a time and pack 4 channels of each pol into a new byte.
+    // *MISSING SPECTRA IS IGNORED. KEPT TRACK SEPARATELY DURING XCORR AVERAGING*
     #pragma omp parallel for
-    for(int i=0;i<npackets;i++)
+    for(int i=0;i<nspec;i++)
     {
-      for(int j=0;j<spectra_per_packet;j++)
+      int m=0;
+      for(int j=0; j<ncols-1; j++)
       {
-        for(int k=0;k<ncols;k++)
-        {
-          long idx = i*c2 + j*c1 + 2*k;
+        int idx = ceil(nchan/2)*i + 2*j;
+        //byte 1
+        uint8_t p0c0 = (data[idx])&192;
+        uint8_t p1c0 = (data[idx])&48;
+        uint8_t p0c1 = (data[idx])&12;
+        uint8_t p1c1 = (data[idx])&3;
+        //byte 2
+        uint8_t p0c2 = (data[idx+1])&192;
+        uint8_t p1c2 = (data[idx+1])&48;
+        uint8_t p0c3 = (data[idx+1])&12 ;
+        uint8_t p1c3 = (data[idx+1])&3;
+
+        m = ncols*i+j;
+        pol0[m] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
+        pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
+      }
+      switch(nchan%4)
+      {
+        //use up last byte of raw data to fill 25% to 50% or 100% the last pol0 byte
+        case 0:
+          // need to read two more raw bytes
           //byte 1
           uint8_t p0c0 = (data[idx])&192;
           uint8_t p1c0 = (data[idx])&48;
@@ -208,11 +228,15 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
           uint8_t p0c3 = (data[idx+1])&12 ;
           uint8_t p1c3 = (data[idx+1])&3;
 
-          pol0[(spec_num[i]+j)*ncols+k] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
-          pol1[(spec_num[i]+j)*ncols+k] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
-        }
+          m = ncols*i+j;
+          pol0[m] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
+          pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
+        case 1:
+          // need to read two more raw bytes
+
       }
     }
+
   }
 }
 
