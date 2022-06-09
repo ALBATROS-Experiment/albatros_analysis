@@ -8,13 +8,22 @@ import time
 
 objnew = bdc.BasebandPacked("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
 obj = bdc.BasebandFloat("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
-xx=np.sum(objnew.pol0,axis=1)
-wherezero=(xx==0)
-o1 = objnew.pol0[~wherezero].copy()
-o2 = objnew.pol1[~wherezero].copy()
-xcorr1 = cr.avg_xcorr_1bit(o1[:,:],o2[:,:],436)
+
+print(objnew.pol0[0,0:4])
+print(objnew.pol1[0,0:4])
+
+
+# xx = obj.pol0*obj.pol1
 xcorr2 = cr.avg_xcorr_1bit(objnew.pol0,objnew.pol1,436)
-print(xcorr1-xcorr2)
+xcorr1 = np.sum(obj.pol0*np.conj(obj.pol1),axis=0)
+print(np.sum(xcorr2-xcorr1))
+
+# xcorr1 = np.sum(obj.pol0*np.conj(obj.pol1),axis=0)
+# xcorr2 = cr.avg_xcorr_1bit(objnew.pol0,objnew.pol0,436)
+# print(xcorr2-xcorr1)
+
+
+
 # xx=obj.pol0[:,:].copy()*np.conj(obj.pol1[:,:])
 # xcorr_old = np.sum(xx,axis=0)
 # print(xx.shape,xcorr_old.shape)

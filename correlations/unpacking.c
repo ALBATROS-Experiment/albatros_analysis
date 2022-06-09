@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 #include <omp.h>
 
 void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, uint8_t nbins, int8_t mode)
@@ -160,7 +161,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
 
 	int nn = nrows*ncols;
 	printf("Oi!\n");
-	
+	printf("nrows %d ncols %d\n", nrows, ncols);
 	#pragma omp parallel for
 	for(int i=0;i<nn;i++)
 	{
@@ -187,56 +188,95 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
 	}
   else if(bit_depth == 1)
   {
-    uint64_t nn=nspec*nchan/4; //length of the read raw data in bytes/2.
     // I want to read two bytes at a time and pack 4 channels of each pol into a new byte.
     // *MISSING SPECTRA IS IGNORED. KEPT TRACK SEPARATELY DURING XCORR AVERAGING*
+
+    int cndn = nchan%4;
+ 
     #pragma omp parallel for
-    for(int i=0;i<nspec;i++)
-    {
-      int m=0;
+    for(int i=0;i<nrows;i++)
+    { //nrows=nspec for 1 bit since no missing zeros inserted
+      int m=0,idx=0;
+      uint8_t p0c0,p0c1,p0c2,p0c3,p1c0,p1c1,p1c2,p1c3;
       for(int j=0; j<ncols-1; j++)
       {
-        int idx = ceil(nchan/2)*i + 2*j;
+        idx = ceil(nchan/2)*i + 2*j;
         //byte 1
-        uint8_t p0c0 = (data[idx])&192;
-        uint8_t p1c0 = (data[idx])&48;
-        uint8_t p0c1 = (data[idx])&12;
-        uint8_t p1c1 = (data[idx])&3;
+        p0c0 = (data[idx])&192;
+        p1c0 = (data[idx])&48;
+        p0c1 = (data[idx])&12;
+        p1c1 = (data[idx])&3;
         //byte 2
-        uint8_t p0c2 = (data[idx+1])&192;
-        uint8_t p1c2 = (data[idx+1])&48;
-        uint8_t p0c3 = (data[idx+1])&12 ;
-        uint8_t p1c3 = (data[idx+1])&3;
+        p0c2 = (data[idx+1])&192;
+        p1c2 = (data[idx+1])&48;
+        p0c3 = (data[idx+1])&12 ;
+        p1c3 = (data[idx+1])&3;
 
         m = ncols*i+j;
         pol0[m] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
         pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
       }
-      switch(nchan%4)
+      int j = ncols-1;
+      idx = ceil(nchan/2)*i + 2*j;
+      m = ncols*i+j;
+
+      switch(cndn)
       {
-        //use up last byte of raw data to fill 25% to 50% or 100% the last pol0 byte
+        //use up last byte of raw data to fill 25% to 100% of the last pol0 byte
         case 0:
           // need to read two more raw bytes
           //byte 1
-          uint8_t p0c0 = (data[idx])&192;
-          uint8_t p1c0 = (data[idx])&48;
-          uint8_t p0c1 = (data[idx])&12;
-          uint8_t p1c1 = (data[idx])&3;
-          //byte 2
-          uint8_t p0c2 = (data[idx+1])&192;
-          uint8_t p1c2 = (data[idx+1])&48;
-          uint8_t p0c3 = (data[idx+1])&12 ;
-          uint8_t p1c3 = (data[idx+1])&3;
+          p0c0 = (data[idx])&192;
+          p1c0 = (data[idx])&48;
+          p0c1 = (data[idx])&12;
+          p1c1 = (data[idx])&3;
 
-          m = ncols*i+j;
+          //byte 2
+          p0c2 = (data[idx+1])&192;
+          p1c2 = (data[idx+1])&48;
+          p0c3 = (data[idx+1])&12 ;
+          p1c3 = (data[idx+1])&3;
+
           pol0[m] = p0c0+(p0c1<<2)+(p0c2>>4)+(p0c3>>2);
           pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
-        case 1:
+          break;
+        case 3:
           // need to read two more raw bytes
+          //byte 1
+          printf("case 3\n");
+          p0c0 = (data[idx])&192;
+          p1c0 = (data[idx])&48;
+          p0c1 = (data[idx])&12;
+          p1c1 = (data[idx])&3;
+          //byte 2
+          p0c2 = (data[idx+1])&192;
+          p1c2 = (data[idx+1])&48;
 
+          pol0[m] = p0c0+(p0c1<<2)+(p0c2>>4);
+          pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2);
+          break;
+        case 2:
+          //only one more raw byte
+          printf("case 2\n");
+          p0c0 = (data[idx])&192;
+          p1c0 = (data[idx])&48;
+          p0c1 = (data[idx])&12;
+          p1c1 = (data[idx])&3;
+
+          pol0[m] = p0c0+(p0c1<<2);
+          pol1[m] = (p1c0<<2)+(p1c1<<4);
+          break;
+        case 1:
+          printf("case 1\n");
+          //only one more raw byte
+          p0c0 = (data[idx])&192;
+          p1c0 = (data[idx])&48;
+
+          pol0[m] = p0c0;
+          pol1[m] = (p1c0<<2);
+          break;
       }
     }
-
   }
 }
 

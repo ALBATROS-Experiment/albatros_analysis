@@ -12,7 +12,7 @@ unpack_2bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_
 unpack_1bit_float_c = mylib.unpack_1bit_float
 unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 sortpols_c = mylib.sortpols
-sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short]
+sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short]
 hist_4bit_c = mylib.hist_4bit
 hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 
@@ -80,14 +80,14 @@ def sortpols(data, length_channels, bit_mode, spec_num):
 	elif bit_mode == 1:
 		spectra_per_packet = data.shape[1]*2//length_channels
 		print("calculated spec per packet", spectra_per_packet)
-		ncols = numpy.ceil(length_channels/4).astype(int) # if num channels is not 4x, there will be fractional byte at the end
+		ncols = numpy.ceil(length_channels/4).astype(int) # if num channels is not 4x, there will be a fractional byte at the end
 		nspec = data1.shape[0]*spectra_per_packet
 		nrows = nspec # fundamentally we cannot insert 0s in 1 bit because there's no 0 level
 		pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 		pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 			
 	t1 = time.time()
-	sortpols_c(data1.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, sp_num.ctypes.data, data1.shape[0], nrows, ncols, spectra_per_packet, bit_mode)
+	sortpols_c(data1.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, sp_num.ctypes.data, data1.shape[0], nrows, ncols, spectra_per_packet, length_channels, bit_mode)
 	t2 = time.time()
 	print(f"Took {(t2 - t1):5.3f} to unpack")
 	
