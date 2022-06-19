@@ -180,7 +180,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t ns
 
 void avg_xcorr_1bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nchan, const uint32_t nspec, const uint32_t ncol)
 {
-	printf("entered corr func\n");
+	// printf("entered corr func\n");
 	//+2.1bil to -2.4bil, should be enough, and compatible with float32
 	int32_t sum_r_pvt[nchan], sum_im_pvt[nchan];
 

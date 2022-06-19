@@ -77,25 +77,41 @@ def get_rows_from_specnum(spec1,spec2, spec_num, spectra_per_packet):
     r = np.searchsorted(spec_num,spec2,side='left')
     # print(f"spec1={spec1} spec2={spec2}")
     # print(f"spec_num len {spec_num.shape[0]}, last spec_num {spec_num[-1]}, l={l}, r={r}")
-    # print(l,r)
-    diff2=0
-    if(l>=spec_num.shape[0]):  
-        l=l-1
-    diff1 = spec1-spec_num[l]
+    diff1=-1
+    diff2=-1
+    if(l<spec_num.shape[0]):
+        diff1 = spec1-spec_num[l]
     if(r<spec_num.shape[0]):
-        diff2 = spec2-spec_num[r]
+        diff2 = spec2-spec_num[r] # will give distance from right element in not equal cases
 
-    if(diff1<spectra_per_packet):
-        idx1 = l*spectra_per_packet + diff1
+    if(diff1!=0 and diff2!=0):
+        diff1 = spec1-spec_num[l-1]
+        diff2 = spec2-spec_num[r-1]
+        if(diff1<spectra_per_packet):
+            idx1=(l-1)*spectra_per_packet+diff1
+        else:
+            idx1=l*spectra_per_packet
+        if(diff2<spectra_per_packet):
+            idx2=(r-1)*spectra_per_packet+diff2
+        else:
+            idx2=r*spectra_per_packet
+    elif(diff1==0 and diff2!=0):
+        idx1 = l*spectra_per_packet
+        diff2 = spec2-spec_num[r-1]
+        if(diff2<spectra_per_packet):
+            idx2=(r-1)*spectra_per_packet+diff2
+        else:
+            idx2=r*spectra_per_packet
+    elif(diff1!=0 and diff2==0):
+        idx2 = r*spectra_per_packet
+        diff1 = spec1-spec_num[l-1]
+        if(diff1<spectra_per_packet):
+            idx1=(l-1)*spectra_per_packet+diff1
+        else:
+            idx1=l*spectra_per_packet
     else:
-        idx1 = (l+1)*spectra_per_packet
-
-    if(diff2<spectra_per_packet):
-        idx2 = r*spectra_per_packet + diff2
-    else:
-        idx2 = (r+1)*spectra_per_packet
-
-    # print("idx are", idx1, "to", idx2)
+        idx1 = l*spectra_per_packet
+        idx2 = r*spectra_per_packet
     return int(idx1),int(idx2)
 
 def get_avg_fast_1bit(path, init_timestamp, acclen, nchunks):
@@ -116,11 +132,11 @@ def get_avg_fast_1bit(path, init_timestamp, acclen, nchunks):
 
     fc=0 #file counter
     st=time.time()
-
+    file_spec_gap=0
     for i in range(nchunks):
-        rem=acclen #remaining
+        rem=acclen-file_spec_gap #file_spec_gap will be non-zero if a chunk ended at the end of one file.
+        # we only need (acclen-file_spec_gap) spectra from new file.
         missing_spec_gap=0
-        file_spec_gap=0
         # print("MISSING:", obj.missing_loc, obj.missing_num)
         while(True):
             l=objlen-idxstart
@@ -142,18 +158,37 @@ def get_avg_fast_1bit(path, init_timestamp, acclen, nchunks):
 
                 file_spec_gap += obj.spec_num[0]
                 objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
-
-                rem-=l
+                rem = rem-l-file_spec_gap
+            elif(l==rem):
+                # one chunk ends exactly at end of file
+                missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                rowstart, rowend = get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
+                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],obj.length_channels))/(acclen-file_spec_gap-missing_spec_gap)
+                #file_spec_gap above shouldn't affect the avg since we're still in the same file. And it doesn't because it's zero until a new file is read.
+                fc+=1
+                idxstart=0
+                file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet)
+                obj = bdc.BasebandPacked(files[fileidx+fc])
+                file_spec_gap += obj.spec_num[0]
+                objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
+                #don't reset file_spec_gap because upcoming chunk will be read from new file.
+                break
             else:
                 # print(obj.missing_loc,obj.missing_num,obj.spec_idx)
                 missing_spec_gap += get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
                 rowstart, rowend = get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
-                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],obj.length_channels))/(acclen-file_spec_gap-missing_spec_gap)
+                if(rowstart==rowend):
+                    print("YO SOME INVALID SHIT")
+                    pol01[i,:] = np.nan  # if the whole specnum block lies in missing area. will be masked later
+                else:
+                    pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],obj.length_channels))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
+                file_spec_gap=0 # reset this because we're continuing in same file for upcoming chunks
                 break
         print(i+1," blocks read")
     et=time.time()
     print(f"time taken {et-st:4.2f}")
+    pol01 = np.ma.masked_invalid(pol01)
     return pol01,channels
 
 
@@ -162,10 +197,11 @@ if __name__=="__main__":
     init_path = "/project/s/sievers/albatros/uapishka/baseband/snap1/16275/16275*.raw"
     # /project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627204039.raw
     init_t = 1627528549 #1627204039
-    acclen = 393216
-    nchunks = 560
-    pol01_1,channels = get_avg_fast_1bit(init_path,init_t,acclen,nchunks)
+    acclen = 20000
+    nchunks = 10986
+    pol01,channels = get_avg_fast_1bit(init_path,init_t,acclen,nchunks)
     print("RUN 1 DONE")
+
     # pol00_2,pol11_2,pol01_2,channels = get_avg_fast(init_path,init_t,acclen,nchunks)
     # print("RUN 2 DONE")
     # diff1=np.sum(np.abs(pol00_1-pol00_2),axis=1)
@@ -173,21 +209,23 @@ if __name__=="__main__":
     # diff3=np.sum(np.abs(pol00_1-pol00_2),axis=1)
     # print(diff1,diff2,diff3)
 
-    # np.savetxt('/scratch/s/sievers/mohanagr/pol00_5.txt',pol00)
-    np.savetxt('/scratch/s/sievers/mohanagr/pol01_1bit_1hr.txt',pol01_1)
-    r = np.real(pol01_1)
-    im = np.imag(pol01_1)
-    from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
-    # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005)
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005)
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
-    plt.savefig('/scratch/s/sievers/mohanagr/pol01_1bit.png')
-    print("/scratch/s/sievers/mohanagr/pol01_1bit.png")
+    np.savez_compressed(f'/scratch/s/sievers/mohanagr/pol01_1bit_{str(init_t)}_{str(acclen)}_{str(nchunks)}.txt',data=pol01.data,mask=pol01.mask)
+    # r = np.real(pol01_1)
+    # im = np.imag(pol01_1)
+
+    # from matplotlib import pyplot as plt
+    # fig,ax=plt.subplots(1,2)
+    # fig.set_size_inches(10,4)
+    # # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
+    # # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
+    # img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005)
+    # ax[0].set_title('real part')
+    # img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005)
+    # ax[1].set_title('imag part')
+    # plt.colorbar(img1,ax=ax[0])
+    # plt.colorbar(img2,ax=ax[1])
+    # plt.savefig(f'/scratch/s/sievers/mohanagr/pol01_1bit_{str(init_t)}_{str(acclen)}_{str(nchunks)}.png')
+    # print(f'/scratch/s/sievers/mohanagr/pol01_1bit_{str(init_t)}_{str(acclen)}_{str(nchunks)}.png')
 
 
 
