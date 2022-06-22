@@ -52,10 +52,11 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks):
                 idxstart=0
                 file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
                 # del obj
-
                 obj = bdc.BasebandPacked(files[fileidx+fc])
 
                 file_spec_gap += obj.spec_num[0]
+                file_spec_gap = int(file_spec_gap)
+                print("FILE SPEC GAP IS ", file_spec_gap)
                 objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
                 rem = rem-l #new remaining % of chunk left to read
                 if(file_spec_gap>=rem):
@@ -86,7 +87,7 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks):
                 missing_spec_gap += butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
                 rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
                 if(rowstart==rowend):
-                    print("YO SOME INVALID SHIT")
+                    print("WHOLE CHUNK LIES IN MISSING REGION")
                     pol01[i,:] = np.nan  # if the whole specnum block lies in missing area. will be masked later
                 else:
                     pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],obj.length_channels))/(acclen-file_spec_gap-missing_spec_gap)
@@ -126,28 +127,28 @@ if __name__=="__main__":
     # diff1=np.sum(np.abs(pol01_1-pol01_2),axis=1)
     # print(diff1) checked that this is zero. 
 
-    import os
-    fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.npz"
-    fpath = os.path.join(args.outdir,fname)
-    np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask)
-    r = np.real(pol01)
-    im = np.imag(pol01)
+    # import os
+    # fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.npz"
+    # fpath = os.path.join(args.outdir,fname)
+    # np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask)
+    # r = np.real(pol01)
+    # im = np.imag(pol01)
 
-    from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
-    # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005)
-    ax[0].set_title('real part')
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005)
-    ax[1].set_title('imag part')
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
-    fname=f'pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.png'
-    fpath=os.path.join(args.outdir,fname)
-    plt.savefig(fpath)
-    print(fpath)
+    # from matplotlib import pyplot as plt
+    # fig,ax=plt.subplots(1,2)
+    # fig.set_size_inches(10,4)
+    # # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
+    # # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
+    # img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005)
+    # ax[0].set_title('real part')
+    # img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005)
+    # ax[1].set_title('imag part')
+    # plt.colorbar(img1,ax=ax[0])
+    # plt.colorbar(img2,ax=ax[1])
+    # fname=f'pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.png'
+    # fpath=os.path.join(args.outdir,fname)
+    # plt.savefig(fpath)
+    # print(fpath)
 
 
 
