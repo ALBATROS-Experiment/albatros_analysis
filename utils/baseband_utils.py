@@ -108,28 +108,3 @@ def get_rows_from_specnum(spec1,spec2, spec_num, spectra_per_packet):
         idx1 = l*spectra_per_packet
         idx2 = r*spectra_per_packet
     return int(idx1),int(idx2)
-
-    fs = 250e6 #Hz sampling rate
-    speclen=4096 # length of each spectra
-    dt_spec = speclen/fs # time taken to read one spectra
-
-    # find which file to read first 
-    filetstamps = [int(f.split('.')[0].split('/')[-1]) for f in files]
-    filetstamps.sort()
-    filetstamps = np.asarray(filetstamps)
-
-    # ------ SKIP -------#
-    # make sure the sorted order of tstamps is same as of files. so that indices we'll find below correspond to correct files
-    # np.unique(filetstamps - np.asarray([int(f.split('.')[0].split('/')[-1]) for f in files])) should return [0]
-
-    # we're looking for a file that has the start timestamp closest to what we want
-    fileidx = np.where(filetstamps<=init_t)[0][-1]
-    #assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
-
-    # once we have a file, we seek to required position in time
-    idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
-    # check that starting index indeed corresponds to init_timestamp
-    print("CHECK",init_t,idxstart*dt_spec + filetstamps[fileidx])
-    print("CHECK", filetstamps[fileidx], files[fileidx])
-    
-    return idxstart, fileidx, files
