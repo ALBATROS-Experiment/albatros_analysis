@@ -59,6 +59,8 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks):
                 file_spec_gap += obj.spec_num[0]
                 file_spec_gap = int(file_spec_gap)
                 print("FILE SPEC GAP IS ", file_spec_gap)
+                if(file_spec_gap>0):
+                    raise AssertionError
                 objlen=obj.pol0.shape[0]
                 rem = rem-l #new remaining % of chunk left to read
                 if(file_spec_gap>=rem):
@@ -142,7 +144,7 @@ if __name__=="__main__":
     import os
     # fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.npz"
     # fpath = os.path.join(args.outdir,fname)
-    # np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask)
+    # np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask,chans=channels)
     # r = np.real(pol01)
     # im = np.imag(pol01)
 

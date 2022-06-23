@@ -57,6 +57,8 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks):
                 file_spec_gap += obj.spec_num[0]
                 file_spec_gap = int(file_spec_gap)
                 print("FILE SPEC GAP IS ", file_spec_gap)
+                if(file_spec_gap>0):
+                    raise AssertionError
                 objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
                 rem = rem-l #new remaining % of chunk left to read
                 if(file_spec_gap>=rem):
