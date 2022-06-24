@@ -105,32 +105,6 @@ void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int nspec, int nc
   }
 }
 
-void unpack_2bit_float(uint8_t *data,float *pol0, float *pol1, int ndat, int nchan)
-{
-  long nn=ndat*nchan;
-  uint8_t mask=3;
-#pragma omp parallel for
-  for (int i=0;i<nn;i++) {
-    uint8_t r0=(data[i]>>6)&mask;
-    uint8_t i0=(data[i]>>4)&mask;
-    uint8_t r1=(data[i]>>2)&mask;
-    uint8_t i1=(data[i])&mask;
-    pol0[2*i]=r0-1.0;
-    pol0[2*i+1]=i0-1.0;
-    pol1[2*i]=r1-1.0;
-    pol1[2*i+1]=i1-1.0;
-    if (pol0[2*i]<=0)
-      pol0[2*i]--;
-    if (pol0[2*i+1]<=0)
-      pol0[2*i+1]--;
-    if (pol1[2*i]<=0)
-      pol1[2*i]--;
-
-    if (pol1[2*i+1]<=0)
-      pol1[2*i+1]--;
-  }
-}
-
 void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int nchan)
 {
   uint64_t nn=nspec*nchan/2; //length of the read raw data in bytes. nn is total bytes
@@ -156,12 +130,12 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int n
   }
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int nrows, int ncols, int spectra_per_packet, int nchan, short bit_depth)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, int npackets, int nrows, int ncols, int spectra_per_packet, int nchan, short bit_depth, int chanstart, int chanend)
 {
-
+  //nchan is the actual number of channels in raw data. user may decide to unpack only a subset of them.
 	int nn = nrows*ncols;
-	printf("Oi!\n");
-	printf("nrows %d ncols %d\n", nrows, ncols);
+	// printf("Oi!\n");
+	// printf("nrows %d ncols %d\n", nrows, ncols);
 	#pragma omp parallel for
 	for(int i=0;i<nn;i++)
 	{
@@ -171,17 +145,17 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
 
 	if (bit_depth == 4)
 	{
-		int c1 = 2*ncols;
-		int c2 = 2*ncols*spectra_per_packet;
+		int c1 = 2*nchan;
+		int c2 = 2*nchan*spectra_per_packet;
 		#pragma omp parallel for
 		for(int i = 0; i<npackets; i++)
 		{
 			for(int j=0; j<spectra_per_packet; j++)
 			{
-				for(int k=0; k<ncols; k++)
+				for(int k=chanstart; k<chanend; k++)
 				{	
-					pol0[(spec_num[i]+j)*ncols+k] = data[i*c2 + j*c1 + 2*k];
-					pol1[(spec_num[i]+j)*ncols+k] = data[i*c2 + j*c1 + 2*k+1];
+					pol0[(spec_num[i]+j)*ncols+k-chanstart] = data[i*c2 + j*c1 + 2*k];
+					pol1[(spec_num[i]+j)*ncols+k-chanstart] = data[i*c2 + j*c1 + 2*k+1];
 				}
 			}
 		}
@@ -191,7 +165,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
     // I want to read two bytes at a time and pack 4 channels of each pol into a new byte.
     // *MISSING SPECTRA IS IGNORED. KEPT TRACK SEPARATELY DURING XCORR AVERAGING*
 
-    int cndn = nchan%4;
+    int cndn = (chanend-chanstart)%4;
  
     #pragma omp parallel for
     for(int i=0;i<nrows;i++)
@@ -200,7 +174,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
       uint8_t p0c0,p0c1,p0c2,p0c3,p1c0,p1c1,p1c2,p1c3;
       for(int j=0; j<ncols-1; j++)
       {
-        idx = ceil(nchan/2)*i + 2*j;
+        idx = ceil(nchan/2)*i + 2*j+ chanstart/2;
         //byte 1
         p0c0 = (data[idx])&192;
         p1c0 = (data[idx])&48;
@@ -217,7 +191,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
         pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
       }
       int j = ncols-1;
-      idx = ceil(nchan/2)*i + 2*j;
+      idx = ceil(nchan/2)*i + 2*j+chanstart/2;
       m = ncols*i+j;
 
       switch(cndn)
@@ -243,7 +217,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
         case 3:
           // need to read two more raw bytes
           //byte 1
-          printf("case 3\n");
+          // printf("case 3\n");
           p0c0 = (data[idx])&192;
           p1c0 = (data[idx])&48;
           p0c1 = (data[idx])&12;
@@ -257,7 +231,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
           break;
         case 2:
           //only one more raw byte
-          printf("case 2\n");
+          // printf("case 2\n");
           p0c0 = (data[idx])&192;
           p1c0 = (data[idx])&48;
           p0c1 = (data[idx])&12;
@@ -267,7 +241,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, uint64_t *spec_num, 
           pol1[m] = (p1c0<<2)+(p1c1<<4);
           break;
         case 1:
-          printf("case 1\n");
+          // printf("case 1\n");
           //only one more raw byte
           p0c0 = (data[idx])&192;
           p1c0 = (data[idx])&48;

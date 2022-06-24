@@ -24,33 +24,43 @@ if __name__=="__main__":
     fig,ax=plt.subplots(3,2)
     fig.set_size_inches(10,12)
 
-    ax[0][0].set_title('direct pol01 mag')
-    img=ax[0][0].imshow(np.log10(np.abs(dat2)),aspect='auto',vmin=-1.4,vmax=-0.5)
-    plt.colorbar(img,ax=ax[0][0])
-    ax[0][1].set_title('direct pol01 phase')
-    img=ax[0][1].imshow(np.angle(dat2),aspect='auto',cmap='RdBu',vmin=-np.pi,vmax=np.pi)
-    plt.colorbar(img,ax=ax[0][1])
+    fig,ax=plt.subplots(3,2)
+fig.set_size_inches(10,12)
 
-    ax[1][0].set_title('baseband pol01 mag')
-    img=ax[1][0].imshow(np.log10(np.abs(bbpol01)),aspect='auto',vmin=-1.4,vmax=-0.5)
-    plt.colorbar(img,ax=ax[1][0])
-    ax[1][1].set_title('baseband pol01 phase')
-    img=ax[1][1].imshow(np.angle(bbpol01),aspect='auto',cmap='RdBu',vmin=-np.pi,vmax=np.pi)
-    plt.colorbar(img,ax=ax[1][1])
+m=np.mean(pr[:,channels])
+s=np.std(pr[:,channels])
+ax[0][0].set_title('Direct real')
+im1=ax[0][0].imshow(pr[:,channels],aspect='auto',vmin=m-2*s,vmax=m+2*s)
+plt.colorbar(im1,ax=ax[0][0])
 
-    err=np.real(dat2)-np.real(bbpol01)
-    m=np.mean(err)
-    std=np.std(err)
-    ax[2][0].set_title('real residuals')
-    img=ax[2][0].imshow(err,aspect='auto',vmin=m-2*std,vmax=m+2*std)
-    plt.colorbar(img,ax=ax[2][0])
-                
-    err=np.imag(dat2)-np.imag(bbpol01)
-    m=np.mean(err)
-    std=np.std(err)
-    ax[2][1].set_title('imag residuals')
-    img=ax[2][1].imshow(err,aspect='auto',vmin=m-2*std,vmax=m+2*std)
-    plt.colorbar(img,ax=ax[2][1])
+ax[0][1].set_title('Baseband real')
+im3=ax[0][1].imshow(r,aspect='auto',vmin=m-2*s,vmax=m+2*s)
+plt.colorbar(im3,ax=ax[0][1])
+
+m=np.mean(pi[:,channels])
+s=np.std(pi[:,channels])
+ax[1][0].set_title('Direct imag')
+im2=ax[1][0].imshow(pi[:,channels],aspect='auto',vmin=m-2*s,vmax=m+2*s)
+plt.colorbar(im2,ax=ax[1][0])
+
+ax[1][1].set_title('Baseband imag')
+im4=ax[1][1].imshow(im,aspect='auto',vmin=m-2*s,vmax=m+2*s)
+plt.colorbar(im4,ax=ax[1][1])
+
+m=np.mean(res_real)
+s=np.std(res_real)
+ax[2][0].set_title('Real residuals')
+img=ax[2][0].imshow(res_real,aspect='auto',vmin=-0.005,vmax=0.005)
+plt.colorbar(img,ax=ax[2][0])
+
+m=np.mean(res_imag)
+s=np.std(res_imag)
+ax[2][1].set_title('Imag residuals')
+img=ax[2][1].imshow(res_imag,aspect='auto',vmin=-0.005,vmax=0.005)
+plt.colorbar(img,ax=ax[2][1])
+
+
+plt.tight_layout()
 
     tstamp = os.path.realpath(args.direct_dir).split('/')[-1]
     plt.savefig(os.path.join(args.outdir,f'pol01_{tstamp}_comparison.png'))

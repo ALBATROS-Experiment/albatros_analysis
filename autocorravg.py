@@ -7,21 +7,26 @@ from correlations import correlations as cr
 from utils import baseband_utils as butils
 import argparse
 
-def get_avg_fast(path, init_t, end_t, acclen, nchunks):
+def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart, chanend):
     
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
     print(files[fileidx])
     
-    obj = bdc.BasebandPacked(files[fileidx])
-    channels=obj.channels
+    obj = bdc.BasebandPacked(files[fileidx],chanstart,chanend)
+    channels=obj.channels[chanstart:chanend]
     assert(obj.pol0.shape[0]==obj.pol1.shape[0])
     assert(obj.bit_mode==4)
-    nchan=obj.length_channels
+
+    if(chanend==-1):
+        ncols=obj.length_channels
+    else:
+        ncols = chanend-chanstart
+
     objlen=obj.pol0.shape[0] # remember that zeros are added in place of missing data in 4 bit
-    pol00=np.zeros((nchunks,nchan),dtype='float64',order='c')
-    pol11=np.zeros((nchunks,nchan),dtype='float64',order='c')
-    pol01=np.zeros((nchunks,nchan),dtype='complex64',order='c')
+    pol00=np.zeros((nchunks,ncols),dtype='float64',order='c')
+    pol11=np.zeros((nchunks,ncols),dtype='float64',order='c')
+    pol01=np.zeros((nchunks,ncols),dtype='complex64',order='c')
 
     fc=0 #file counter
     st=time.time()
@@ -36,7 +41,6 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks):
             rem=acclen-file_spec_gap #file_spec_gap will be non-zero if a chunk ended at the end of one file.
             # we only need (acclen-file_spec_gap) spectra from new file.
         missing_spec_gap=0
-        print("BEFORE WHILE LOOP",type(rem))
         while(True):
             l=objlen-idxstart
             if(l<rem):
@@ -55,12 +59,12 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks):
                 file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
                 # del obj
 
-                obj = bdc.BasebandPacked(files[fileidx+fc])
+                obj = bdc.BasebandPacked(files[fileidx+fc],chanstart,chanend)
                 file_spec_gap += obj.spec_num[0]
                 file_spec_gap = int(file_spec_gap)
                 print("FILE SPEC GAP IS ", file_spec_gap)
                 if(file_spec_gap>0):
-                    raise AssertionError
+                    print("WARNING: SPEC GAP NOTICED BETWEEN FILES")
                 objlen=obj.pol0.shape[0]
                 rem = rem-l #new remaining % of chunk left to read
                 if(file_spec_gap>=rem):
@@ -83,7 +87,7 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks):
                 fc+=1
                 idxstart=0
                 file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet)
-                obj = bdc.BasebandPacked(files[fileidx+fc])
+                obj = bdc.BasebandPacked(files[fileidx+fc],chanstart,chanend)
                 file_spec_gap += obj.spec_num[0]
                 file_spec_gap = int(file_spec_gap)
                 objlen= obj.pol0.shape[0]
@@ -122,6 +126,7 @@ if __name__=="__main__":
     parser.add_argument("acclen", type=int, help="Accumulation length for averaging")
     parser.add_argument('-n', '--nchunks', dest='nchunks',type=int, default=560, help='Number of chunks in output file. If stop time is specfied this is overwritten. Default 560 ~ 1 hr.')
     parser.add_argument('-t', '--time_stop', dest='time_stop',type=int, default=False, help='Stop time. Overwrites nchunks if specified')
+    parser.add_argument("-c", '--chans', type=int, nargs=2, help="Indices of start and end channels.")
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='/scratch/s/sievers/mohanagr/',
               help='Output directory for data and plots')
     args = parser.parse_args()
@@ -130,9 +135,12 @@ if __name__=="__main__":
         args.nchunks = int(np.floor((args.time_stop-args.time_start)*250e6/4096/args.acclen))
     else:
         args.time_stop = args.time_start + int(np.ceil(args.nchunks*args.acclen*4096/250e6))
+    if(not args.chans):
+        args.chans=[0,-1]
+    
     print("nchunks is: ", args.nchunks,"and stop time is ", args.time_stop)
     # assert(1==0)
-    pol00,pol11,pol01,channels = get_avg_fast(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks)
+    pol00,pol11,pol01,channels = get_avg_fast(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
     print("RUN 1 DONE")
 
     # pol01_2,channels = get_avg_fast_1bit(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks)
@@ -142,9 +150,9 @@ if __name__=="__main__":
     # print(diff1) checked that this is zero. 
 
     import os
-    # fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.npz"
-    # fpath = os.path.join(args.outdir,fname)
-    # np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask,chans=channels)
+    fname = f"pol01_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
+    fpath = os.path.join(args.outdir,fname)
+    np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask,chans=channels)
     # r = np.real(pol01)
     # im = np.imag(pol01)
 
@@ -158,7 +166,7 @@ if __name__=="__main__":
     plt.colorbar(img1,ax=ax[0])
     plt.colorbar(img2,ax=ax[1])
 
-    fname=f'pol01_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}.png'
+    fname=f'pol01_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
     plt.savefig(fpath)
     print(fpath)
