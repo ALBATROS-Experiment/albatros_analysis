@@ -104,7 +104,7 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
                     pol01[i,:] = np.nan
                 else:
                     # for 4 bit we don't worry about using rowstart,rowend because all spectra within a file are present. missing ones are set to zero.
-                    print("compare: ", rowend-rowstart,acclen-missing_spec_gap) # should match if no new file read
+                    # print("compare: ", rowend-rowstart,acclen-missing_spec_gap) # should match if no new file read
                     pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                     pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
                     pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
@@ -118,6 +118,26 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
     pol11 = np.ma.masked_invalid(pol11)
     pol01 = np.ma.masked_invalid(pol01)
     return pol00,pol11,pol01,channels
+
+def get_plot_lims(pol,acclen):
+
+    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
+    # Pivot to using mean if acclen too small.
+
+    if(acclen>250000):
+        med = np.mean(pol)
+        xx=np.ravel(pol).copy()
+        u=np.percentile(xx,99)
+        b=np.percentile(xx,1)
+        xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
+        stddev = np.std(xx_clean)
+    else:
+        med = np.mean(pol)
+        stddev = np.std(pol)
+    vmin= max(med - 2*stddev,1)
+    vmax = med + 2*stddev
+    print(med,vmin,vmax)
+    return med,vmin,vmax
 
 if __name__=="__main__":
 
@@ -166,14 +186,8 @@ if __name__=="__main__":
     pol11_max = np.max(pol11, axis=0)
     pol00_min = np.min(pol00, axis=0)
     pol11_min = np.min(pol11, axis=0)
-    med = np.median(pol00)
-    xx=np.ravel(pol00).copy()
-    u=np.percentile(xx,99)
-    b=np.percentile(xx,1)
-    xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
-    stddev = np.std(xx_clean)
-    vmin= max(med - 2*stddev,1)
-    vmax = med + 2*stddev
+    med,vmin,vmax=get_plot_lims(pol00,args.acclen)
+    med2,vmin2,vmax2=get_plot_lims(pol11,args.acclen)
     pol00 = np.log10(pol00)
     pol11 = np.log10(pol11)
     pol00_med = np.log10(pol00_med)
@@ -184,24 +198,25 @@ if __name__=="__main__":
     pol11_max = np.log10(pol11_max)
     pol00_min = np.log10(pol00_min)
     pol11_min = np.log10(pol11_min)
-    med = np.log10(med)
     vmin = np.log10(vmin)
     vmax = np.log10(vmax)
+    vmin2 = np.log10(vmin2)
+    vmax2 = np.log10(vmax2)
 
     from matplotlib import pyplot as plt
 
     plt.figure(figsize=(18,10), dpi=200)
-
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0], 0])
+    t_acclen = args.acclen*2048/125e6 #seconds
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0]*t_acclen/60, 0])
 
     plt.subplot(2,3,1)
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
-    plt.title('pol00')
+    plt.title(f'pol00 - minutes since {args.time_start}')
     cb00 = plt.colorbar()
     cb00.ax.plot([0, 1], [7.0]*2, 'w')
 
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.colorbar()
 

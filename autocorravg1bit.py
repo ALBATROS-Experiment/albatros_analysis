@@ -8,7 +8,7 @@ from utils import baseband_utils as butils
 import argparse
 
 
-def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=-1):
+def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):
     
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
@@ -21,10 +21,10 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend
 
     objlen=obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
 
-    if(chanend==-1):
-        ncols=obj.length_channels
-    else:
+    if(chanend):
         ncols = chanend-chanstart
+    else:
+        ncols=obj.length_channels
 
     pol01=np.zeros((nchunks,ncols),dtype='complex64',order='c')
 
@@ -125,7 +125,7 @@ if __name__=="__main__":
     else:
         args.time_stop = args.time_start + int(np.ceil(args.nchunks*args.acclen*4096/250e6))
     if(not args.chans):
-        args.chans=[0,-1]
+        args.chans=[0,None]
 
     print("nchunks is: ", args.nchunks,"and stop time is ", args.time_stop)
     # assert(1==0)
@@ -141,18 +141,21 @@ if __name__=="__main__":
     import os
     fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
     fpath = os.path.join(args.outdir,fname)
-    np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask,chans=channels)
+    np.savez_compressed(fpath,datap01=pol01.data,maskp01=pol01.mask,chans=channels)
     r = np.real(pol01)
     im = np.imag(pol01)
 
     from matplotlib import pyplot as plt
     fig,ax=plt.subplots(1,2)
     fig.set_size_inches(10,4)
-    # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
-    # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005)
+    t_acclen = args.acclen*2048/125e6 #seconds
+
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol01.shape[0]*t_acclen/60, 0])
+
+    plt.suptitle(f'Minutes since {args.time_start}')
+    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
     ax[0].set_title('real part')
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005)
+    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
     ax[1].set_title('imag part')
     plt.colorbar(img1,ax=ax[0])
     plt.colorbar(img2,ax=ax[1])
