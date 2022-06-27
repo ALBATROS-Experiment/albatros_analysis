@@ -18,6 +18,8 @@ if __name__=="__main__":
     pol01i = scio.read(os.path.join(args.direct_dir,'pol01i.scio.bz2'))
     with np.load(args.bbfilepath) as npz:
         bbpol01 = np.ma.MaskedArray(npz['data'],npz['mask'])
+        # bbpol01 = np.ma.MaskedArray(npz['data'],npz['mask'])
+        # bbpol01 = np.ma.MaskedArray(npz['data'],npz['mask'])
         channels = npz['channels'].copy()
 
     dat2 = (pol01r[:,channels]+1J*pol01i[:,channels])/args.acclen/2**7

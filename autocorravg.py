@@ -7,7 +7,7 @@ from correlations import correlations as cr
 from utils import baseband_utils as butils
 import argparse
 
-def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart, chanend):
+def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):
     
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
@@ -18,10 +18,11 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart, chanend):
     assert(obj.pol0.shape[0]==obj.pol1.shape[0])
     assert(obj.bit_mode==4)
 
-    if(chanend==-1):
-        ncols=obj.length_channels
-    else:
+    if(chanend):
         ncols = chanend-chanstart
+    else:
+        ncols=obj.length_channels
+        
 
     objlen=obj.pol0.shape[0] # remember that zeros are added in place of missing data in 4 bit
     pol00=np.zeros((nchunks,ncols),dtype='float64',order='c')
@@ -136,7 +137,7 @@ if __name__=="__main__":
     else:
         args.time_stop = args.time_start + int(np.ceil(args.nchunks*args.acclen*4096/250e6))
     if(not args.chans):
-        args.chans=[0,-1]
+        args.chans=[0,None]
     
     print("nchunks is: ", args.nchunks,"and stop time is ", args.time_stop)
     # assert(1==0)
@@ -150,23 +151,90 @@ if __name__=="__main__":
     # print(diff1) checked that this is zero. 
 
     import os
-    fname = f"pol01_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
+
+    fname = f"pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
     fpath = os.path.join(args.outdir,fname)
-    np.savez_compressed(fpath,data=pol01.data,mask=pol01.mask,chans=channels)
-    # r = np.real(pol01)
-    # im = np.imag(pol01)
+    np.savez_compressed(fpath,datap01=pol01.data,maskp01=pol01.mask,datap00=pol00.data,maskp00=pol00.mask,\
+        datap11=pol11.data,maskp11=pol11.mask,chans=channels)
+    
+    freq = channels*125/2048 #MHz
+    pol00_med = np.median(pol00, axis=0)
+    pol11_med = np.median(pol11, axis=0)
+    pol00_mean = np.mean(pol00, axis=0)
+    pol11_mean = np.mean(pol11, axis=0)
+    pol00_max = np.max(pol00, axis=0)
+    pol11_max = np.max(pol11, axis=0)
+    pol00_min = np.min(pol00, axis=0)
+    pol11_min = np.min(pol11, axis=0)
+    med = np.median(pol00)
+    xx=np.ravel(pol00).copy()
+    u=np.percentile(xx,99)
+    b=np.percentile(xx,1)
+    xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
+    stddev = np.std(xx_clean)
+    vmin= max(med - 2*stddev,1)
+    vmax = med + 2*stddev
+    pol00 = np.log10(pol00)
+    pol11 = np.log10(pol11)
+    pol00_med = np.log10(pol00_med)
+    pol11_med = np.log10(pol11_med)
+    pol00_mean = np.log10(pol00_mean)
+    pol11_mean = np.log10(pol11_mean)
+    pol00_max = np.log10(pol00_max)
+    pol11_max = np.log10(pol11_max)
+    pol00_min = np.log10(pol00_min)
+    pol11_min = np.log10(pol11_min)
+    med = np.log10(med)
+    vmin = np.log10(vmin)
+    vmax = np.log10(vmax)
 
-    # img1=ax[0].imshow(np.abs(pol01_1),aspect='auto',vmax=0.01)
-    # img2=ax[1].imshow(np.angle(pol01_1),aspect='auto',vmin=-np.pi,vmax=np.pi)
     from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    img1=ax[0].imshow(np.log10(np.abs(pol01)),aspect='auto')
-    img2=ax[1].imshow(np.angle(pol01),aspect='auto',vmin=-np.pi,vmax=np.pi,cmap='RdBu')
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
 
-    fname=f'pol01_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
+    plt.figure(figsize=(18,10), dpi=200)
+
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0], 0])
+
+    plt.subplot(2,3,1)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.title('pol00')
+    cb00 = plt.colorbar()
+    cb00.ax.plot([0, 1], [7.0]*2, 'w')
+
+    plt.subplot(2,3,4)
+    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.title('pol11')
+    plt.colorbar()
+
+    plt.subplot(2,3,2)
+    plt.title('Basic stats for frequency bins')
+    plt.plot(freq, pol00_max, 'r-', label='Max')
+    plt.plot(freq, pol00_min, 'b-', label='Min')
+    plt.plot(freq, pol00_mean, 'k-', label='Mean')
+    plt.plot(freq, pol00_med, color='#666666', linestyle='-', label='Median')
+    plt.xlabel('Frequency (MHz)')
+    plt.ylabel('pol00')
+
+    plt.subplot(2,3,5)
+    plt.plot(freq, pol11_max, 'r-', label='Max')
+    plt.plot(freq, pol11_min, 'b-', label='Min')
+    plt.plot(freq, pol11_mean, 'k-', label='Mean')
+    plt.plot(freq, pol11_med, color='#666666', linestyle='-', label='Median')
+    plt.xlabel('Frequency (MHz)')
+    plt.ylabel('pol11')
+    plt.legend(loc='lower right', fontsize='small')
+
+    plt.subplot(2,3,3)
+    plt.imshow(np.log10(np.abs(pol01)), aspect='auto', extent=myext)
+    plt.title('pol01 magnitude')
+    plt.colorbar()
+
+    plt.subplot(2,3,6)
+    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
+    plt.title('pol01 phase')
+    plt.colorbar()
+
+
+    fname=f'pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
     plt.savefig(fpath)
     print(fpath)

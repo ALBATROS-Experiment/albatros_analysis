@@ -64,7 +64,7 @@ def sortpols(data, length_channels, bit_mode, spec_num, chanstart, chanend):
 	# For packed data we don't need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
 	# number of rows should be nspec because we want to iterate over spectra while corr averaging in python
 	data1 = data.copy()
-	if(chanend==-1):
+	if(chanend is None):
 		chanstart=0
 		chanend=length_channels
 	

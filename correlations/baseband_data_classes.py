@@ -71,7 +71,7 @@ class BasebandFloat(Baseband):
 
 class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
-	def __init__(self, file_name, chanstart=0, chanend=-1):
+	def __init__(self, file_name, chanstart=0, chanend=None):
 		super().__init__(file_name)
 
 		specdiff=numpy.diff(self.spec_num)
