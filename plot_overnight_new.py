@@ -102,7 +102,6 @@ def get_avg(arr,block=50):
         
 	return result
 
-#============================================================
 def get_stats(data_arr):
 	'''
 	Given a 2D array containing some data chunk, returns the 
@@ -159,7 +158,7 @@ def full_plot(data_arrs):
 	pol00,pol11,pol01 = data_arrs
 
 	pol00_stats = get_stats(pol00)
-	pol11_stats = get_stats(pol00)
+	pol11_stats = get_stats(pol11)
 	
 	
 	if logplot is True:
@@ -175,11 +174,13 @@ def full_plot(data_arrs):
 	plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
 	plt.title('pol00')
 	cb00 = plt.colorbar()
+	plt.gca().yaxis.set_major_formatter(datetimefmt)
 	
 	plt.subplot(2,3,4)
 	plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
 	plt.title('pol11')
 	plt.colorbar()
+	plt.gca().yaxis.set_major_formatter(datetimefmt)
 
 	plt.subplot(2,3,2)
 	plt.title('Basic stats for frequency bins')
@@ -189,7 +190,6 @@ def full_plot(data_arrs):
 	plt.plot(freq, pol00_stats["median"], color='#666666', linestyle='-', label='Median')
 	plt.xlabel('Frequency (MHz)')
 	plt.ylabel('pol00')
-	
 
 	plt.subplot(2,3,5)
 	plt.plot(freq, pol11_stats["max"], 'r-', label='Max')
@@ -202,16 +202,18 @@ def full_plot(data_arrs):
 	plt.legend(loc='lower right', fontsize='small')
 
 	plt.subplot(2,3,3)
-	plt.imshow(np.log10(np.abs(pol01)), vmin=3,vmax=8,aspect='auto', extent=myext)
+	plt.imshow(np.log10(np.abs(pol01)), vmin=4.3,vmax=6.3,aspect='auto',extent=myext)
 	plt.title('pol01 magnitude')
 	plt.colorbar()
-
+	plt.gca().set_yticklabels([])
+	
 	plt.subplot(2,3,6)
 	plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
 	plt.title('pol01 phase')
 	plt.colorbar()
+	plt.gca().set_yticklabels([])
 
-	plt.suptitle('Averaged over {} chunks'.format(blocksize))
+	plt.suptitle(f'{datetime.utcfromtimestamp(ctime_start)} UTC to {datetime.utcfromtimestamp(ctime_stop)} UTC, Averaged over {blocksize} chunks')
 
 	outfile = os.path.join(outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
 	plt.savefig(outfile)
@@ -237,16 +239,17 @@ def main():
 
 	parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
 	parser.add_argument("-p", "--plottype",dest="plottype",default="full",type=str,
-		help="Type of plot to generate. 'full': pol00 and pol11 waterfall autospectra, min/max/mean/med autospectra, waterfall cross spectra. 'autospec': same as 1, but no cross spectra")
+		help="Type of plot to generate. 'full': pol00 and pol11 waterfall autospectra, min/max/mean/med autospectra, waterfall cross spectra. 'waterfall': same as 1, but no stats")
 	parser.add_argument("-t", "--timezone", dest='timezone', default = "utc", type=str, help="Timezone to use for plot axis. Can do 'utc' or 'local'")
-	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=int, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
-	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=int, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
+	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
+	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
+	parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%H:%M:%S", type=str, help="Format for dates on axes of plots")
 	
 
 	args = parser.parse_args()
 
-	#defining some global variables 
-	global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir
+	#=============== defining some global variables ===============#
+	global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt
 	
 	timezone = args.timezone
 	vmin = args.vmin
@@ -254,7 +257,8 @@ def main():
 	logplot=args.logplot
 	blocksize = args.blocksize
 	outdir = args.outdir
-
+	datetimefmt = mdates.DateFormatter(args.datetimefmt)
+	#=============================================================#
 	
 	# figuring out if human time or ctime was passed with pattern matching
 	human_time_regex = re.compile((r'\d\d\d\d\d\d\d\d_\d\d\d\d\d\d'))
@@ -268,7 +272,7 @@ def main():
 		ctime_start = int(args.time_start)
 		ctime_stop = int(args.time_stop)
 		
-	
+	#================= reading data =================#
 	pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
 	
 	if blocksize != 0: #averages over given blocksize
@@ -278,19 +282,21 @@ def main():
 		pol01i=get_avg(pol01i,block=args.blocksize)
 
 	pol01 = pol01r + 1J*pol01i
-	
 	freq = np.linspace(0, 125, np.shape(pol00)[1]) #125 MHz is max frequency
-
-
+	
+	
+	#============ setting vmin and vmax ============#
+	# setting vmin and vmax
 	if vmin==None and vmax==None:
 		vmin,vmax = get_vmin_vmax(pol00)
-		
-	if logplot==True:
-		vmin = np.log10(vmin)
-		vmax = np.log10(vmax)
+		if logplot==True:
+			vmin = np.log10(vmin)
+			vmax = np.log10(vmax)
 
+	#============ and finally: plotting! ============#
 	if args.plottype == "full":
 		full_plot([pol00,pol11,pol01])
+	
 	
 if __name__ == '__main__':
 	main()
