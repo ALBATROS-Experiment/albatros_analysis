@@ -8,13 +8,15 @@ def get_init_info(init_t, end_t, parent_dir):
     '''
     # create a big list of files from 5 digit subdirs. we might not need all of them, but I don't want to write regex. 
     # This may be faster, and I don't care about storing a few 100 more strings than I need to.
+    print("HELLOSS")
     frag1 = str(int(init_t/100000))
     frag2 = str(int(end_t/100000))
+    print(frag1,frag2)
     path = os.path.join(parent_dir,frag1)
     files = glob.glob(path+'/*')
     if(frag1!=frag2):
         path = os.path.join(parent_dir,frag2)
-        files.append(glob.glob(path))
+        files.append(glob.glob(path+'/*'))
     files.sort()
     speclen=4096 # length of each spectra
     fs=250e6
@@ -36,6 +38,7 @@ def get_init_info(init_t, end_t, parent_dir):
     # once we have a file, we seek to required position in time
     idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
     # check that starting index indeed corresponds to init_t
+    print("Fileidx:", fileidx)
     print("CHECK",init_t,idxstart*dt_spec + filetstamps[fileidx])
     print("CHECK", filetstamps[fileidx], files[fileidx])
     
