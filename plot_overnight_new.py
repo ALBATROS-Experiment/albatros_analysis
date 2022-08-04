@@ -6,7 +6,8 @@ if os.environ.get('DISPLAY','') == '':
 
 from matplotlib import pyplot as plt
 import numpy as np
-import scio, datetime, time
+import datetime, time
+from scio import scio
 import SNAPfiletools as sft
 import argparse
 

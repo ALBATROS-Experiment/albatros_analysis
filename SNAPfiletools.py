@@ -1,6 +1,6 @@
 import glob, time, datetime, os, re
 import numpy as np
-import scio
+from scio import scio
 
 #============================================================
 def read_field_many_fast(dirs,tag,dtype='float64',return_missing=False):
