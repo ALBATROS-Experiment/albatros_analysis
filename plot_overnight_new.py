@@ -6,14 +6,21 @@ if os.environ.get('DISPLAY','') == '':
 
 from matplotlib import pyplot as plt
 import numpy as np
-import scio, datetime, time, re
+import datetime, time, re
+from scio import scio
 import SNAPfiletools as sft
 import argparse
 from datetime import datetime
 import matplotlib.dates as mdates
 
+def read_tstamp(fname):
+	tstamp = np.fromfile()
+
+def get_ts_from_name(f):
+	return int(f.split('/')[-1])
+
 #============================================================
-def get_data_arrs(data_dir, ctime_start, ctime_stop):
+def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
 	'''
 	Given the path to a Big data directory (i.e. directory contains the directories 
 	labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -45,7 +52,15 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop):
 
 	#all the dirs between the timestamps. read all, append, average over chunk length
 	data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
+
+	#rough estimate of number of rows we'll read
+	nrows_guess = len(data_subdirs)*(int(3600/chunk_time)+1)+(len(data_subdirs)-1)*(int())
+	print("STarting with a guess of ", nrows_guess)
+	pol00 = np.zeros((nrows_guess+1000,2048))
 	
+	nrows = 0
+
+	t1=time.time()
 	new_dirs = [d+'/pol00.scio.bz2' for d in data_subdirs]
 	datpol00 = scio.read_files(new_dirs)
 	new_dirs = [d+'/pol11.scio.bz2' for d in data_subdirs]
@@ -54,24 +69,59 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop):
 	datpol01r = scio.read_files(new_dirs)
 	new_dirs = [d+'/pol01i.scio.bz2' for d in data_subdirs]
 	datpol01i = scio.read_files(new_dirs)
-
+	print(time.time()-t1, f"Read {len(data_subdirs)} files")
 	t1=time.time()
-	pol00=datpol00[0]
-	for d in datpol00[1:]:
-		pol00=np.append(pol00,d,axis=0)
+
+	for i, d in enumerate(datpol00):
+		print("reading", data_subdirs[i])
+		if(i==0):
+			pol00[:d.shape[0],:]=d
+			nrows+=d.shape[0]
+			ts=get_ts_from_name(data_subdirs[i])+d.shape[0]*chunk_time
+		newts = get_ts_from_name(data_subdirs[i])
+		diff=int((newts-ts)/chunk_time)
+		if(diff>1):
+			print("significant diff",diff)
+			pol00[nrows:nrows+diff,:]=np.nan
+			pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
+			nrows+=diff
+		print(nrows, d.shape)
+		print(nrows,nrows+d.shape[0],pol00.shape,"heh")
+		pol00[nrows:nrows+d.shape[0],:]=d
+		nrows+=d.shape[0]
+		ts=newts+d.shape[0]*chunk_time
+	print("HERE")
+	#once we have pol00, we know the exact size. use it
+	pol00 = pol00[:nrows].copy()
+	print(pol00.shape)
+
+	pol11 = np.zeros((nrows,2048))
+	pol01r = np.zeros((nrows,2048))
+	pol01i = np.zeros((nrows,2048))
 	
-
-	pol11=datpol11[0]
-	for d in datpol11[1:]:
-		pol11=np.append(pol11,d,axis=0)
-
-	pol01r=datpol01r[0]
-	for d in datpol01r[1:]:
-		pol01r=np.append(pol01r,d,axis=0)
-
-	pol01i=datpol01i[0]
-	for d in datpol01i[1:]:
-		pol01i=np.append(pol01i,d,axis=0)
+	print("Actual rows", nrows)
+	nrows=0
+	for i in range(len(datpol00)):
+		if(i==0):
+			r=datpol11[i].shape[0]
+			pol11[:r,:]=datpol11[i]
+			pol01r[:r,:]=datpol01r[i]
+			pol01i[:r,:]=datpol01i[i]
+			nrows+=r
+			ts=get_ts_from_name(data_subdirs[i])+r*chunk_time
+		newts = get_ts_from_name(data_subdirs[i])
+		diff=int((newts-ts)/chunk_time)
+		if(diff>1):
+			pol11[nrows:nrows+diff,:]=np.nan
+			pol01r[nrows:nrows+diff,:]=np.nan
+			pol01i[nrows:nrows+diff,:]=np.nan
+			nrows+=diff
+		r=datpol11[i].shape[0]
+		pol11[nrows:nrows+r,:]=datpol11[i]
+		pol01r[nrows:nrows+r,:]=datpol01r[i]
+		pol01i[nrows:nrows+r,:]=datpol01i[i]
+		nrows+=r
+		ts=newts+r*chunk_time
 
 	t2=time.time()
 	print('Time taken to concatenate data:',t2-t1)
@@ -261,20 +311,23 @@ def main():
 	#=============================================================#
 	
 	# figuring out if human time or ctime was passed with pattern matching
-	human_time_regex = re.compile((r'\d\d\d\d\d\d\d\d_\d\d\d\d\d\d'))
-	mo = human_time_regex.search(args.time_start)
-
-	try:
-		match = mo.group() # time_start matches pattern, must convert to ctime
-		ctime_start = sft.timestamp2ctime(time_start)
-		ctime_stop = sft.timestamp2ctime(time_stop)
-	except:
+	rx_human = re.compile(r'^\d{8}_\d{6}$')
+	rx_ctime = re.compile(r'^\d{10}$')
+	m1 = rx_human.search(args.time_start)
+	m2 = rx_ctime.search(args.time_start)
+	if(m1):
+		ctime_start = sft.timestamp2ctime(args.time_start)
+		ctime_stop = sft.timestamp2ctime(args.time_stop)
+	elif(m2):
 		ctime_start = int(args.time_start)
 		ctime_stop = int(args.time_stop)
-		
+	else:
+		raise ValueError("INVALID time format entered.")
+
 	#================= reading data =================#
-	pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop)
-	
+	pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44)
+	import sys
+	sys.exit(0)
 	if blocksize != 0: #averages over given blocksize
 		pol00=get_avg(pol00,block=args.blocksize)
 		pol11=get_avg(pol11,block=args.blocksize)

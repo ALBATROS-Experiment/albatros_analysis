@@ -1,7 +1,7 @@
 import glob, time, datetime, os, re
 import numpy as np
-import scio
-from tabulate import tabulate
+from scio import scio
+# from tabulate import tabulate
 
 
 #============================================================
