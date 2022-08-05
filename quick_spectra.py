@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import  scio
+from  scio import scio
 import argparse
 
 if __name__ == "__main__":
