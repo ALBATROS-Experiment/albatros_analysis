@@ -3,6 +3,15 @@ import os
 import matplotlib.pyplot as plt
 from  scio import scio
 import argparse
+import pytz
+import datetime as dt
+
+def get_acctime(fpath):
+	dat = np.fromfile(fpath,dtype='uint32')
+	diff = np.diff(dat)
+	acctime = np.mean(diff[(diff>0)&(diff<100)]) #sometimes timestamps are 0, which causes diff to be huge.
+	return acctime
+
 
 if __name__ == "__main__":
 	"Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
@@ -11,6 +20,7 @@ if __name__ == "__main__":
 	parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
 	parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
+	parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
 	args = parser.parse_args()
 
 	#data_dir = pathlib.Path(args.data_dir)
@@ -20,6 +30,7 @@ if __name__ == "__main__":
 	pol11 = scio.read(args.data_dir + "/pol11.scio.bz2")
 	pol01r = scio.read(args.data_dir + "/pol01r.scio.bz2")
 	pol01i = scio.read(args.data_dir + "/pol01i.scio.bz2")
+	acctime = get_acctime(args.data_dir + 'time_gps_start.raw')
 	# Remove starting data chunk if it's bad :(
 	pol00 = pol00[1:,:]
 	pol11 = pol11[1:,:]
@@ -69,7 +80,9 @@ if __name__ == "__main__":
 		pmax = np.log10(pmax)
 		axrange = [0, 125, 6.5, pmax]
 
-	myext = np.array([0, 125, pol00.shape[0], 0])
+	print("Estimated accumulation time from timestamp file: ", acctime)
+	tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
+	myext = np.array([0, 125, tot_minutes, 0])
 
 	plt.figure(figsize=(18,10), dpi=200)
 
@@ -116,7 +129,10 @@ if __name__ == "__main__":
 
 	args.data_dir=os.path.abspath(args.data_dir)
 	timestamp = args.data_dir.split('/')[-1]
-	plt.suptitle(str(timestamp))
+	mytz = pytz.timezone(args.timezone)
+	utctime = dt.datetime.fromtimestamp(int(timestamp),tz=pytz.utc) # this might be a safer way compared to passing tz directly to fromtimestamp
+	localtimestr = utctime.astimezone(tz=mytz).strftime("%b-%d %H:%M:%S")
+	plt.suptitle(f"Minutes since {localtimestr} localtime. File ctime {timestamp}")
 
 	outfile = os.path.normpath(args.output_dir + '/' + timestamp + '.png')
 	plt.savefig(outfile)
