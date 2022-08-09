@@ -49,7 +49,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
 
     #all the dirs between the timestamps. read all, append, average over chunk length
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
-
+    data_subdirs.sort()
+    
     #rough estimate of number of rows we'll read
     nrows_guess = len(data_subdirs)*(int(3600/chunk_time)+1)+(len(data_subdirs)-1)*(int())
     print("STarting with a guess of ", nrows_guess)
@@ -68,13 +69,15 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
     datpol01i = scio.read_files(new_dirs)
     print(time.time()-t1, f"Read {len(data_subdirs)} files")
     t1=time.time()
-
+    tstart=0
+    tend=0
     for i, d in enumerate(datpol00):
         print("reading", data_subdirs[i])
         if(i==0):
             pol00[:d.shape[0],:]=d
             nrows+=d.shape[0]
             ts=get_ts_from_name(data_subdirs[i])+d.shape[0]*chunk_time
+            tstart=ts
         newts = get_ts_from_name(data_subdirs[i])
         diff=int((newts-ts)/chunk_time)
         if(diff>1):
@@ -87,6 +90,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
         ts=newts+d.shape[0]*chunk_time
+    tend=ts
     print("HERE")
     #once we have pol00, we know the exact size. use it
     pol00 = pol00[:nrows].copy()
@@ -127,7 +131,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
     pol11=np.ma.masked_invalid(pol11)
     pol01r=np.ma.masked_invalid(pol01r)
     pol01i=np.ma.masked_invalid(pol01i)
-    return pol00, pol11, pol01r, pol01i
+    return pol00, pol11, pol01r, pol01i, tstart, tend
 
 
 #============================================================
@@ -135,11 +139,10 @@ def get_avg(arr,block=50):
     '''
     Averages some array over a given block size
     '''
-    
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
     print(arr.shape, iters, leftover)
-    if(leftover>0.5*block):
+    if(leftover>0):
         result=np.zeros((iters+1,arr.shape[1]))
     else:
         result=np.zeros((iters,arr.shape[1]))
@@ -147,7 +150,7 @@ def get_avg(arr,block=50):
     for i in range(0,iters):
         result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
     
-    if(leftover>0.5*block):
+    if(leftover>0):
         result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
         
     return result
@@ -205,7 +208,7 @@ def full_plot(data_arrs):
     as some statistics (min,max,med,mean spectra), and cross spectra
     '''
 
-    pol00,pol11,pol01 = data_arrs
+    pol00,pol11,pol01,tstart,tend = data_arrs
 
     pol00_stats = get_stats(pol00)
     pol11_stats = get_stats(pol11)
@@ -215,7 +218,8 @@ def full_plot(data_arrs):
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
     
-    y_extent = get_ylim_times(ctime_start,ctime_stop,timezone)
+    y_extent = get_ylim_times(tstart,tend,timezone)
+    ticks = np.linspace(y_extent[0], y_extent[1],20)
     print(y_extent)
  
     myext = np.array([0,125,y_extent[1],y_extent[0]])
@@ -223,15 +227,17 @@ def full_plot(data_arrs):
     plt.figure(figsize=(18,10), dpi=200)
     plt.subplot(2,3,1)
 
-    plt.imshow(pol00, aspect='auto', extent=myext)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
+    plt.yticks(ticks)
     plt.gca().yaxis.set_major_formatter(datetimefmt)
     
     plt.subplot(2,3,4)
     plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.colorbar()
+    plt.yticks(ticks)
     plt.gca().yaxis.set_major_formatter(datetimefmt)
 
     plt.subplot(2,3,2)
@@ -254,7 +260,7 @@ def full_plot(data_arrs):
     plt.legend(loc='lower right', fontsize='small')
 
     plt.subplot(2,3,3)
-    plt.imshow(np.log10(np.abs(pol01)), vmin=4.3,vmax=6.3,aspect='auto',extent=myext)
+    plt.imshow(np.log10(np.abs(pol01)), vmin=3,vmax=8,aspect='auto',extent=myext)
     plt.title('pol01 magnitude')
     plt.colorbar()
     plt.gca().set_yticklabels([])
@@ -295,7 +301,7 @@ def main():
     parser.add_argument("-t", "--timezone", dest='timezone', default = "utc", type=str, help="Timezone to use for plot axis. Can do 'utc' or 'local'")
     parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
     parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
-    parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%b-%d %H%M", type=str, help="Format for dates on axes of plots")
+    parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%b-%d %H:%M", type=str, help="Format for dates on axes of plots")
     
 
     args = parser.parse_args()
@@ -327,7 +333,7 @@ def main():
         raise ValueError("INVALID time format entered.")
 
     #================= reading data =================#
-    pol00,pol11,pol01r,pol01i = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44)
+    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44)
     # import sys
     # sys.exit(0)
     if blocksize != 0: #averages over given blocksize
@@ -350,7 +356,7 @@ def main():
 
     #============ and finally: plotting! ============#
     if args.plottype == "full":
-        full_plot([pol00,pol11,pol01])
+        full_plot([pol00,pol11,pol01, tstart, tend])
     
     
 if __name__ == '__main__':
