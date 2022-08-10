@@ -3,7 +3,6 @@ import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
-
 from matplotlib import pyplot as plt
 import numpy as np
 import datetime, time, re
@@ -12,13 +11,14 @@ import SNAPfiletools as sft
 import argparse
 from datetime import datetime
 import matplotlib.dates as mdates
+from multiprocessing import Pool
 
 
 def get_ts_from_name(f):
     return int(f.split('/')[-1])
 
 #============================================================
-def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
+def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
     '''
     Given the path to a Big data directory (i.e. directory contains the directories 
     labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -52,9 +52,9 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
     data_subdirs.sort()
     
     #rough estimate of number of rows we'll read
-    nrows_guess = len(data_subdirs)*(int(3600/chunk_time)+1)+(len(data_subdirs)-1)*(int())
-    print("STarting with a guess of ", nrows_guess)
-    pol00 = np.zeros((nrows_guess+1000,2048))
+    nrows_guess = len(data_subdirs)*((int(3600/chunk_time/blocklen)+1)+1)
+    print("Starting with a guess of ", nrows_guess)
+    pol00 = np.zeros((nrows_guess,2048))
     
     nrows = 0
 
@@ -68,61 +68,80 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
     new_dirs = [d+'/pol01i.scio.bz2' for d in data_subdirs]
     datpol01i = scio.read_files(new_dirs)
     print(time.time()-t1, f"Read {len(data_subdirs)} files")
+
+    #average everything if blocklen>1
+    if(blocklen>1):
+        t1=time.time()
+        with Pool(os.cpu_count()) as p:
+            avgpol00 = p.map(set_avg,datpol00)
+            avgpol11 = p.map(set_avg,datpol11)
+            avgpol01r = p.map(set_avg,datpol01r)
+            avgpol01i = p.map(set_avg,datpol01i)
+        print(time.time()-t1, "averaged everything")
+    else:
+        avgpol00 = datpol00
+        avgpol11 = datpol11
+        avgpol01r = datpol01r
+        avgpol01i = datpol01i
+
+    
     t1=time.time()
     tstart=0
     tend=0
-    for i, d in enumerate(datpol00):
-        print("reading", data_subdirs[i])
+    for i, d in enumerate(avgpol00):
+        print("reading", data_subdirs[i], "with size ", d.shape[0])
         if(i==0):
-            pol00[:d.shape[0],:]=d
+            pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
-            ts=get_ts_from_name(data_subdirs[i])+d.shape[0]*chunk_time
+            ts=get_ts_from_name(data_subdirs[i])+d.shape[0]*chunk_time*blocklen
             tstart=ts
         newts = get_ts_from_name(data_subdirs[i])
-        diff=int((newts-ts)/chunk_time)
-        if(diff>1):
-            print("significant diff",diff)
+        diff=int((newts-ts)/chunk_time/blocklen) 
+        # each cell in the plot represents a minimum time of blocklen * chunktime. 
+        # That's the time resolution for the plot. Can't catch gaps < resolution.
+        if(diff>0):
+            print("significant diff with previous file.",diff)
             pol00[nrows:nrows+diff,:]=np.nan
             pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
             nrows+=diff
-        print(nrows, d.shape)
-        print(nrows,nrows+d.shape[0],pol00.shape,"heh")
+        # print(nrows, d.shape)
+        # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
-        ts=newts+d.shape[0]*chunk_time
+        ts=newts+d.shape[0]*chunk_time*blocklen
     tend=ts
-    print("HERE")
+    # print("HERE")
     #once we have pol00, we know the exact size. use it
+    print("Final nrows:", nrows)
     pol00 = pol00[:nrows].copy()
-    print(pol00.shape)
+    # print(pol00.shape)
 
     pol11 = np.zeros((nrows,2048))
     pol01r = np.zeros((nrows,2048))
     pol01i = np.zeros((nrows,2048))
     
-    print("Actual rows", nrows)
     nrows=0
-    for i in range(len(datpol00)):
+    for i in range(len(avgpol00)):
         if(i==0):
-            r=datpol11[i].shape[0]
-            pol11[:r,:]=datpol11[i]
-            pol01r[:r,:]=datpol01r[i]
-            pol01i[:r,:]=datpol01i[i]
+            r=avgpol11[i].shape[0]
+            pol11[:r,:]=avgpol11[i]
+            pol01r[:r,:]=avgpol01r[i]
+            pol01i[:r,:]=avgpol01i[i]
             nrows+=r
-            ts=get_ts_from_name(data_subdirs[i])+r*chunk_time
+            ts=get_ts_from_name(data_subdirs[i])+r*chunk_time*blocklen
         newts = get_ts_from_name(data_subdirs[i])
-        diff=int((newts-ts)/chunk_time)
+        diff=int((newts-ts)/chunk_time/blocklen)
         if(diff>1):
             pol11[nrows:nrows+diff,:]=np.nan
             pol01r[nrows:nrows+diff,:]=np.nan
             pol01i[nrows:nrows+diff,:]=np.nan
             nrows+=diff
-        r=datpol11[i].shape[0]
-        pol11[nrows:nrows+r,:]=datpol11[i]
-        pol01r[nrows:nrows+r,:]=datpol01r[i]
-        pol01i[nrows:nrows+r,:]=datpol01i[i]
+        r=avgpol11[i].shape[0]
+        pol11[nrows:nrows+r,:]=avgpol11[i]
+        pol01r[nrows:nrows+r,:]=avgpol01r[i]
+        pol01i[nrows:nrows+r,:]=avgpol01i[i]
         nrows+=r
-        ts=newts+r*chunk_time
+        ts=newts+r*chunk_time*blocklen
 
     t2=time.time()
     print('Time taken to concatenate data:',t2-t1)
@@ -133,27 +152,21 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time):
     pol01i=np.ma.masked_invalid(pol01i)
     return pol00, pol11, pol01r, pol01i, tstart, tend
 
-
-#============================================================
-def get_avg(arr,block=50):
+def set_avg(arr,block=50):
     '''
     Averages some array over a given block size
     '''
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
-    print(arr.shape, iters, leftover)
-    if(leftover>0):
-        result=np.zeros((iters+1,arr.shape[1]))
-    else:
-        result=np.zeros((iters,arr.shape[1]))
-    
-    for i in range(0,iters):
-        result[i,:] = np.mean(arr[i*block:(i+1)*block,:],axis=0)
-    
-    if(leftover>0):
-        result[-1,:] = np.mean(arr[iters*block:,:],axis=0)
-        
-    return result
+    # print(iters,leftover)
+    nrows = iters+int(leftover>0)
+    ncols = arr.shape[1]
+    newarr = np.zeros((nrows,ncols),dtype=arr.dtype)
+    # print(f"Shape of passed arr {arr.shape} and shape of new arr {newarr.shape}")
+    newarr[:iters,:] = np.mean(arr[:iters*block,:].reshape(-1,block,ncols),axis=1)
+    if(leftover):
+        newarr[iters,:] = np.mean(arr[iters*block:,:],axis=0)
+    return newarr
 
 def get_stats(data_arr):
     '''
@@ -172,9 +185,10 @@ def get_vmin_vmax(data_arr):
     '''
     Automatically gets vmin and vmax for colorbar
     '''
-    med = np.median(data_arr)
-
-    xx=np.ravel(data_arr)
+    print("shape of passed array", data_arr.shape, data_arr.dtype)
+    xx=data_arr[~data_arr.mask].data
+    med = np.percentile(xx,50)
+    print(med, "median")
     u=np.percentile(xx,99)
     b=np.percentile(xx,1)
     xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
@@ -333,14 +347,9 @@ def main():
         raise ValueError("INVALID time format entered.")
 
     #================= reading data =================#
-    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44)
+    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44, 50)
     # import sys
     # sys.exit(0)
-    if blocksize != 0: #averages over given blocksize
-        pol00=get_avg(pol00,block=args.blocksize)
-        pol11=get_avg(pol11,block=args.blocksize)
-        pol01r=get_avg(pol01r,block=args.blocksize)
-        pol01i=get_avg(pol01i,block=args.blocksize)
 
     pol01 = pol01r + 1J*pol01i
     freq = np.linspace(0, 125, np.shape(pol00)[1]) #125 MHz is max frequency
