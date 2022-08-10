@@ -13,13 +13,17 @@ from datetime import datetime
 import matplotlib.dates as mdates
 from multiprocessing import Pool
 from functools import partial
+import pytz
 
 
 def get_ts_from_name(f):
     return int(f.split('/')[-1])
 
+def get_localtime_from_UTC(tstamp, mytz):
+    return datetime.fromtimestamp(int(tstamp),tz=pytz.utc).astimezone(tz=mytz)
+
 #============================================================
-def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
+def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz):
     '''
     Given the path to a Big data directory (i.e. directory contains the directories 
     labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -44,13 +48,14 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
         as well as cross spectra. pol00 corresponds to adc0 and pol11 to adc3
     '''
     print("\n################### READING DATA ###################")
-    print(f'Getting data from timestamps {ctime_start} to {ctime_stop}')
-    print(f"In UTC time: {datetime.utcfromtimestamp(ctime_start)} to {datetime.utcfromtimestamp(ctime_stop)}")
-    print(f"In local time: {datetime.fromtimestamp(ctime_start)} to {datetime.fromtimestamp(ctime_stop)}")
+    print(f'Files requested between timestamps {ctime_start} to {ctime_stop}')
+    print(f"Corresponding UTC time: {datetime.utcfromtimestamp(ctime_start)} to {datetime.utcfromtimestamp(ctime_stop)}")
 
     #all the dirs between the timestamps. read all, append, average over chunk length
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
     data_subdirs.sort()
+
+    
     
     #rough estimate of number of rows we'll read
     nrows_guess = len(data_subdirs)*((int(3600/chunk_time/blocklen)+1)+1)
@@ -91,12 +96,13 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
     tstart=0
     tend=0
     for i, d in enumerate(avgpol00):
-        print("reading", data_subdirs[i], "with size ", d.shape[0])
+        # print("reading", data_subdirs[i], "with size ", d.shape[0])
         if(i==0):
             pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
-            ts=get_ts_from_name(data_subdirs[i])+d.shape[0]*chunk_time*blocklen
-            tstart=ts
+            ts=get_ts_from_name(data_subdirs[i])
+            tstart=ts #save starting time for user output
+            ts = ts+d.shape[0]*chunk_time*blocklen
         newts = get_ts_from_name(data_subdirs[i])
         diff=int((newts-ts)/chunk_time/blocklen) 
         # each cell in the plot represents a minimum time of blocklen * chunktime. 
@@ -114,7 +120,14 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
     tend=ts
     # print("HERE")
     #once we have pol00, we know the exact size. use it
+    print("############################################################")
+    print(f"Plotting all data starting {tstart} and ending {int(tend)}")
+    ts,te= list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
+    print(f"In Local time: {ts.strftime('%b-%d %H:%M:%S')} to {te.strftime('%b-%d %H:%M:%S')} in {mytz.zone}")
     print("Final nrows:", nrows)
+
+
+
     pol00 = pol00[:nrows].copy()
     # print(pol00.shape)
 
@@ -146,8 +159,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
         ts=newts+r*chunk_time*blocklen
 
     t2=time.time()
-    print('Time taken to concatenate data:',t2-t1)
-    print("pol00, pol11,pol01r, pol01i shape:", pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
+    # print('Time taken to concatenate data:',t2-t1)
+    # print("pol00, pol11,pol01r, pol01i shape:", pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
     pol00=np.ma.masked_invalid(pol00)
     pol11=np.ma.masked_invalid(pol11)
     pol01r=np.ma.masked_invalid(pol01r)
@@ -187,38 +200,34 @@ def get_vmin_vmax(data_arr):
     '''
     Automatically gets vmin and vmax for colorbar
     '''
-    print("shape of passed array", data_arr.shape, data_arr.dtype)
+    # print("shape of passed array", data_arr.shape, data_arr.dtype)
     xx=data_arr[~data_arr.mask].data
     med = np.percentile(xx,50)
-    print(med, "median")
+    # print(med, "median")
     u=np.percentile(xx,99)
     b=np.percentile(xx,1)
     xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
     stddev = np.std(xx_clean)
     vmin= max(med - 2*stddev,10**7)
     vmax = med + 2*stddev
-    print("vmin, vmax are", vmin, vmax)
+    # print("vmin, vmax are", vmin, vmax)
     return vmin,vmax   
 
-def get_ylim_times(t_i,t_f,tz):
+def get_ylim_times(t_i,t_f):
     '''
     Gets the y limits in matplotlib's date format for a given initial time
     and final time. t_i and t_f must be given in ctime
     '''
-
-    if tz=="utc":
-        y_lims = list(map(datetime.utcfromtimestamp, [t_i, t_f]))
-    elif tz=="local":
-        y_lims = list(map(datetime.fromtimestamp, [t_i, t_f])) #local is not observing site! it's computer's tz
-    else:
-        print("Invalid timezone")
-
-    y_lims_plt = mdates.date2num(y_lims)
-    print(y_lims_plt, "y lims plt")
+    # getlocaltime = lambda tstamp: datetime.fromtimestamp(int(tstamp),tz=pytz.utc).astimezone(tz=mytz)
+    y_lims = list(map(datetime.utcfromtimestamp, [t_i, t_f]))
+    y_lims_plt = mdates.date2num(y_lims) 
+    #date2num is NOT tz aware. 
+    # will return same value regardless of tz of passed datetime object. 
+    # pass tz to formatter and tick locators
     return y_lims_plt
 
 #================= plotting functions =======================
-def full_plot(data_arrs):
+def full_plot(data_arrs, mytz, chunk_time):
     '''
     Makes a plot that contains autospectra waterfalls for each pol, as well
     as some statistics (min,max,med,mean spectra), and cross spectra
@@ -234,7 +243,7 @@ def full_plot(data_arrs):
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
     
-    y_extent = get_ylim_times(tstart,tend,timezone)
+    y_extent = get_ylim_times(tstart,tend)
     ticks = np.linspace(y_extent[0], y_extent[1],20)
     print(y_extent)
  
@@ -246,15 +255,23 @@ def full_plot(data_arrs):
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
-    plt.yticks(ticks)
-    plt.gca().yaxis.set_major_formatter(datetimefmt)
+    # plt.yticks(ticks)
+    ax=plt.gca()
+    ax.yaxis.set_major_formatter(datetimefmt)
+    nticks = 15 #desired number of ticks on the plot
+    hourinterval = int(pol00.shape[0]*chunk_time*blocksize/3600/nticks)
+    locator=mdates.HourLocator(interval=hourinterval,tz=mytz)
+    ax.yaxis.set_major_locator(locator)
+    
     
     plt.subplot(2,3,4)
     plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.colorbar()
     plt.yticks(ticks)
-    plt.gca().yaxis.set_major_formatter(datetimefmt)
+    ax=plt.gca()
+    ax.yaxis.set_major_formatter(datetimefmt)
+    ax.yaxis.set_major_locator(locator)
 
     plt.subplot(2,3,2)
     plt.title('Basic stats for frequency bins')
@@ -287,7 +304,8 @@ def full_plot(data_arrs):
     plt.colorbar()
     plt.gca().set_yticklabels([])
 
-    plt.suptitle(f'{datetime.utcfromtimestamp(ctime_start)} UTC to {datetime.utcfromtimestamp(ctime_stop)} UTC, Averaged over {blocksize} chunks')
+    range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
+    plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {int(blocksize*chunk_time/60)} minutes.')
 
     outfile = os.path.join(outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
     plt.savefig(outfile)
@@ -303,21 +321,20 @@ def main():
     # parser.set_usage('python plot_overnight_data.py <data directory> <start time as YYYYMMDD_HHMMSS or ctime> <stop time as YYYYMMDD_HHMMSS or ctime> [options]')
     # parser.set_description(__doc__)
     parser.add_argument('data_dir', type=str,help='Direct data directory')
-    parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime")
-    parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime")
+    parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
+    parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
               help='Output plot directory [default: .]')
     
-    parser .add_argument('-n', '--length', dest='readlen', type=int, default=1000, help='length of integration time in seconds')
     parser.add_argument("-a", "--avglen",dest="blocksize",default=0,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
-
+    parser .add_argument('-n', '--acclen', dest='acclen', type=int, default=393216, help='Accumulation length to calculate accumulation time. Default 393216 ~ 6.44s')
     parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
     parser.add_argument("-p", "--plottype",dest="plottype",default="full",type=str,
         help="Type of plot to generate. 'full': pol00 and pol11 waterfall autospectra, min/max/mean/med autospectra, waterfall cross spectra. 'waterfall': same as 1, but no stats")
-    parser.add_argument("-t", "--timezone", dest='timezone', default = "utc", type=str, help="Timezone to use for plot axis. Can do 'utc' or 'local'")
+    parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
     parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
     parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
-    parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%b-%d %H:%M", type=str, help="Format for dates on axes of plots")
+    parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%m/%d %H:%M", type=str, help="Format for dates on axes of plots")
     
 
     args = parser.parse_args()
@@ -331,7 +348,9 @@ def main():
     logplot=args.logplot
     blocksize = args.blocksize
     outdir = args.outdir
-    datetimefmt = mdates.DateFormatter(args.datetimefmt)
+    mytz = pytz.timezone(args.timezone)
+    datetimefmt = mdates.DateFormatter(args.datetimefmt,tz=mytz) #formatter needs to be tz aware
+
     #=============================================================#
     
     # figuring out if human time or ctime was passed with pattern matching
@@ -348,8 +367,10 @@ def main():
     else:
         raise ValueError("INVALID time format entered.")
 
+    chunk_time = args.acclen*4096/250e6
+
     #================= reading data =================#
-    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44, args.blocksize)
+    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
     # import sys
     # sys.exit(0)
 
@@ -367,7 +388,7 @@ def main():
 
     #============ and finally: plotting! ============#
     if args.plottype == "full":
-        full_plot([pol00,pol11,pol01, tstart, tend])
+        full_plot([pol00,pol11,pol01, tstart, tend], mytz, chunk_time)
     
     
 if __name__ == '__main__':
