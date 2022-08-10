@@ -12,6 +12,7 @@ import argparse
 from datetime import datetime
 import matplotlib.dates as mdates
 from multiprocessing import Pool
+from functools import partial
 
 
 def get_ts_from_name(f):
@@ -70,13 +71,14 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
     print(time.time()-t1, f"Read {len(data_subdirs)} files")
 
     #average everything if blocklen>1
+    myavgfunc = partial(get_avg, block=blocklen)
     if(blocklen>1):
         t1=time.time()
         with Pool(os.cpu_count()) as p:
-            avgpol00 = p.map(set_avg,datpol00)
-            avgpol11 = p.map(set_avg,datpol11)
-            avgpol01r = p.map(set_avg,datpol01r)
-            avgpol01i = p.map(set_avg,datpol01i)
+            avgpol00 = p.map(myavgfunc,datpol00)
+            avgpol11 = p.map(myavgfunc,datpol11)
+            avgpol01r = p.map(myavgfunc,datpol01r)
+            avgpol01i = p.map(myavgfunc,datpol01i)
         print(time.time()-t1, "averaged everything")
     else:
         avgpol00 = datpol00
@@ -152,7 +154,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen):
     pol01i=np.ma.masked_invalid(pol01i)
     return pol00, pol11, pol01r, pol01i, tstart, tend
 
-def set_avg(arr,block=50):
+def get_avg(arr,block=10):
     '''
     Averages some array over a given block size
     '''
@@ -347,7 +349,7 @@ def main():
         raise ValueError("INVALID time format entered.")
 
     #================= reading data =================#
-    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44, 50)
+    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, 6.44, args.blocksize)
     # import sys
     # sys.exit(0)
 
