@@ -59,7 +59,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     
     #rough estimate of number of rows we'll read
     nrows_guess = len(data_subdirs)*((int(3600/chunk_time/blocklen)+1)+1)
-    print("Starting with a guess of ", nrows_guess)
+    # print("Starting with a guess of ", nrows_guess)
     pol00 = np.zeros((nrows_guess,2048))
     
     nrows = 0
@@ -76,6 +76,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     print(time.time()-t1, f"Read {len(data_subdirs)} files")
 
     #average everything if blocklen>1
+    # print("first row must be in:", data_subdirs[0])
+
     myavgfunc = partial(get_avg, block=blocklen)
     if(blocklen>1):
         t1=time.time()
@@ -121,6 +123,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     # print("HERE")
     #once we have pol00, we know the exact size. use it
     print("############################################################")
+    print(f"First file at: {tstart}, Last file at: {get_ts_from_name(data_subdirs[-1])}")
     print(f"Plotting all data starting {tstart} and ending {int(tend)}")
     ts,te= list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
     print(f"In Local time: {ts.strftime('%b-%d %H:%M:%S')} to {te.strftime('%b-%d %H:%M:%S')} in {mytz.zone}")
@@ -169,7 +172,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
 
 def get_avg(arr,block=10):
     '''
-    Averages some array over a given block size
+    Fast average array over a given block size. 
     '''
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
@@ -177,8 +180,14 @@ def get_avg(arr,block=10):
     nrows = iters+int(leftover>0)
     ncols = arr.shape[1]
     newarr = np.zeros((nrows,ncols),dtype=arr.dtype)
+    cmp1=np.median(arr[0,:])/np.median(arr[1,:]) #temporary fix, assuming only first row is expected to be faulty
+    if(cmp1>1e2):
+        #skip first row before averaging for first block
+        newarr[0,:]=np.mean(arr[1:block,:],axis=0)
+        newarr[1:iters,:] = np.mean(arr[block:iters*block,:].reshape(-1,block,ncols),axis=1)
+    else:
     # print(f"Shape of passed arr {arr.shape} and shape of new arr {newarr.shape}")
-    newarr[:iters,:] = np.mean(arr[:iters*block,:].reshape(-1,block,ncols),axis=1)
+        newarr[:iters,:] = np.mean(arr[:iters*block,:].reshape(-1,block,ncols),axis=1)
     if(leftover):
         newarr[iters,:] = np.mean(arr[iters*block:,:],axis=0)
     return newarr
@@ -221,7 +230,7 @@ def get_ylim_times(t_i,t_f):
     # getlocaltime = lambda tstamp: datetime.fromtimestamp(int(tstamp),tz=pytz.utc).astimezone(tz=mytz)
     y_lims = list(map(datetime.utcfromtimestamp, [t_i, t_f]))
     y_lims_plt = mdates.date2num(y_lims) 
-    #date2num is NOT tz aware. 
+    # date2num is NOT tz aware. 
     # will return same value regardless of tz of passed datetime object. 
     # pass tz to formatter and tick locators
     return y_lims_plt
@@ -237,8 +246,7 @@ def full_plot(data_arrs, mytz, chunk_time):
 
     pol00_stats = get_stats(pol00)
     pol11_stats = get_stats(pol11)
-    
-    
+
     if logplot is True:
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
@@ -373,7 +381,7 @@ def main():
     pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
     # import sys
     # sys.exit(0)
-
+    np.savetxt('../temp_plots/pol00.txt', pol00)
     pol01 = pol01r + 1J*pol01i
     freq = np.linspace(0, 125, np.shape(pol00)[1]) #125 MHz is max frequency
     
