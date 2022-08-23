@@ -60,7 +60,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     #rough estimate of number of rows we'll read
     nrows_guess = len(data_subdirs)*((int(3600/chunk_time/blocklen)+1)+1)
     # print("Starting with a guess of ", nrows_guess)
-    pol00 = np.zeros((nrows_guess,2048))
+    pol00 = np.zeros((nrows_guess+500,2048))
     
     nrows = 0
 
@@ -266,10 +266,13 @@ def full_plot(data_arrs, mytz, chunk_time):
     # plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
-    nticks = 15 #desired number of ticks on the plot
-    hourinterval = int(pol00.shape[0]*chunk_time*blocksize/3600/nticks)
-    locator=mdates.HourLocator(interval=hourinterval,tz=mytz)
-    ax.yaxis.set_major_locator(locator)
+
+    # this makes the code slow on Lab laptop. 
+
+    # nticks = 15 #desired number of ticks on the plot
+    # hourinterval = int(pol00.shape[0]*chunk_time*blocksize/3600/nticks)
+    # locator=mdates.HourLocator(interval=hourinterval,tz=mytz)
+    # ax.yaxis.set_major_locator(locator)
     
     
     plt.subplot(2,3,4)
@@ -279,7 +282,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
-    ax.yaxis.set_major_locator(locator)
+    # ax.yaxis.set_major_locator(locator)
 
     plt.subplot(2,3,2)
     plt.title('Basic stats for frequency bins')
@@ -334,7 +337,7 @@ def main():
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
               help='Output plot directory [default: .]')
     
-    parser.add_argument("-a", "--avglen",dest="blocksize",default=0,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
+    parser.add_argument("-a", "--avglen",dest="blocksize",default=10,type=int,help="number of chunks (rows) of direct spectra to average over. One chunk is roughly 6 seconds.")
     parser .add_argument('-n', '--acclen', dest='acclen', type=int, default=393216, help='Accumulation length to calculate accumulation time. Default 393216 ~ 6.44s')
     parser.add_argument("-l", "--logplot", dest='logplot', default = True, action="store_true", help="Plot in logscale")
     parser.add_argument("-p", "--plottype",dest="plottype",default="full",type=str,
@@ -381,7 +384,6 @@ def main():
     pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
     # import sys
     # sys.exit(0)
-    np.savetxt('../temp_plots/pol00.txt', pol00)
     pol01 = pol01r + 1J*pol01i
     freq = np.linspace(0, 125, np.shape(pol00)[1]) #125 MHz is max frequency
     
