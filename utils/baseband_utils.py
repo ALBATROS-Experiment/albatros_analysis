@@ -68,46 +68,10 @@ def get_num_missing(s_idx, e_idx, missing_loc, missing_num):
                     break
     return sum
 
-def get_rows_from_specnum(spec1,spec2, spec_num, spectra_per_packet):
-
-    # print(f"received spec1 = {spec1} and spec2 = {spec2}")
-    l = np.searchsorted(spec_num,spec1,side='left')
-    r = np.searchsorted(spec_num,spec2,side='left')
-    # print(f"spec1={spec1} spec2={spec2}")
-    # print(f"spec_num len {spec_num.shape[0]}, last spec_num {spec_num[-1]}, l={l}, r={r}")
-    diff1=-1
-    diff2=-1
-    if(l<spec_num.shape[0]):
-        diff1 = spec1-spec_num[l]
-    if(r<spec_num.shape[0]):
-        diff2 = spec2-spec_num[r] # will give distance from right element in not equal cases
-
-    if(diff1!=0 and diff2!=0):
-        diff1 = spec1-spec_num[l-1]
-        diff2 = spec2-spec_num[r-1]
-        if(diff1<spectra_per_packet):
-            idx1=(l-1)*spectra_per_packet+diff1
-        else:
-            idx1=l*spectra_per_packet
-        if(diff2<spectra_per_packet):
-            idx2=(r-1)*spectra_per_packet+diff2
-        else:
-            idx2=r*spectra_per_packet
-    elif(diff1==0 and diff2!=0):
-        idx1 = l*spectra_per_packet
-        diff2 = spec2-spec_num[r-1]
-        if(diff2<spectra_per_packet):
-            idx2=(r-1)*spectra_per_packet+diff2
-        else:
-            idx2=r*spectra_per_packet
-    elif(diff1!=0 and diff2==0):
-        idx2 = r*spectra_per_packet
-        diff1 = spec1-spec_num[l-1]
-        if(diff1<spectra_per_packet):
-            idx1=(l-1)*spectra_per_packet+diff1
-        else:
-            idx1=l*spectra_per_packet
-    else:
-        idx1 = l*spectra_per_packet
-        idx2 = r*spectra_per_packet
-    return int(idx1),int(idx2)
+def get_rows_from_specnum(stidx,endidx,spec_arr):
+    #follows numpy convention
+    #endidx is assumed not included
+    # print("utils get_rows received:",stidx,endidx,spec_arr)
+    l=np.searchsorted(spec_arr,stidx,side='left')
+    r=np.searchsorted(spec_arr,endidx,side='left')
+    return l, r

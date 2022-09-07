@@ -1,11 +1,16 @@
 import numpy
 import struct
 import time
-import ctypes
-import os
-import sys
+import numba as nb
 # import unpacking as unpk
 from . import unpacking as unpk
+
+@nb.njit(parallel=True)
+def fill_arr(myarr,specnum, spec_per_packet):
+    n=len(specnum)
+    for i in nb.prange(n):
+        for j in nb.prange(spec_per_packet):
+            myarr[i*spec_per_packet+j] = specnum[i]+j
 
 class Baseband:
 	def __init__(self, file_name):
@@ -39,8 +44,11 @@ class Baseband:
 		print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
 		file_data.close()
 		
-		self.spec_num = numpy.array(data["spec_num"], dtype = numpy.dtype(numpy.uint64))
-		self.raw_data = numpy.array(data["spectra"], dtype="uint8")
+		self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
+		self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
+		self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
+		fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
+		self.spec_idx = self.spec_idx - self.spec_idx[0]
 	
 	def print_header(self):
 		print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
@@ -73,13 +81,12 @@ class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
 	def __init__(self, file_name, chanstart=0, chanend=None):
 		super().__init__(file_name)
-
 		specdiff=numpy.diff(self.spec_num)
 		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
 		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
-		self.spec_idx = self.spec_num - self.spec_num[0]
+		self.spec_idx2 = self.spec_num - self.spec_num[0]
 		# print(self.spectra_per_packet)
 		# unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, spec_idx)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, chanstart, chanend)

@@ -36,11 +36,12 @@ void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol
 
 }
 
-void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t ncol)
+void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t start_idx, uint32_t stop_idx, uint32_t ncol)
 {
 	/*
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
 		Division by appropriate spectra count will be taken care by python frontend.
+		In 4 bit case start and stop idx correspond directly to spec_num
 	*/
 
 	for(int i=0;i<ncol;i++)
@@ -53,7 +54,7 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t 
 
 	int64_t sum_pvt[ncol];
 	
-	#pragma omp parallel default(none) firstprivate(imask,rmask,nspec,ncol,sum_pvt) shared(data,corr)
+	#pragma omp parallel private(sum_pvt)
 	{
 		for(int i =0;i<ncol;i++)
 		{
@@ -61,7 +62,7 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t nspec, uint32_t 
 		}
 
 		#pragma omp for nowait
-		for(int i = 0; i<nspec; i++)
+		for(int i = start_idx; i<stop_idx; i++) // be careful. for loop over int start_idx is uint32. should be ok
 		{
 			for(int j=0; j<ncol; j++)
 			{
@@ -118,7 +119,7 @@ void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t nspec,
 
 }
 
-void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t nspec, uint32_t ncol)
+void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t start_idx, uint32_t stop_idx, uint32_t ncol)
 {
 	/*
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
@@ -146,7 +147,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t ns
 		}
 
 		#pragma omp for nowait
-		for(int i=0; i<nspec; i++)
+		for(int i=start_idx; i<stop_idx; i++)
 		{
 			for(int j=0; j<ncol; j++)
 			{

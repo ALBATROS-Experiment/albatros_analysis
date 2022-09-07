@@ -44,13 +44,22 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
         missing_spec_gap=0
         while(True):
             l=objlen-idxstart
+            # print("dist from end l is:", l)
+            # print(len(obj.spec_num)*obj.spectra_per_packet, objlen)
             if(l<rem):
                 # print("less than rem:", "idxstart l objlen", idxstart, l, objlen)
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
-
-                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+objlen,:])
-                pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+objlen,:])
-                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+objlen,:], obj.pol1[idxstart:idxstart+objlen,:])
+                # missing_spec_gap += butils.get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
+                # print(obj.spec_idx)
+                rowstart, rowend = butils.get_rows_from_specnum(idxstart,objlen,obj.spec_idx)
+                # print(rowstart,rowend)
+                mg=butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                mg2=l - rowend + rowstart
+                assert(mg==mg2)
+                missing_spec_gap = missing_spec_gap + l - rowend + rowstart
+                # print("old vs new missing gap compare", mg , l - rowend + rowstart)
+                pol00[i,:]=pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0, idxstart, objlen)
+                pol11[i,:]=pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1, idxstart, objlen)
+                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0, obj.pol1, idxstart, objlen)
 
                 #if the code is here another part of chunk will be read from next file. 
                 # So it WILL go to the else block, and that's where we'll divide. Just adding here.
@@ -80,10 +89,12 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
                     rem = rem - file_spec_gap # continue the while loop and go to else block
             elif(l==rem):
                 # one chunk ends exactly at end of file
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
-                pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
-                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx)
+                missing_spec_gap = missing_spec_gap + rem - rowend + rowstart
+                mg=butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
+                pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
+                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0, obj.pol1, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
                 #file_spec_gap above shouldn't affect the avg since we're still in the same file. And it doesn't because it's zero until a new file is read.
                 fc+=1
                 idxstart=0
@@ -95,8 +106,12 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
                 #don't reset file_spec_gap because upcoming chunk will be read from new file.
                 break
             else:
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
+                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx)
+                mg=butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
+                mg2=rem - rowend + rowstart
+                assert(mg==mg2)
+                missing_spec_gap = missing_spec_gap + rem - rowend + rowstart
+                # print("old vs new missing gap compare from else", mg , rem - rowend + rowstart - 1)
                 if(rowstart==rowend):
                     print("WHOLE CHUNK LIES IN MISSING REGION")
                     pol00[i,:] = np.nan
@@ -105,9 +120,9 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
                 else:
                     # for 4 bit we don't worry about using rowstart,rowend because all spectra within a file are present. missing ones are set to zero.
                     # print("compare: ", rowend-rowstart,acclen-missing_spec_gap) # should match if no new file read
-                    pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
-                    pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
-                    pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0[idxstart:idxstart+rem,:],obj.pol1[idxstart:idxstart+rem,:]))/(acclen-file_spec_gap-missing_spec_gap)
+                    pol00[i,:]=(pol00[i,:] + cr.avg_autocorr_4bit(obj.pol0, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
+                    pol11[i,:]=(pol11[i,:] + cr.avg_autocorr_4bit(obj.pol1, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
+                    pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_4bit(obj.pol0, obj.pol1, idxstart, idxstart+rem))/(acclen-file_spec_gap-missing_spec_gap)
                 idxstart+=rem
                 file_spec_gap=0
                 break
