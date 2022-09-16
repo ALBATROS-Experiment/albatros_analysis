@@ -148,7 +148,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int64_t *spec_num, i
 	{
 		int c1 = 2*nchan; //2 is because we have pol0 byte pol1 byte
 		#pragma omp parallel for
-		for(int i = 0; i<nspec; i++)
+		for(int i = 0; i<nspec; i++)  //this nspec is < nrows (as defined on python side), but corresponds to rowstart->rowend. fix the convention.
 		{
 				for(int k=chanstart; k<chanend; k++)
 				{	

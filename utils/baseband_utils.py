@@ -67,11 +67,3 @@ def get_num_missing(s_idx, e_idx, missing_loc, missing_num):
                     sum+= e_idx - s_idx
                     break
     return sum
-
-def get_rows_from_specnum(stidx,endidx,spec_arr):
-    #follows numpy convention
-    #endidx is assumed not included
-    # print("utils get_rows received:",stidx,endidx,spec_arr)
-    l=np.searchsorted(spec_arr,stidx,side='left')
-    r=np.searchsorted(spec_arr,endidx,side='left')
-    return l, r

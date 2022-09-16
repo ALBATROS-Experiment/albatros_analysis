@@ -179,6 +179,86 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t st
 	}
 }
 
+int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t* specnum0, int64_t* specnum1, int64_t idxstart0, int64_t idxend0, int64_t idxstart1, int64_t idxend1, int64_t rowstart0, int64_t rowend0, int64_t rowstart1, int64_t rowend1, int64_t ncol)
+{
+	int acclen=idxend1-idxstart1; //acclen shouldn't exceed 2.1 billion
+	int len1=(rowend0-rowstart0),len2=(rowend1-rowstart1), row_count=0, i=rowstart0,j=rowstart1;
+	uint8_t imask=15;
+  	uint8_t rmask=255-15;
+	//+2.1bil to -2.4bil, should be enough, and compatible with float32
+	int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
+
+	printf("\n***Variables passed****\n");
+	printf("idx: %d %d %d %d\n", idxstart0, idxend0, idxstart1, idxend1);
+	printf("row: %d %d %d %d\n", rowstart0, rowend0, rowstart1, rowend1);
+	printf("len: %d %d %d %d\n", len1, len2, i, j);
+	printf("ncol: %d\n", ncol);
+	printf("acclen: %d\n", acclen);
+
+	while((i<rowend0)&&(j<rowend1))
+	{
+		if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
+		{
+			row_count=row_count+1;
+			i=i+1;
+			j=j+1;
+		}
+		else if((specnum0[i]-idxstart0)>(specnum1[j]-idxstart1)) {j=j+1;}
+		else {i=i+1;}
+	}
+	printf("row count is: %d\n", row_count);
+
+	for(int i=0; i<ncol; i++)
+	{
+		xcorr[2*i]=0;
+		xcorr[2*i+1]=0;
+	}
+
+	#pragma omp parallel private(sum_r_pvt,sum_im_pvt)
+	{
+		//init
+		for(int i=0;i<ncol;i++)
+		{
+			sum_r_pvt[i]=0;
+			sum_im_pvt[i]=0;
+		}
+
+		#pragma omp for nowait
+		for(int i=0; i<acclen; i++)
+		{
+			// printf("inside the loop...processing");
+			for(int j=0; j<ncol; j++)
+			{
+				
+				int8_t im0=data0[(idxstart0+i)*ncol+j]&imask;
+				int8_t r0=(data0[(idxstart0+i)*ncol+j]&rmask)>>4;
+				if (r0 > 8){r0 = r0 - 16;}
+				if (im0 > 8){im0 = im0 - 16;}
+				
+
+				int8_t im1=data1[(idxstart1+i)*ncol+j]&imask;
+				int8_t r1=(data1[(idxstart1+i)*ncol+j]&rmask)>>4;
+				if (r1 > 8){r1 = r1 - 16;}
+				if (im1 > 8){im1 = im1 - 16;}
+				// printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
+
+				sum_r_pvt[j] = sum_r_pvt[j] + r0*r1 + im0*im1;
+				sum_im_pvt[j] = sum_im_pvt[j] + r1*im0 - r0*im1;
+			}
+		}
+		#pragma omp critical
+		{
+			for(int k=0; k<ncol; k++)
+			{
+				// printf("setting real xcorr of k=%d as %d\n",k, sum_r_pvt[k]);
+				xcorr[2*k] = xcorr[2*k] + sum_r_pvt[k];
+				xcorr[2*k+1] = xcorr[2*k+1] + sum_im_pvt[k];
+			}
+		}
+	}
+	return row_count;
+}
+
 void avg_xcorr_1bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nchan, const uint32_t nspec, const uint32_t ncol)
 {
 	// printf("entered corr func\n");

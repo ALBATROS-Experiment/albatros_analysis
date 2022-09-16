@@ -13,10 +13,14 @@ mylib.autocorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint3
 mylib.avg_autocorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32]
 mylib.xcorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
 mylib.avg_xcorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32]
+mylib.avg_xcorr_4bit_2ant.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,\
+	ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64,\
+	ctypes.c_int64]
 autocorr_4bit_c = mylib.autocorr_4bit
 avg_autocorr_4bit_c = mylib.avg_autocorr_4bit
 xcorr_4bit_c = mylib.xcorr_4bit
 avg_xcorr_4bit_c = mylib.avg_xcorr_4bit
+avg_xcorr_4bit_2ant_c = mylib.avg_xcorr_4bit_2ant
 
 mylib.avg_xcorr_1bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32]
 avg_xcorr_1bit_c = mylib.avg_xcorr_1bit
@@ -66,6 +70,20 @@ def avg_xcorr_4bit(data0, data1, start_idx, stop_idx):
 	avg_xcorr_4bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, start_idx, stop_idx, data0.shape[1])
 	t2=time.time()
 	print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+	return xcorr
+
+def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, stop_idx0, start_idx1, stop_idx1, rowstart0, rowend0, rowstart1, rowend1):
+	
+	assert(data0.shape[1]==data1.shape[1])
+	xcorr = np.empty(data0.shape[1],dtype='complex64',order='c')
+	t1=time.time()
+	row_count = avg_xcorr_4bit_2ant_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, specnum0.ctypes.data, specnum1.ctypes.data,\
+		start_idx0, stop_idx0, start_idx1, stop_idx1, rowstart0, rowend0, rowstart1, rowend1, data0.shape[1])
+	t2=time.time()
+	print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+	print("ROW COUNT IS ", row_count)
+	if(row_count==0):
+		xcorr=np.nan
 	return xcorr
 
 def avg_xcorr_1bit(pol0, pol1, nchannels):

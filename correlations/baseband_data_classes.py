@@ -48,7 +48,7 @@ class Baseband:
 		self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
 		self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
 		fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
-		self.spec_idx = self.spec_idx - self.spec_idx[0]
+		# self.spec_idx = self.spec_idx - self.spec_idx[0]
 	
 	def print_header(self):
 		print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
@@ -74,8 +74,7 @@ class BasebandFloat(Baseband):
 			self.pol0, self.pol1 = unpk.unpack_1bit(self.raw_data, self.length_channels, True)
 		else:
 			print("Unknown bit depth")
-	
-	
+
 
 class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
@@ -91,3 +90,57 @@ class BasebandPacked(Baseband):
 		# unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, spec_idx)
 		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, chanstart, chanend)
 		# print(self.pol0.strides)
+
+def get_rows_from_specnum(stidx,endidx,spec_arr):
+    #follows numpy convention
+    #endidx is assumed not included
+    # print("utils get_rows received:",stidx,endidx,spec_arr)
+    l=numpy.searchsorted(spec_arr,stidx,side='left')
+    r=numpy.searchsorted(spec_arr,endidx,side='left')
+    return l, r
+
+class BasebandFileIterator():
+	def __init__(self, file_paths, fileidx, idxstart, acclen, nchunks=None):
+		#you need to pass nchunks if you are passing the iterator to zip(). without nchunks, iteration won't stop
+		self.acclen=acclen
+		self.file_paths = file_paths
+		self.fileidx=fileidx
+		self.nchunks=nchunks
+		self.chunksread=0
+		self.obj = BasebandPacked(file_paths[fileidx],unpack=False)
+		self.spec_num_start=idxstart+self.obj.spec_idx[0] # REPLACE SPEC_IDX to be SPEC_NUM, not 0 indexed
+	
+	def __iter__(self):
+		return self
+
+	def __next__(self):
+		if(self.nchunks and self.chunksread==self.nchunks):
+			raise StopIteration
+		data=numpy.zeros(self.acclen,self.obj.length_channels) #for now take all channels. will modify to accept chanstart, chanend
+		specnums=numpy.array([]) #len of this array will control everything in corr, neeed the len.
+
+		rem=self.acclen
+		while(rem):
+			if(self.spec_num_start < self.obj.spec_num[0]):
+				# we are in a gap between the files
+				step = min(self.obj.spec_num[0]-self.spec_num_start,rem)
+				rem-=step
+				self.spec_num_start+=step
+			else:
+				l = self.obj.spec_idx[-1]-self.spec_num_start+1 #length to end from the point in file we're starting from
+				if(rem>=l):
+					#spillover to next file. 
+					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
+					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
+					rem-=l
+					self.spec_num_start+=l
+				else:
+					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
+					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
+					rem=0
+					self.spec_num_start+=rem
+		self.chunksread+=1
+		return [data,specnums]
+
+			
+
