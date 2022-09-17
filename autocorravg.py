@@ -12,6 +12,25 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
     print(files[fileidx])
+
+    ant1 = bdc.BasebandFileIterator(files,fileidx,acclen,nchunks=nchunks,chanstart=chanstart,chanend=chanend)
+    ncols=ant1.obj.chanend-ant1.obj.chanstart
+    pol00=np.zeros((nchunks,ncols),dtype='float64',order='c')
+    pol11=np.zeros((nchunks,ncols),dtype='float64',order='c')
+    pol01=np.zeros((nchunks,ncols),dtype='complex64',order='c')
+
+    for i, chunk in enumerate(ant1):
+        pol00[i,:] = cr.avg_autocorr_4bit(chunk['pol0'])/len(chunk['specnums'])
+        pol11[i,:] = cr.avg_autocorr_4bit(chunk['pol0'])/len(chunk['specnums'])
+        pol01[i,:] = cr.avg_xcorr_4bit(chunk['pol0'], chunk['pol1'])/len(chunk['specnums'])
+    
+    return pol00,pol11,pol01
+
+def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):
+    
+    idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
+    print("Starting at: ",idxstart, "in filenum: ",fileidx)
+    print(files[fileidx])
     
     obj = bdc.BasebandPacked(files[fileidx],chanstart,chanend)
     channels=obj.channels[chanstart:chanend]

@@ -75,10 +75,17 @@ class BasebandFloat(Baseband):
 		else:
 			print("Unknown bit depth")
 
+# test: 
+#
+# obj0=bd.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
+# assert((obj0.pol0.ravel()-obj0.raw_data.ravel()[::2]).sum()==0)
+# assert((obj0.pol1.ravel()-obj0.raw_data.ravel()[1::2]).sum()==0)
+# obj0._unpack(11,50)
+# assert((obj0.pol0.ravel()-obj0.raw_data[1:5,:].ravel()[128::2]).sum()==0)
 
 class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
-	def __init__(self, file_name, chanstart=0, chanend=None):
+	def __init__(self, file_name, chanstart=0, chanend=None, unpack=True):
 		super().__init__(file_name)
 		specdiff=numpy.diff(self.spec_num)
 		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
@@ -86,10 +93,15 @@ class BasebandPacked(Baseband):
 		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
 		self.spec_idx2 = self.spec_num - self.spec_num[0]
-		# print(self.spectra_per_packet)
-		# unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, spec_idx)
-		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, chanstart, chanend)
-		# print(self.pol0.strides)
+		self.chanstart = chanstart
+		self.chanend = chanend
+		if(unpack):
+			self._unpack(0,len(self.spec_idx))
+	
+	def _unpack(self, rowstart, rowend):
+		# There should NOT be an option to modify channels you're working with in a private function.
+		# If you want different set of channels, create a new object
+		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, rowstart, rowend, self.chanstart, self.chanend)
 
 def get_rows_from_specnum(stidx,endidx,spec_arr):
     #follows numpy convention
@@ -100,7 +112,7 @@ def get_rows_from_specnum(stidx,endidx,spec_arr):
     return l, r
 
 class BasebandFileIterator():
-	def __init__(self, file_paths, fileidx, idxstart, acclen, nchunks=None):
+	def __init__(self, file_paths, fileidx, idxstart, acclen, nchunks=None, chanstart=0, chanend=None):
 		#you need to pass nchunks if you are passing the iterator to zip(). without nchunks, iteration won't stop
 		self.acclen=acclen
 		self.file_paths = file_paths
@@ -116,15 +128,17 @@ class BasebandFileIterator():
 	def __next__(self):
 		if(self.nchunks and self.chunksread==self.nchunks):
 			raise StopIteration
-		data=numpy.zeros(self.acclen,self.obj.length_channels) #for now take all channels. will modify to accept chanstart, chanend
+		pol0=numpy.zeros(self.acclen,self.obj.length_channels) #for now take all channels. will modify to accept chanstart, chanend
+		pol1=numpy.zeros(self.acclen,self.obj.length_channels) 
 		specnums=numpy.array([]) #len of this array will control everything in corr, neeed the len.
-
 		rem=self.acclen
+		i=0
 		while(rem):
 			if(self.spec_num_start < self.obj.spec_num[0]):
 				# we are in a gap between the files
 				step = min(self.obj.spec_num[0]-self.spec_num_start,rem)
 				rem-=step
+				i=self.acclen-rem
 				self.spec_num_start+=step
 			else:
 				l = self.obj.spec_idx[-1]-self.spec_num_start+1 #length to end from the point in file we're starting from
@@ -133,14 +147,19 @@ class BasebandFileIterator():
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
 					rem-=l
+					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
+					i+=(rowend-rowstart)
 					self.spec_num_start+=l
 				else:
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
+					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					rem=0
+					i+=(rowend-rowstart)
 					self.spec_num_start+=rem
 		self.chunksread+=1
-		return [data,specnums]
+		data = {'pol0':pol0,'pol1':pol1,'specnums':specnums}
+		return data
 
 			
 

@@ -10,7 +10,7 @@ unpack_4bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_
 unpack_1bit_float_c = mylib.unpack_1bit_float
 unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 sortpols_c = mylib.sortpols
-sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short, ctypes.c_int, ctypes.c_int]
+sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short, ctypes.c_int, ctypes.c_int]
 hist_4bit_c = mylib.hist_4bit
 hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 
@@ -68,10 +68,6 @@ def sortpols(data, length_channels, bit_mode, spec_num, rowstart, rowend, chanst
 
 	#removed a data.copy() here. be careful.
 
-	if(rowend is None):
-		rowstart=0
-		rowend=spec_num.shape[0]
-
 	if(chanend is None):
 		chanstart=0
 		chanend=length_channels
@@ -87,7 +83,7 @@ def sortpols(data, length_channels, bit_mode, spec_num, rowstart, rowend, chanst
 	pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 			
 	t1 = time.time()
-	sortpols_c(data.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, spec_num.ctypes.data, nspec, nrows, ncols, length_channels, bit_mode, chanstart, chanend)
+	sortpols_c(data.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, rowstart, rowend, ncols, length_channels, bit_mode, chanstart, chanend)
 	t2 = time.time()
 	print(f"Took {(t2 - t1):5.3f} to unpack")
 	

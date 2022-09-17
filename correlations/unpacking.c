@@ -130,10 +130,11 @@ void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int n
   }
 }
 
-void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int64_t *spec_num, int nspec, int nrows, int ncols, int nchan, short bit_depth, int chanstart, int chanend)
+void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int rowstart, int rowend, int ncols, int nchan, short bit_depth, int chanstart, int chanend)
 {
   //nchan is the actual number of channels in raw data. user may decide to unpack only a subset of them.
-	int nn = nrows*ncols;
+	int nrows = rowend-rowstart;
+  int nn = nrows*ncols;
 	// printf("Oi!\n");
 	// printf("nrows %d ncols %d\n", nrows, ncols);
 	#pragma omp parallel for
@@ -143,17 +144,17 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int64_t *spec_num, i
 		pol1[i]=0;
 	}
 
-  printf("first spec_num %d and last specnum %d and nspec %d\n", spec_num[0], spec_num[nspec-1], nspec);
+  //printf("first spec_num %d and last specnum %d and nspec %d\n", spec_num[0], spec_num[nspec-1], nspec);
   if (bit_depth == 4)
 	{
 		int c1 = 2*nchan; //2 is because we have pol0 byte pol1 byte
 		#pragma omp parallel for
-		for(int i = 0; i<nspec; i++)  //this nspec is < nrows (as defined on python side), but corresponds to rowstart->rowend. fix the convention.
+		for(int i = 0; i<nrows; i++)  //this nspec is < nrows (as defined on python side), but corresponds to rowstart->rowend. fix the convention.
 		{
 				for(int k=chanstart; k<chanend; k++)
 				{	
-					pol0[spec_num[i]*ncols+k-chanstart] = data[i*c1 + 2*k];
-					pol1[spec_num[i]*ncols+k-chanstart] = data[i*c1 + 2*k+1];
+					pol0[i*ncols+k-chanstart] = data[(i+rowstart)*c1 + 2*k];
+					pol1[i*ncols+k-chanstart] = data[(i+rowstart)*c1 + 2*k+1];
 				}
 		}
 	}
