@@ -94,14 +94,18 @@ class BasebandPacked(Baseband):
 
 		self.spec_idx2 = self.spec_num - self.spec_num[0]
 		self.chanstart = chanstart
-		self.chanend = chanend
+		if(chanend==None):
+			self.chanend = self.length_channels
+		else:
+			self.chanend = chanend
+
 		if(unpack):
-			self._unpack(0,len(self.spec_idx))
+			self.pol0, self.pol1 = self._unpack(0,len(self.spec_idx))
 	
 	def _unpack(self, rowstart, rowend):
 		# There should NOT be an option to modify channels you're working with in a private function.
 		# If you want different set of channels, create a new object
-		self.pol0, self.pol1 = unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, rowstart, rowend, self.chanstart, self.chanend)
+		return unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, rowstart, rowend, self.chanstart, self.chanend)
 
 def get_rows_from_specnum(stidx,endidx,spec_arr):
     #follows numpy convention
@@ -114,22 +118,27 @@ def get_rows_from_specnum(stidx,endidx,spec_arr):
 class BasebandFileIterator():
 	def __init__(self, file_paths, fileidx, idxstart, acclen, nchunks=None, chanstart=0, chanend=None):
 		#you need to pass nchunks if you are passing the iterator to zip(). without nchunks, iteration won't stop
+		print("ACCLEN RECEIVED IS", acclen)
 		self.acclen=acclen
 		self.file_paths = file_paths
 		self.fileidx=fileidx
 		self.nchunks=nchunks
 		self.chunksread=0
-		self.obj = BasebandPacked(file_paths[fileidx],unpack=False)
+		self.chanstart = chanstart
+		self.chanend = chanend
+		self.obj = BasebandPacked(file_paths[fileidx],chanstart=chanstart,chanend=chanend, unpack=False)
 		self.spec_num_start=idxstart+self.obj.spec_idx[0] # REPLACE SPEC_IDX to be SPEC_NUM, not 0 indexed
+		print("START SPECNUM IS", self.spec_num_start, "obj start at", self.obj.spec_num[0])
 	
 	def __iter__(self):
 		return self
 
 	def __next__(self):
+		t1=time.time()
 		if(self.nchunks and self.chunksread==self.nchunks):
 			raise StopIteration
-		pol0=numpy.zeros(self.acclen,self.obj.length_channels) #for now take all channels. will modify to accept chanstart, chanend
-		pol1=numpy.zeros(self.acclen,self.obj.length_channels) 
+		pol0=numpy.zeros((self.acclen,self.obj.length_channels)) #for now take all channels. will modify to accept chanstart, chanend
+		pol1=numpy.zeros((self.acclen,self.obj.length_channels)) 
 		specnums=numpy.array([]) #len of this array will control everything in corr, neeed the len.
 		rem=self.acclen
 		i=0
@@ -141,7 +150,9 @@ class BasebandFileIterator():
 				i=self.acclen-rem
 				self.spec_num_start+=step
 			else:
+				
 				l = self.obj.spec_idx[-1]-self.spec_num_start+1 #length to end from the point in file we're starting from
+				print("dist to end is", l, "rem is", rem)
 				if(rem>=l):
 					#spillover to next file. 
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
@@ -150,15 +161,22 @@ class BasebandFileIterator():
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					i+=(rowend-rowstart)
 					self.spec_num_start+=l
+					print("Reading new file")
+					self.fileidx+=1
+					self.obj = BasebandPacked(self.file_paths[self.fileidx],chanstart=self.chanstart,chanend=self.chanend, unpack=False)
+					print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
 				else:
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
+					self.spec_num_start+=rem
 					rem=0
 					i+=(rowend-rowstart)
-					self.spec_num_start+=rem
+					
 		self.chunksread+=1
 		data = {'pol0':pol0,'pol1':pol1,'specnums':specnums}
+		t2=time.time()
+		print("TIME TAKEN FOR RETURNING NEW OBJECT",t2-t1)
 		return data
 
 			

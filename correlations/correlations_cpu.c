@@ -36,7 +36,7 @@ void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol
 
 }
 
-void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t start_idx, uint32_t stop_idx, uint32_t ncol)
+void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
 {
 	/*
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
@@ -62,7 +62,7 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, uint32_t start_idx, uint3
 		}
 
 		#pragma omp for nowait
-		for(int i = start_idx; i<stop_idx; i++) // be careful. for loop over int start_idx is uint32. should be ok
+		for(int i = 0; i<nrows; i++) // be careful. for loop over int start_idx is uint32. should be ok
 		{
 			for(int j=0; j<ncol; j++)
 			{
@@ -119,7 +119,7 @@ void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t nspec,
 
 }
 
-void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t start_idx, uint32_t stop_idx, uint32_t ncol)
+void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int ncol)
 {
 	/*
 		Returns an array of nchan elements. Sum over all spectra for each channel. 
@@ -147,7 +147,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t st
 		}
 
 		#pragma omp for nowait
-		for(int i=start_idx; i<stop_idx; i++)
+		for(int i=0; i<nrows; i++)
 		{
 			for(int j=0; j<ncol; j++)
 			{

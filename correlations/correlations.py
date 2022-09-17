@@ -10,9 +10,9 @@ mylib=ctypes.cdll.LoadLibrary(os.path.realpath(__file__+r"/..")+"/lib_correlatio
 # mylib.average_auto.restype = None
 
 mylib.autocorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
-mylib.avg_autocorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32]
+mylib.avg_autocorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 mylib.xcorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
-mylib.avg_xcorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32]
+mylib.avg_xcorr_4bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 mylib.avg_xcorr_4bit_2ant.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,\
 	ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64,\
 	ctypes.c_int64]
@@ -36,18 +36,24 @@ def autocorr_4bit(pol):
 	print(f"time taken for corr {t2-t1:5.3f}s")
 	return corr
 
-def avg_autocorr_4bit(data, start_idx, stop_idx):
-#310,321,481,   0, 310, 321, 481, 498, 541]
+def avg_autocorr_4bit(data, specnums):
+
 	# print("data being passed from python is", data)
+	nrows = len(specnums)
+
 	corr = np.empty(data.shape[1],dtype='int64',order='c') #will be put in float64 in frontend script 
+	if(nrows==0):
+		print("empty block")
+		corr = np.nan
+		return corr
 	t1=time.time()
-	avg_autocorr_4bit_c(data.ctypes.data, corr.ctypes.data, start_idx, stop_idx, data.shape[1])
+	avg_autocorr_4bit_c(data.ctypes.data, corr.ctypes.data, nrows, data.shape[1])
 	t2=time.time()
 	# print(corr.strides)
 	# print("last element from python", data[-1][-1])
 
 	print(f"time taken for avg_corr {t2-t1:5.3f}s")
-	return corr
+	return corr/nrows
 
 def xcorr_4bit(pol0, pol1):
 	data0=pol0.copy()
@@ -61,16 +67,22 @@ def xcorr_4bit(pol0, pol1):
 	print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
 	return xcorr
 
-def avg_xcorr_4bit(data0, data1, start_idx, stop_idx):
+def avg_xcorr_4bit(data0, data1, specnums):
 
 	assert(data0.shape[1]==data1.shape[1])
+	assert(data0.shape[0]==data1.shape[0])
+	nrows = len(specnums)
 	# xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
 	xcorr = np.empty(data0.shape[1],dtype='complex64',order='c')
+	if(nrows==0):
+		print("empty block")
+		xcorr = np.nan
+		return xcorr
 	t1=time.time()
-	avg_xcorr_4bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, start_idx, stop_idx, data0.shape[1])
+	avg_xcorr_4bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, nrows, data0.shape[1])
 	t2=time.time()
 	print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-	return xcorr
+	return xcorr/nrows
 
 def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, stop_idx0, start_idx1, stop_idx1, rowstart0, rowend0, rowstart1, rowend1):
 	
