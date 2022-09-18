@@ -157,6 +157,7 @@ class BasebandFileIterator():
 					#spillover to next file. 
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
+					print("len specnum from new file", len(specnums))
 					rem-=l
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					i+=(rowend-rowstart)
@@ -168,6 +169,7 @@ class BasebandFileIterator():
 				else:
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
+					print("len specnum from else", len(specnums))
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					self.spec_num_start+=rem
 					rem=0

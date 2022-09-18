@@ -28,6 +28,9 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
         print("time taken for one loop", t2-t1)
         print(i+1,"CHUNK READ")
     print("Time taken final:", time.time()-st)
+    pol00 = np.ma.masked_invalid(pol00)
+    pol11 = np.ma.masked_invalid(pol11)
+    pol01 = np.ma.masked_invalid(pol01)
     return pol00,pol11,pol01,ant1.obj.channels
 
 # def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):

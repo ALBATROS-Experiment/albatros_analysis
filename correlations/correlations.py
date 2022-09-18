@@ -53,7 +53,7 @@ def avg_autocorr_4bit(data, specnums):
 	# print("last element from python", data[-1][-1])
 
 	print(f"time taken for avg_corr {t2-t1:5.3f}s")
-	return corr/nrows
+	return corr
 
 def xcorr_4bit(pol0, pol1):
 	data0=pol0.copy()
