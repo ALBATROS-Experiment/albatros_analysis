@@ -51,9 +51,10 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
 	
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
-
+	// printf("\nfrom C autocorr: nrows %d, ncols %d\n", nrows, ncol);
 	int64_t sum_pvt[ncol];
 	
+	// printf("\n First few data elements %d %d %d %d %d", data[0], data[1], data[2], data[64], data[65]);
 	#pragma omp parallel private(sum_pvt)
 	{
 		for(int i =0;i<ncol;i++)
@@ -65,7 +66,8 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
 		for(int i = 0; i<nrows; i++) // be careful. for loop over int start_idx is uint32. should be ok
 		{
 			for(int j=0; j<ncol; j++)
-			{
+			{	
+				
 				int8_t im=data[i*ncol+j]&imask;
 				int8_t r=(data[i*ncol+j]&rmask)>>4;
 				if (r > 8){r = r - 16;}
@@ -83,6 +85,11 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
 		}
 
 	}
+	// printf("\nValue of corr being returned from C\n");
+	// for(int i=0;i<ncol;i++)
+	// {
+	// 	printf("%d ",corr[i]);
+	// }
 }
 
 void avg_autocorr_4bit_raw()
@@ -179,26 +186,26 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, 
 	}
 }
 
-int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t* specnum0, int64_t* specnum1, int64_t idxstart0, int64_t idxend0, int64_t idxstart1, int64_t idxend1, int64_t rowstart0, int64_t rowend0, int64_t rowstart1, int64_t rowend1, int64_t ncol)
+int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t* specnum0, int64_t* specnum1, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1, int ncol)
 {
-	int acclen=idxend1-idxstart1; //acclen shouldn't exceed 2.1 billion
-	int len1=(rowend0-rowstart0),len2=(rowend1-rowstart1), row_count=0, i=rowstart0,j=rowstart1;
+	int rownums0[nrows0], rownums1[nrows1], row_count=0, i=0,j=0;
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
 	//+2.1bil to -2.4bil, should be enough, and compatible with float32
 	int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
 
-	printf("\n***Variables passed****\n");
-	printf("idx: %d %d %d %d\n", idxstart0, idxend0, idxstart1, idxend1);
-	printf("row: %d %d %d %d\n", rowstart0, rowend0, rowstart1, rowend1);
-	printf("len: %d %d %d %d\n", len1, len2, i, j);
-	printf("ncol: %d\n", ncol);
-	printf("acclen: %d\n", acclen);
+	// printf("\n***Variables passed****\n");
+	// printf("idx: %d %d %d %d\n", idxstart0, idxstart1, nrows0, nrows1);
+	// printf("From C: %d %d",specnum0[0],specnum1[0]);
+	// printf("ncol: %d\n", ncol);
 
-	while((i<rowend0)&&(j<rowend1))
+	while((i<nrows0)&&(j<nrows1))
 	{
+		
 		if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
 		{
+			rownums0[row_count]=i;
+			rownums1[row_count]=j;
 			row_count=row_count+1;
 			i=i+1;
 			j=j+1;
@@ -224,20 +231,20 @@ int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t
 		}
 
 		#pragma omp for nowait
-		for(int i=0; i<acclen; i++)
+		for(int i=0; i<row_count; i++)
 		{
 			// printf("inside the loop...processing");
 			for(int j=0; j<ncol; j++)
 			{
 				
-				int8_t im0=data0[(idxstart0+i)*ncol+j]&imask;
-				int8_t r0=(data0[(idxstart0+i)*ncol+j]&rmask)>>4;
+				int8_t im0=data0[rownums0[i]*ncol+j]&imask;
+				int8_t r0=(data0[rownums0[i]*ncol+j]&rmask)>>4;
 				if (r0 > 8){r0 = r0 - 16;}
 				if (im0 > 8){im0 = im0 - 16;}
 				
 
-				int8_t im1=data1[(idxstart1+i)*ncol+j]&imask;
-				int8_t r1=(data1[(idxstart1+i)*ncol+j]&rmask)>>4;
+				int8_t im1=data1[rownums1[i]*ncol+j]&imask;
+				int8_t r1=(data1[rownums1[i]*ncol+j]&rmask)>>4;
 				if (r1 > 8){r1 = r1 - 16;}
 				if (im1 > 8){im1 = im1 - 16;}
 				// printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);

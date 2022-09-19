@@ -87,12 +87,12 @@ class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
 	def __init__(self, file_name, chanstart=0, chanend=None, unpack=True):
 		super().__init__(file_name)
-		specdiff=numpy.diff(self.spec_num)
-		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
-		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
-		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
+		# specdiff=numpy.diff(self.spec_num)
+		# idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
+		# self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
+		# self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
-		self.spec_idx2 = self.spec_num - self.spec_num[0]
+		# self.spec_idx2 = self.spec_num - self.spec_num[0]
 		self.chanstart = chanstart
 		if(chanend==None):
 			self.chanend = self.length_channels
@@ -137,9 +137,9 @@ class BasebandFileIterator():
 		t1=time.time()
 		if(self.nchunks and self.chunksread==self.nchunks):
 			raise StopIteration
-		pol0=numpy.zeros((self.acclen,self.obj.length_channels)) #for now take all channels. will modify to accept chanstart, chanend
-		pol1=numpy.zeros((self.acclen,self.obj.length_channels)) 
-		specnums=numpy.array([]) #len of this array will control everything in corr, neeed the len.
+		pol0=numpy.zeros((self.acclen,self.obj.length_channels),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
+		pol1=numpy.zeros((self.acclen,self.obj.length_channels),dtype='uint8',order='c') 
+		specnums=numpy.array([],dtype='int64') #len of this array will control everything in corr, neeeeed the len.
 		rem=self.acclen
 		i=0
 		while(rem):
@@ -152,29 +152,30 @@ class BasebandFileIterator():
 			else:
 				
 				l = self.obj.spec_idx[-1]-self.spec_num_start+1 #length to end from the point in file we're starting from
-				print("dist to end is", l, "rem is", rem)
+				# print("dist to end is", l, "rem is", rem)
 				if(rem>=l):
 					#spillover to next file. 
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
-					print("len specnum from new file", len(specnums))
+					# print("len specnum from new file", rowend-rowstart)
 					rem-=l
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					i+=(rowend-rowstart)
 					self.spec_num_start+=l
-					print("Reading new file")
+					# print("Reading new file")
 					self.fileidx+=1
 					self.obj = BasebandPacked(self.file_paths[self.fileidx],chanstart=self.chanstart,chanend=self.chanend, unpack=False)
-					print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
+					# print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
 				else:
 					rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
 					specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
-					print("len specnum from else", len(specnums))
+					# print("len specnum from else", rowend-rowstart)
 					pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
 					self.spec_num_start+=rem
 					rem=0
 					i+=(rowend-rowstart)
-					
+		# print(pol0[len(specnums)-1,:])
+		# print(pol0[len(specnums),:])
 		self.chunksread+=1
 		data = {'pol0':pol0,'pol1':pol1,'specnums':specnums}
 		t2=time.time()
