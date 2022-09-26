@@ -6,17 +6,17 @@ import numpy as np
 import time
 
 
-objnew = bdc.BasebandPacked("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
-obj = bdc.BasebandFloat("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
+# objnew = bdc.BasebandPacked("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
+# obj = bdc.BasebandFloat("/project/s/sievers/albatros/uapishka/baseband/snap1/16275/1627528540.raw")
 
-print(objnew.pol0[0,0:4])
-print(objnew.pol1[0,0:4])
+# print(objnew.pol0[0,0:4])
+# print(objnew.pol1[0,0:4])
 
 
-# xx = obj.pol0*obj.pol1
-xcorr2 = cr.avg_xcorr_1bit(objnew.pol0,objnew.pol1,436)
-xcorr1 = np.sum(obj.pol0*np.conj(obj.pol1),axis=0)
-print(np.sum(xcorr2-xcorr1))
+# # xx = obj.pol0*obj.pol1
+# xcorr2 = cr.avg_xcorr_1bit(objnew.pol0,objnew.pol1,436)
+# xcorr1 = np.sum(obj.pol0*np.conj(obj.pol1),axis=0)
+# print(np.sum(xcorr2-xcorr1))
 
 # xcorr1 = np.sum(obj.pol0*np.conj(obj.pol1),axis=0)
 # xcorr2 = cr.avg_xcorr_1bit(objnew.pol0,objnew.pol0,436)

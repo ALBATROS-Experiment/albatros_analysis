@@ -107,6 +107,7 @@ def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1
 	print("ROW COUNT IS ", row_count)
 	if(row_count==0):
 		xcorr=np.nan
+		return xcorr
 	return xcorr/row_count
 
 def avg_xcorr_1bit(pol0, pol1, nchannels):

@@ -14,7 +14,7 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     if(delay>0):
         idxstart2+=delay
     else:
-        idxstart1+=delay
+        idxstart1+=np.abs(delay)
 
     # print("Starting at: ",idxstart, "in filenum: ",fileidx)
     # print(files[fileidx])
@@ -41,24 +41,25 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
 if __name__=="__main__":
     path1='/project/s/sievers/albatros/uapishka/baseband/snap1'
     path2='/project/s/sievers/albatros/uapishka/baseband/snap3'
-    init_t = 1627439234
+    init_t = 1627441542 #1627439234
     acclen=10000
     t_acclen = acclen*4096/250e6
-    delay=-87286
-    nchunks=2947
+    delay=-963933#33005
+    nchunks=1000
     end_t = int(init_t + nchunks*t_acclen)
-    pol00,channels=get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=0, chanend=None)
+    pol00,channels=get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=35, chanend=50)
 
     from matplotlib import pyplot as plt
     plt.figure(figsize=(5,10), dpi=200)
+    plt.suptitle(f'Delay {delay}, acclen {acclen}')
     myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0]*t_acclen/60, 0])
     plt.subplot(211)
-    plt.imshow(np.log10(np.abs(pol00)), aspect='auto', extent=myext)
+    plt.imshow(np.log10(np.abs(pol00)), aspect='auto', extent=myext,interpolation='none')
     plt.title('pol01 magnitude')
     plt.colorbar()
 
     plt.subplot(212)
-    plt.imshow(np.angle(pol00), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
+    plt.imshow(np.arctan2(pol00.imag,pol00.real), aspect='auto', extent=myext, cmap='RdBu',interpolation='none')
     plt.title('pol01 phase')
     plt.colorbar()
 

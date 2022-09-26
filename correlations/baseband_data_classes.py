@@ -87,10 +87,10 @@ class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
 	def __init__(self, file_name, chanstart=0, chanend=None, unpack=True):
 		super().__init__(file_name)
-		# specdiff=numpy.diff(self.spec_num)
-		# idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
-		# self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
-		# self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
+		specdiff=numpy.diff(self.spec_num)
+		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
+		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
+		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
 		# self.spec_idx2 = self.spec_num - self.spec_num[0]
 		self.chanstart = chanstart
@@ -137,17 +137,18 @@ class BasebandFileIterator():
 		t1=time.time()
 		if(self.nchunks and self.chunksread==self.nchunks):
 			raise StopIteration
-		pol0=numpy.zeros((self.acclen,self.obj.length_channels),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
-		pol1=numpy.zeros((self.acclen,self.obj.length_channels),dtype='uint8',order='c') 
+		pol0=numpy.zeros((self.acclen,self.obj.chanend-self.obj.chanstart),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
+		pol1=numpy.zeros((self.acclen,self.obj.chanend-self.obj.chanstart),dtype='uint8',order='c') 
 		specnums=numpy.array([],dtype='int64') #len of this array will control everything in corr, neeeeed the len.
 		rem=self.acclen
 		i=0
 		while(rem):
 			if(self.spec_num_start < self.obj.spec_num[0]):
 				# we are in a gap between the files
+				assert(1==0)
 				step = min(self.obj.spec_num[0]-self.spec_num_start,rem)
 				rem-=step
-				i=self.acclen-rem
+				i+=self.acclen-rem
 				self.spec_num_start+=step
 			else:
 				

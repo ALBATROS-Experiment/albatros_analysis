@@ -213,7 +213,12 @@ int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t
 		else if((specnum0[i]-idxstart0)>(specnum1[j]-idxstart1)) {j=j+1;}
 		else {i=i+1;}
 	}
-	printf("row count is: %d\n", row_count);
+	// printf("FROM C: rownums selected are\n\n");
+	// for(int i =0;i<row_count;i++)
+	// {
+	// 	printf("%d    %d\n", rownums0[i], rownums1[i]);
+	// }
+	// printf("row count is: %d\n", row_count);
 
 	for(int i=0; i<ncol; i++)
 	{
