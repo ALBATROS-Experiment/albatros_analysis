@@ -260,13 +260,13 @@ if __name__=="__main__":
     myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0]*t_acclen/60, 0])
 
     plt.subplot(2,3,1)
-    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext, interpolation='none')
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title(f'pol00 - minutes since {args.time_start}')
     cb00 = plt.colorbar()
     cb00.ax.plot([0, 1], [7.0]*2, 'w')
 
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext, interpolation='none')
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.colorbar()
 
@@ -289,13 +289,13 @@ if __name__=="__main__":
     plt.legend(loc='lower right', fontsize='small')
 
     plt.subplot(2,3,3)
-    plt.imshow(np.abs(pol01), aspect='auto', extent=myext, interpolation='none')
+    plt.imshow(np.log10(np.abs(pol01)), aspect='auto', extent=myext)
     plt.title('pol01 magnitude')
     plt.ylabel('minutes')
     plt.colorbar()
 
     plt.subplot(2,3,6)
-    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu',interpolation='none')
+    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
     plt.ylabel('minutes')
     plt.title('pol01 phase')
     plt.colorbar()
