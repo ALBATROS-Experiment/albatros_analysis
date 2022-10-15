@@ -68,7 +68,7 @@ void myfunc()
 	printf("Finally yea");
 }
 
-void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int nspec, int nchan)
+void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int chanstart, int chanend, int nchan)
 {
   /*
   nspec: number of spectra = no. of rows
@@ -77,31 +77,46 @@ void unpack_4bit_float(uint8_t *data,float *pol0, float *pol1, int nspec, int nc
   Byte structure
   chan1-pol0 (rrrriiii) chan1-pol1 (rrrriiii)
   */
-  
+  int nrows = rowend-rowstart;
+  int ncols = chanend - chanstart;
+  int nn=nrows*ncols;
   uint8_t imask=15;
   uint8_t rmask=255-15;
 
-  long nn=nspec*nchan;
+  #pragma omp parallel for
+	for(int i=0;i<2*nn;i++) //complex array
+	{
+		pol0[i]=0;
+		pol1[i]=0;
+	}
 
-  for (int i=0;i<nn;i++) {
-    uint8_t im=data[2*i]&imask;
-    uint8_t r=(data[2*i]&rmask)>>4;
+  int c1 = 2*nchan;
+  int c2 = 2*ncols;
+  #pragma omp parallel for
+  for(int i = 0; i<nrows; i++)  //this nspec is < nrows (as defined on python side), but corresponds to rowstart->rowend. fix the convention.
+  {
+    for(int k=0; k<ncols; k++)
+    {
+      int polidx = i*c2+2*k;
+      int dataidx = (i+rowstart)*c1 + 2*(k+chanstart);
 
-    if (r > 8){pol0[2*i] = r - 16;}
-    else {pol0[2*i] = r;}
+      uint8_t im=data[dataidx]&imask;
+      uint8_t r=(data[dataidx]&rmask)>>4;
+      if (r > 8){pol0[polidx] = r - 16;}
+      else {pol0[polidx] = r;}
 
-    if (im > 8){pol0[2*i+1] = im - 16;}
-    else {pol0[2*i+1] = im;}
-    
-    im = data[2*i+1]&imask;
-    r = (data[2*i+1]&rmask)>>4;
+      if (im > 8){pol0[polidx+1] = im - 16;}
+      else {pol0[polidx+1] = im;}
 
-    if (r > 8){pol1[2*i] = r - 16;}
-    else {pol1[2*i] = r;}
+      im=data[dataidx+1]&imask;
+      r=(data[dataidx+1]&rmask)>>4;
 
-    if (im > 8){pol1[2*i+1] = im - 16;}
-    else {pol1[2*i+1] = im;}
-    
+      if (r > 8){pol1[polidx] = r - 16;}
+      else {pol1[polidx] = r;}
+
+      if (im > 8){pol1[polidx+1] = im - 16;}
+      else {pol1[polidx+1] = im;}
+    }
   }
 }
 

@@ -97,14 +97,14 @@ void avg_autocorr_4bit_raw()
 	// something that can average whole files, both pols from raw data without any unpacking/sortpol
 }
 
-void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t nspec, uint32_t ncol)
+void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int ncol)
 {
 
-	uint64_t nn = nspec * ncol;
+	int nn = nrows * ncol;
 	uint8_t imask=15;
   	uint8_t rmask=255-15;
 
-	#pragma omp parallel for default(none) firstprivate(imask,rmask,nn) shared(data0,data1,xcorr)
+	#pragma omp parallel for
 	for(int i = 0; i<nn; i++)
 	{
 		int8_t im0=data0[i]&imask;
@@ -123,7 +123,6 @@ void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, uint32_t nspec,
 		xcorr[2*i+1] = r1*im0 - r0*im1;
 		//printf("corr[i]=%d\n", corr[i]);
 	}
-
 }
 
 void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int ncol)

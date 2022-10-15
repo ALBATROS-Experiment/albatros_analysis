@@ -6,7 +6,7 @@ import sys
 
 mylib=ctypes.cdll.LoadLibrary(os.path.realpath(__file__+r"/..")+"/lib_unpacking.so")
 unpack_4bit_float_c = mylib.unpack_4bit_float
-unpack_4bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+unpack_4bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 unpack_1bit_float_c = mylib.unpack_1bit_float
 unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 sortpols_c = mylib.sortpols
@@ -30,20 +30,17 @@ def hist(data, length_channels, bit_depth, mode):
     return histvals
 
         
-def unpack_4bit(data, length_channels, isfloat):
-	if isfloat:
-		#nspec = no. of spectra = no. of rows
-		nspec = data.shape[0]*data.shape[1]//length_channels//2
-		pol0 = numpy.zeros([nspec,length_channels],dtype='complex64')
-		pol1 = numpy.zeros([nspec,length_channels],dtype='complex64')
-		print("num spec is", nspec)
-		data1=data.copy() #important to make sure no extra bytes leak in
-		t1 = time.time()
-		unpack_4bit_float_c(data1.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,length_channels)
-		t2 = time.time()
-		print("Took " + str(t2 - t1) + " to unpack")
-	else:
-		print("not float")
+def unpack_4bit(data, length_channels, rowstart, rowend, chanstart,chanend):
+	#nspec = no. of spectra = no. of rows
+	nrows = rowend-rowstart
+	ncols = chanend-chanstart
+	pol0 = numpy.empty([nrows,ncols],dtype='complex64')
+	pol1 = numpy.empty([nrows,ncols],dtype='complex64')
+	print("num spec being unpacked is", nrows)
+	t1 = time.time()
+	unpack_4bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,rowstart, rowend, chanstart,chanend, length_channels)
+	t2 = time.time()
+	print("Took " + str(t2 - t1) + " to unpack")
 	return pol0, pol1
 
 def unpack_1bit(data, length_channels, isfloat):
@@ -81,7 +78,7 @@ def sortpols(data, length_channels, bit_mode, spec_num, rowstart, rowend, chanst
 
 	pol0 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
 	pol1 = numpy.empty([nrows,ncols],dtype='uint8', order = 'c')
-			
+	# we're passing ncols because ncols not always chanend-chanstart. although could do it on C side.
 	t1 = time.time()
 	sortpols_c(data.ctypes.data, pol0.ctypes.data, pol1.ctypes.data, rowstart, rowend, ncols, length_channels, bit_mode, chanstart, chanend)
 	t2 = time.time()

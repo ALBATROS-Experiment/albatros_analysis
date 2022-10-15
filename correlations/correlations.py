@@ -59,12 +59,10 @@ def avg_autocorr_4bit(data, specnums):
 	print(f"time taken for avg_corr {t2-t1:5.3f}s")
 	return corr/nrows
 
-def xcorr_4bit(pol0, pol1):
-	data0=pol0.copy()
-	data1=pol1.copy()
-	assert(data0.shape[0]==data1.shape[0])
+def xcorr_4bit(data0, data1):
 	assert(data0.shape[1]==data1.shape[1])
-	xcorr = np.zeros(data0.shape,dtype='complex64',order='c')
+	assert(data0.shape[0]==data1.shape[0])
+	xcorr = np.empty(data0.shape,dtype='complex64',order='c')
 	t1=time.time()
 	xcorr_4bit_c(data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, data0.shape[0], data0.shape[1])
 	t2=time.time()
