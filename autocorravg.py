@@ -14,6 +14,8 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
     print(files[fileidx])
 
     ant1 = bdc.BasebandFileIterator(files,fileidx,idxstart,acclen,nchunks=nchunks,chanstart=chanstart,chanend=chanend)
+    if(ant1.obj.bit_mode!=4):
+        raise NotImplementedError(f"BIT MODE {ant1.obj.bit_mode} IS NOT SUPPORTED BY THIS SCRIPT. Do you want to use autocorravg1bit.py?")
     ncols=ant1.obj.chanend-ant1.obj.chanstart
     pol00=np.zeros((nchunks,ncols),dtype='float64',order='c')
     pol11=np.zeros((nchunks,ncols),dtype='float64',order='c')
@@ -236,20 +238,20 @@ if __name__=="__main__":
     pol11_min = np.min(pol11, axis=0)
     med,vmin,vmax=get_plot_lims(pol00,args.acclen)
     med2,vmin2,vmax2=get_plot_lims(pol11,args.acclen)
-    # pol00 = np.log10(pol00)
-    # pol11 = np.log10(pol11)
-    # pol00_med = np.log10(pol00_med)
-    # pol11_med = np.log10(pol11_med)
-    # pol00_mean = np.log10(pol00_mean)
-    # pol11_mean = np.log10(pol11_mean)
-    # pol00_max = np.log10(pol00_max)
-    # pol11_max = np.log10(pol11_max)
-    # pol00_min = np.log10(pol00_min)
-    # pol11_min = np.log10(pol11_min)
-    # vmin = np.log10(vmin)
-    # vmax = np.log10(vmax)
-    # vmin2 = np.log10(vmin2)
-    # vmax2 = np.log10(vmax2)
+    pol00 = np.log10(pol00)
+    pol11 = np.log10(pol11)
+    pol00_med = np.log10(pol00_med)
+    pol11_med = np.log10(pol11_med)
+    pol00_mean = np.log10(pol00_mean)
+    pol11_mean = np.log10(pol11_mean)
+    pol00_max = np.log10(pol00_max)
+    pol11_max = np.log10(pol11_max)
+    pol00_min = np.log10(pol00_min)
+    pol11_min = np.log10(pol11_min)
+    vmin = np.log10(vmin)
+    vmax = np.log10(vmax)
+    vmin2 = np.log10(vmin2)
+    vmax2 = np.log10(vmax2)
 
     from matplotlib import pyplot as plt
 
