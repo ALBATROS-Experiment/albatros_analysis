@@ -263,7 +263,8 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
-    # plt.yticks(ticks)
+    plt.xlabel('Frequency (MHz)')
+    plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
 
@@ -278,6 +279,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.subplot(2,3,4)
     plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol11')
+    plt.xlabel('Frequency (MHz)')
     plt.colorbar()
     plt.yticks(ticks)
     ax=plt.gca()
@@ -306,17 +308,19 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.subplot(2,3,3)
     plt.imshow(np.log10(np.abs(pol01)), vmin=3,vmax=8,aspect='auto',extent=myext)
     plt.title('pol01 magnitude')
+    plt.xlabel('Frequency (MHz)')
     plt.colorbar()
     plt.gca().set_yticklabels([])
     
     plt.subplot(2,3,6)
     plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
     plt.title('pol01 phase')
+    plt.xlabel('Frequency (MHz)')
     plt.colorbar()
     plt.gca().set_yticklabels([])
 
     range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
-    plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {int(blocksize*chunk_time/60)} minutes.')
+    plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {(blocksize*chunk_time/60):4.2f} minutes.')
 
     outfile = os.path.join(outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
     plt.savefig(outfile)
