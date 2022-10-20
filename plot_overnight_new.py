@@ -253,8 +253,8 @@ def full_plot(data_arrs, mytz, chunk_time):
         pol11 = np.log10(pol11)
     
     y_extent = get_ylim_times(tstart,tend)
-    ticks = np.linspace(y_extent[0], y_extent[1],20)
-    print(y_extent)
+    ticks = np.linspace(y_extent[0], y_extent[1],10)
+    # print(y_extent)
  
     myext = np.array([0,125,y_extent[1],y_extent[0]])
         
@@ -264,7 +264,9 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
-    # plt.yticks(ticks)
+    cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
+    plt.xlabel('Frequency (MHz)')
+    plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
 
@@ -279,20 +281,23 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.subplot(2,3,4)
     plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol11')
-    plt.colorbar()
+    plt.xlabel('Frequency (MHz)')
+    cb00=plt.colorbar()
+    cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
     plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
     # ax.yaxis.set_major_locator(locator)
 
     plt.subplot(2,3,2)
-    plt.title('Basic stats for frequency bins')
+    plt.title('Median power in frequency bins')
     plt.plot(freq, pol00_stats["max"], 'r-', label='Max')
     plt.plot(freq, pol00_stats["min"], 'b-', label='Min')
     plt.plot(freq, pol00_stats["mean"], 'k-', label='Mean')
     plt.plot(freq, pol00_stats["median"], color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol00')
+    plt.legend(loc='lower right', fontsize='small')
 
     plt.subplot(2,3,5)
     plt.plot(freq, pol11_stats["max"], 'r-', label='Max')
@@ -307,18 +312,22 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.subplot(2,3,3)
     plt.imshow(np.log10(np.abs(pol01)), vmin=3,vmax=8,aspect='auto',extent=myext)
     plt.title('pol01 magnitude')
-    plt.colorbar()
+    plt.xlabel('Frequency (MHz)')
+    cb00=plt.colorbar()
+    cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
     plt.gca().set_yticklabels([])
     
     plt.subplot(2,3,6)
     plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
     plt.title('pol01 phase')
-    plt.colorbar()
+    plt.xlabel('Frequency (MHz)')
+    cb00=plt.colorbar()
+    cb00.ax.set_ylabel('Radian', rotation=90)
     plt.gca().set_yticklabels([])
 
     range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
     plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {int(blocksize*chunk_time/60)} minutes.')
-
+    plt.tight_layout()
     outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
     plt.savefig(outfile)
     
