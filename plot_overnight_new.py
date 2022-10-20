@@ -103,6 +103,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
             ts=get_ts_from_name(data_subdirs[i])
+
             tstart=ts #save starting time for user output
             ts = ts+d.shape[0]*chunk_time*blocklen
         newts = get_ts_from_name(data_subdirs[i])
@@ -123,6 +124,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     tend=ts
     # print("HERE")
     #once we have pol00, we know the exact size. use it
+    tstart=get_ts_from_name(data_subdirs[0]) #tstart was replaced above for missing gap info
     print("############################################################")
     print(f"First file at: {tstart}, Last file at: {get_ts_from_name(data_subdirs[-1])}")
     print(f"Plotting all data starting {tstart} and ending {int(tend)}")
@@ -326,7 +328,8 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.gca().set_yticklabels([])
 
     range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
-    plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {int(blocksize*chunk_time/60)} minutes.')
+    print("start and end times are",tstart,tend)
+    plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {blocksize*chunk_time/60:4.2f} minutes.')
     plt.tight_layout()
     outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
     plt.savefig(outfile)
