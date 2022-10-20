@@ -110,7 +110,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
         # each cell in the plot represents a minimum time of blocklen * chunktime. 
         # That's the time resolution for the plot. Can't catch gaps < resolution.
         if(diff>0):
-            print("significant diff with previous file.",diff)
+            print(f"significant diff b/w files {tstart} and {newts} of:", diff, "rows")
             pol00[nrows:nrows+diff,:]=np.nan
             pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
             nrows+=diff
@@ -118,6 +118,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
         # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
+        tstart=newts
         ts=newts+d.shape[0]*chunk_time*blocklen
     tend=ts
     # print("HERE")
@@ -318,7 +319,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
     plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {int(blocksize*chunk_time/60)} minutes.')
 
-    outfile = os.path.join(outdir,'output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
+    outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
     plt.savefig(outfile)
     
     print('Wrote ' + outfile)

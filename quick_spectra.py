@@ -9,7 +9,7 @@ import datetime as dt
 def get_acctime(fpath):
 	dat = np.fromfile(fpath,dtype='uint32')
 	diff = np.diff(dat)
-	acctime = np.mean(diff[(diff>0)&(diff<100)]) #sometimes timestamps are 0, which causes diff to be huge.
+	acctime = np.mean(diff[(diff>0)&(diff<100)]) #sometimes timestamps are 0, which causes diff to be huge. could also use np. median
 	return acctime
 
 
@@ -26,11 +26,11 @@ if __name__ == "__main__":
 	#data_dir = pathlib.Path(args.data_dir)
 	#output_dir = pathlib.Path(args.output_dir)
 
-	pol00 = scio.read(args.data_dir + "/pol00.scio.bz2")
-	pol11 = scio.read(args.data_dir + "/pol11.scio.bz2")
-	pol01r = scio.read(args.data_dir + "/pol01r.scio.bz2")
-	pol01i = scio.read(args.data_dir + "/pol01i.scio.bz2")
-	acctime = get_acctime(args.data_dir + 'time_gps_start.raw')
+	pol00 = scio.read(os.path.join(args.data_dir, "/pol00.scio.bz2"))
+	pol11 = scio.read(os.path.join(args.data_dir, "/pol11.scio.bz2"))
+	pol01r = scio.read(os.path.join(args.data_dir, "/pol01r.scio.bz2"))
+	pol01i = scio.read(os.path.join(args.data_dir, "/pol01i.scio.bz2"))
+	acctime = get_acctime(os.path.join(args.data_dir, "/time_gps_start.raw"))
 	# Remove starting data chunk if it's bad :(
 	pol00 = pol00[1:,:]
 	pol11 = pol11[1:,:]
@@ -134,7 +134,7 @@ if __name__ == "__main__":
 	localtimestr = utctime.astimezone(tz=mytz).strftime("%b-%d %H:%M:%S")
 	plt.suptitle(f"Minutes since {localtimestr} localtime. File ctime {timestamp}")
 
-	outfile = os.path.normpath(args.output_dir + '/' + timestamp + '.png')
+	outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_quick' + '.png')
 	plt.savefig(outfile)
 	print('Wrote ' + outfile)
 	if args.show == True:
