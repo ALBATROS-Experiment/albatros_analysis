@@ -3,7 +3,7 @@ import sys
 
 #builds into the same directory as the setup file
 path = os.path.realpath(__file__+r"/..")
-
+print("file path ", path)
 def build():
     if os.path.exists(path+"/unpacking.c"):
         os.system("gcc -shared -o \""+ path + "/lib_unpacking.so\" -fPIC -fopenmp \"" + path + "/unpacking.c\"")

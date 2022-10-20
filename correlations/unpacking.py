@@ -12,21 +12,20 @@ unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_
 sortpols_c = mylib.sortpols
 sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short, ctypes.c_int, ctypes.c_int]
 hist_4bit_c = mylib.hist_4bit
-hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+hist_4bit_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 
 def hist(data, length_channels, bit_depth, mode):
 
     nbins = 2**bit_depth - 1
-    histvals = numpy.zeros(nbins+1, dtype='uint64')
+    histvals = numpy.empty((nbins+1,length_channels), dtype='uint64',order='c')
 
     if(bit_depth==4):
         nspec = (data.shape[0]*data.shape[1]//length_channels//2)
-        print(sys.getsizeof(nspec),"bytes")
+        print("nspec is ", nspec)
         t1=time.time()
-        hist_4bit_c(data.ctypes.data, nspec*length_channels, histvals.ctypes.data, nbins, mode)
+        hist_4bit_c(data.ctypes.data, histvals.ctypes.data, nspec, length_channels, nbins, mode)
         t2=time.time()
         print("time taken for histogramming", t2-t1)
-    
     return histvals
 
         

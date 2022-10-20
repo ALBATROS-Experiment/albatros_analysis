@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 from matplotlib import pyplot as plt
 import os
+from palettable.colorbrewer.sequential import PuBuGn_8 as mycmap
 
 if(__name__=='__main__'):
 	"Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
@@ -15,19 +16,37 @@ if(__name__=='__main__'):
 
 	obj=bdc.Baseband(args.filepath)
 	hist=obj.get_hist(mode=args.mode)
-	print('Hist vals: \n',hist)
+	print('Hist vals shape: \n',hist.shape)
+	np.savetxt('./hist_dump_mohan_laptop.txt',hist)
 	if(args.rescale):
 		bins = np.fft.fftshift(np.fft.fftfreq(16)*16)
-		hist = np.fft.fftshift(hist)
-		
+		hist = np.fft.fftshift(hist,axes=0)
 	else:
 		bins = np.arange(0,16)
 	
 	print(f"total data points: {hist.sum()}")
+	bbfile=args.filepath.split('/')[-1]
+	bbfile=bbfile.split('.')[0]
+
+	f=plt.gcf()
+	f.set_size_inches(10,4)
+	plt.suptitle(f'Histogram for {bbfile}.raw')
+	plt.subplot(121)
+	plt.imshow(hist,aspect="auto",interpolation='none',extent=[obj.channels[0],obj.channels[-1], bins[-1],bins[0]],cmap=mycmap.mpl_colormap)
+	# ax=plt.gca()
+	# ax.yaxis.set_major_locator(bins)
+	# plt.xticks(obj.channels)
+	plt.colorbar()
+	plt.xlabel('channels')
+
+	plt.subplot(122)
+	hist_total = np.sum(hist,axis=1)
+	plt.bar(bins,hist_total,label=f'mode={args.mode}')
+	plt.tight_layout()
+
 	
-	fig,ax = plt.subplots(1,1)
-	ax.bar(bins,hist,label=f'mode={args.mode}')
-	fname = os.path.join(args.output_dir,'hist.png')
+	fname = os.path.join(args.output_dir,f'hist_{bbfile}.png')
 	plt.savefig(fname)
+	print(fname)
 
 	

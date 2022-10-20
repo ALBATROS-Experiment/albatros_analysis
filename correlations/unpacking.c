@@ -4,7 +4,7 @@
 #include <math.h>
 #include <omp.h>
 
-void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, uint8_t nbins, int8_t mode)
+void hist_4bit(uint8_t * data, uint64_t * hist, int nspec, int nchan, int nbins, int mode)
 {/*
 	Default implementation assumes bins are 0 indexed, of width = 1, and nbins = len(hist)-1.
 	Bin convention is [l,r). First bin left edge is included. Last bin right edge is excluded.
@@ -15,52 +15,61 @@ void hist_4bit(uint8_t * data, uint64_t data_len, uint64_t * hist, uint8_t nbins
 	-1 	= both pols
 	
 */
-	for(int k=0;k<=nbins;k++) hist[k]=0;
+  int c1 = 2*nchan;
+  int hist_len = nchan*(nbins+1);
+	for(int k=0;k<hist_len;k++)
+  {
+    hist[k]=0;
+  }
 
-    #pragma omp parallel default(none) firstprivate(data_len, nbins, mode) shared(data, hist)
+  #pragma omp parallel
+  {
+    uint64_t hist_pvt[hist_len];
+    uint8_t r, im, imask=15, rmask=240;
+
+    for(int k=0;k<hist_len;k++)
     {
-        uint64_t hist_pvt[nbins+1];
-		uint8_t r, im, imask=15, rmask=240;
-
-        for(int k=0;k<=nbins;k++) hist_pvt[k]=0; //initialize
-        
-        #pragma omp for nowait
-        for(int i=0;i<data_len;i++)
+      hist_pvt[k]=0;
+    } 
+    
+    #pragma omp for nowait
+    for(int i=0;i<nspec;i++)
+    {
+      for(int j=0; j<nchan; j++)
+      {
+        if(mode==0)
         {
-			if(mode==0)
-			{
-				im=data[2*i]&imask;
-    			r=(data[2*i]&rmask)>>4;
-				++hist_pvt[r];
-				++hist_pvt[im];
-			}
-			else if(mode==1)
-			{
-				im=data[2*i+1]&imask;
-    			r=(data[2*i+1]&rmask)>>4;
-				++hist_pvt[r];
-				++hist_pvt[im];
-			}
-			else if(mode==-1)
-			{
-				im=data[2*i]&imask;
-    			r=(data[2*i]&rmask)>>4;
-				++hist_pvt[r];
-				++hist_pvt[im];
-
-				im=data[2*i+1]&imask;
-    			r=(data[2*i+1]&rmask)>>4;
-				++hist_pvt[r];
-				++hist_pvt[im];
-			}
-			// add else to exit
-
+          im=data[i*c1+2*j]&imask;
+          r=(data[i*c1+2*j]&rmask)>>4;
+          ++hist_pvt[r*nchan+j];
+          ++hist_pvt[im*nchan+j];
         }
-        #pragma omp critical
+        else if(mode==1)
         {
-            for(int k=0;k<=nbins;k++) hist[k]+=hist_pvt[k];
+          im=data[i*c1+2*j+1]&imask;
+          r=(data[i*c1+2*j+1]&rmask)>>4;
+          ++hist_pvt[r*nchan+j];
+          ++hist_pvt[im*nchan+j];
         }
+        else if(mode==-1)
+        {
+          im=data[i*c1+2*j]&imask;
+          r=(data[i*c1+2*j]&rmask)>>4;
+          ++hist_pvt[r*nchan+j];
+          ++hist_pvt[im*nchan+j];
+
+          im=data[i*c1+2*j+1]&imask;
+          r=(data[i*c1+2*j+1]&rmask)>>4;
+          ++hist_pvt[r*nchan+j];
+          ++hist_pvt[im*nchan+j];
+        }
+      }
     }
+    #pragma omp critical
+    {
+        for(int k=0;k<=hist_len;k++) hist[k]+=hist_pvt[k];
+    }
+  }
 }
 
 void myfunc()
