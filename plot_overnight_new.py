@@ -53,13 +53,18 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
 
     #all the dirs between the timestamps. read all, append, average over chunk length
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
+    print(data_subdirs, "data subdirs")
     data_subdirs.sort()
 
+    if(len(data_subdirs)==0):
+        print("NOTHING WAS READ. CHECK TSTAMPS")
+        sys.exit(1)
     
     
     #rough estimate of number of rows we'll read
     nrows_guess = len(data_subdirs)*((int(3600/chunk_time/blocklen)+1)+1)
     # print("Starting with a guess of ", nrows_guess)
+    print("guessed rows", nrows_guess)
     pol00 = np.zeros((nrows_guess+500,2048))
     
     nrows = 0
@@ -93,7 +98,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
         avgpol01r = datpol01r
         avgpol01i = datpol01i
 
-    
+    print(len(avgpol00))
     t1=time.time()
     tstart=0
     tend=0
@@ -106,6 +111,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
 
             tstart=ts #save starting time for user output
             ts = ts+d.shape[0]*chunk_time*blocklen
+            continue
         newts = get_ts_from_name(data_subdirs[i])
         diff=int((newts-ts)/chunk_time/blocklen) 
         # each cell in the plot represents a minimum time of blocklen * chunktime. 
@@ -115,8 +121,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             pol00[nrows:nrows+diff,:]=np.nan
             pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
             nrows+=diff
-        # print(nrows, d.shape)
-        # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
+        print(nrows, d.shape)
+        print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
         tstart=newts
@@ -150,6 +156,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             pol01i[:r,:]=avgpol01i[i]
             nrows+=r
             ts=get_ts_from_name(data_subdirs[i])+r*chunk_time*blocklen
+            continue
         newts = get_ts_from_name(data_subdirs[i])
         diff=int((newts-ts)/chunk_time/blocklen)
         if(diff>1):
