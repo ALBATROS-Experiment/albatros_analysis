@@ -26,11 +26,11 @@ if __name__ == "__main__":
 	#data_dir = pathlib.Path(args.data_dir)
 	#output_dir = pathlib.Path(args.output_dir)
 
-	pol00 = scio.read(os.path.join(args.data_dir, "/pol00.scio.bz2"))
-	pol11 = scio.read(os.path.join(args.data_dir, "/pol11.scio.bz2"))
-	pol01r = scio.read(os.path.join(args.data_dir, "/pol01r.scio.bz2"))
-	pol01i = scio.read(os.path.join(args.data_dir, "/pol01i.scio.bz2"))
-	acctime = get_acctime(os.path.join(args.data_dir, "/time_gps_start.raw"))
+	pol00 = scio.read(os.path.join(args.data_dir, "pol00.scio.bz2"))
+	pol11 = scio.read(os.path.join(args.data_dir, "pol11.scio.bz2"))
+	pol01r = scio.read(os.path.join(args.data_dir, "pol01r.scio.bz2"))
+	pol01i = scio.read(os.path.join(args.data_dir, "pol01i.scio.bz2"))
+	acctime = get_acctime(os.path.join(args.data_dir, "time_gps_start.raw"))
 	# Remove starting data chunk if it's bad :(
 	pol00 = pol00[1:,:]
 	pol11 = pol11[1:,:]
