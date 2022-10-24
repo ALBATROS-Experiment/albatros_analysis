@@ -49,7 +49,12 @@ class Baseband:
 		self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
 		fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
 		# self.spec_idx = self.spec_idx - self.spec_idx[0]
-	
+
+		specdiff=numpy.diff(self.spec_num)
+		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
+		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
+		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
+
 	def print_header(self):
 		print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
 			str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Have trimble = " + str(self.have_trimble) + ". Channels: " + str(self.channels) + \
@@ -89,10 +94,6 @@ class BasebandPacked(Baseband):
 	#turn spec_selection to true and enter the range of spectra you want to save only part of the file
 	def __init__(self, file_name, chanstart=0, chanend=None, unpack=True):
 		super().__init__(file_name)
-		specdiff=numpy.diff(self.spec_num)
-		idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
-		self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('uint32')
-		self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('uint32')
 
 		# self.spec_idx2 = self.spec_num - self.spec_num[0]
 		self.chanstart = chanstart
