@@ -53,7 +53,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
 
     #all the dirs between the timestamps. read all, append, average over chunk length
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
-    print(data_subdirs, "data subdirs")
+    print("total data subdirs", len(data_subdirs))
+    print("First and last subdirs:", data_subdirs[0], data_subdirs[-1])
     data_subdirs.sort()
 
     if(len(data_subdirs)==0):
@@ -121,8 +122,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             pol00[nrows:nrows+diff,:]=np.nan
             pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
             nrows+=diff
-        print(nrows, d.shape)
-        print(nrows,nrows+d.shape[0],pol00.shape,"heh")
+        # print(nrows, d.shape)
+        # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
         tstart=newts
@@ -265,7 +266,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     ticks = np.linspace(y_extent[0], y_extent[1],10)
     # print(y_extent)
  
-    myext = np.array([0,125,y_extent[1],y_extent[0]])
+    myext = np.array([freq[0], freq[-1], y_extent[1],y_extent[0]])
         
     plt.figure(figsize=(18,10), dpi=200)
     plt.subplot(2,3,1)
@@ -307,6 +308,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol00')
     plt.legend(loc='lower right', fontsize='small')
+    plt.ylim(vmin,vmax+1)
 
     plt.subplot(2,3,5)
     plt.plot(freq, pol11_stats["max"], 'r-', label='Max')
@@ -366,7 +368,8 @@ def main():
     parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
     parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
     parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%m/%d %H:%M", type=str, help="Format for dates on axes of plots")
-    
+    parser.add_argument("-cs", "--cstart", dest='cstart', default = 0, type=int, help="Channel index start")
+    parser.add_argument("-ce", "--cend", dest='cend', default = 2048, type=int, help="Channel index end")
 
     args = parser.parse_args()
 
@@ -404,8 +407,13 @@ def main():
     pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
     # import sys
     # sys.exit(0)
+    pol00=pol00[:,args.cstart:args.cend]
+    pol11=pol11[:,args.cstart:args.cend]
+    pol01r=pol01r[:,args.cstart:args.cend]
+    pol01i=pol01i[:,args.cstart:args.cend]
+
     pol01 = pol01r + 1J*pol01i
-    freq = np.linspace(0, 125, np.shape(pol00)[1]) #125 MHz is max frequency
+    freq = np.arange(args.cstart,args.cend)*250/4096 #125 MHz is max frequency
     
     
     #============ setting vmin and vmax ============#
