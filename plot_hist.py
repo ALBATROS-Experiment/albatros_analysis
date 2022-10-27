@@ -17,7 +17,7 @@ if(__name__=='__main__'):
 	obj=bdc.Baseband(args.filepath)
 	hist=obj.get_hist(mode=args.mode)
 	print('Hist vals shape: \n',hist.shape)
-	np.savetxt('./hist_dump_mohan_laptop.txt',hist)
+	# np.savetxt('./hist_dump_mohan_laptop.txt',hist) this was to check output against code on niagara. all match.
 	if(args.rescale):
 		bins = np.fft.fftshift(np.fft.fftfreq(16)*16)
 		hist = np.fft.fftshift(hist,axes=0)
@@ -25,17 +25,32 @@ if(__name__=='__main__'):
 		bins = np.arange(0,16)
 	
 	print(f"total data points: {hist.sum()}")
-	bbfile=args.filepath.split('/')[-1]
+	snap,five_digit,bbfile=args.filepath.split('/')[-3:]
 	bbfile=bbfile.split('.')[0]
 
 	f=plt.gcf()
 	f.set_size_inches(10,4)
-	plt.suptitle(f'Histogram for {bbfile}.raw')
+	if(args.mode in (0,1)):
+		tag='pol'+str(args.mode)
+	else:
+		tag='both_pols'
+
+	plt.suptitle(f'Histogram for {snap} {bbfile} {tag}')
 	plt.subplot(121)
-	plt.imshow(hist,aspect="auto",interpolation='none',extent=[obj.channels[0],obj.channels[-1], bins[-1],bins[0]],cmap=mycmap.mpl_colormap)
+	plt.imshow(hist,aspect="auto",interpolation='none',cmap=mycmap.mpl_colormap)
 	# ax=plt.gca()
 	# ax.yaxis.set_major_locator(bins)
-	# plt.xticks(obj.channels)
+	freqs=obj.channels
+	locs,labels=plt.xticks()
+	locs=np.arange(0,len(obj.channels))
+	labels=[str(x) for x in obj.channels]
+	plt.xticks(locs[::5],labels[::5],rotation=-50)
+	print(locs,labels)
+
+	locs,labels=plt.yticks()
+	locs=np.arange(0,16)
+	labels=np.arange(-8,8)
+	plt.yticks(locs,labels)
 	plt.colorbar()
 	plt.xlabel('channels')
 
@@ -45,7 +60,7 @@ if(__name__=='__main__'):
 	plt.tight_layout()
 
 	
-	fname = os.path.join(args.output_dir,f'hist_{bbfile}.png')
+	fname = os.path.join(args.output_dir,f'hist_{snap}_{bbfile}_{tag}.png')
 	plt.savefig(fname)
 	print(fname)
 
