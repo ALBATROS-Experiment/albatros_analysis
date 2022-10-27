@@ -308,7 +308,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol00')
     plt.legend(loc='lower right', fontsize='small')
-    plt.ylim(vmin,vmax+1)
+    plt.ylim(vmin,vmax)
 
     plt.subplot(2,3,5)
     plt.plot(freq, pol11_stats["max"], 'r-', label='Max')
@@ -317,6 +317,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.plot(freq, pol11_stats["median"], color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol11')
+    plt.ylim(vmin,vmax)
     
     plt.legend(loc='lower right', fontsize='small')
 
