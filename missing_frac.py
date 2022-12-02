@@ -1,5 +1,5 @@
 from correlations import baseband_data_classes as bdc
-import glob
+from glob import glob
 import os
 import argparse
 import numpy as np
@@ -18,7 +18,10 @@ if __name__=='__main__':
               help='Output directory for data and plots')
     args = parser.parse_args()
 
-    files = glob.glob(os.path.abspath(args.dirpath)+'/*')
+    print(args.dirpath)
+    print(os.path.abspath(args.dirpath)+'/*', "PATH")
+    files = glob(os.path.abspath(args.dirpath)+'/*')
+    print(files)
     files.sort()
     fracs = np.zeros(len(files))
 
