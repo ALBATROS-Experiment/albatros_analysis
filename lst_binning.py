@@ -25,7 +25,8 @@ def get_localtime_from_UTC(tstamp, mytz):
 
 def get_binned(fname,ctime_start,ctime_stop):
     
-    data_dir='/project/s/sievers/mohanagr/uapishka_aug_oct_2022/data_auto_cross/'
+    # data_dir='/project/s/sievers/mohanagr/uapishka_aug_oct_2022/data_auto_cross/'
+    data_dir='/project/s/sievers/mohanagr/uapishka_franken_oct_nov_2022/data_auto_cross/SNAP3/'
     # data_dir='/project/s/sievers/albatros/marion/albatros-hydroshack/data_auto_cross/'
     data_subdirs = sft.time2fnames(ctime_start, ctime_stop, data_dir)
     data_subdirs.sort()
@@ -70,6 +71,21 @@ def get_binned(fname,ctime_start,ctime_stop):
             st=en
     return binned
 
+# def myredux(xx):
+#     u=np.percentile(xx,99)
+#     b=np.percentile(xx,1)
+#     xx_clean=xx[(xx<=u)&(xx>=b)]
+#     return np.mean(xx_clean)
+
+def myredux(bigarr):
+    # def redux(xx):
+    #     u=np.percentile(xx,50)
+    #     b=np.percentile(xx,1)
+    #     xx_clean=xx[(xx<=u)&(xx>=b)]
+    #     return np.mean(xx_clean)
+    # return np.apply_along_axis(redux,0,bigarr)
+    return np.median(bigarr,axis=0)
+
 def reduce_binned(binned,nbins,nchan):
     counts=np.zeros(nbins)
     bmedian = np.zeros((nbins,nchan)) #bmedian = bin median
@@ -77,10 +93,28 @@ def reduce_binned(binned,nbins,nchan):
     for i in range(nbins):
         counts[i]=binned[i].shape[0]
         if(counts[i]>0):
-            bmean[i,:]=np.mean(binned[i],axis=0)
+            # bmean[i,:]=np.mean(binned[i],axis=0)
+            bmean[i,:] = np.mean(binned[i],axis=0)
             bmedian[i,:]=np.median(binned[i],axis=0)
         
     return {'counts':counts,'mean':bmean,'median':bmedian}
+
+def reduce_binned_parallel(binned,nbins,nchan):
+    # counts=np.zeros(nbins)
+    # bmedian = np.zeros((nbins,nchan)) #bmedian = bin median
+    bmean = np.zeros((nbins,nchan))
+
+    # custom_mean = lambda bigarr: np.apply_along_axis(myredux,0,bigarr)
+    # custom_median = lambda bigarr: np.median(bigarr,axis=0)
+
+    with Pool(os.cpu_count()) as p:
+        means = p.map(myredux, binned)
+        # medians = p.map(custom_median,binned)
+    
+    bmean[:] = np.asarray(means)
+    # bmedian[:] = np.asarray(medians)
+        
+    return {'mean':bmean}
 
 if __name__ == '__main__':
     
@@ -90,15 +124,22 @@ if __name__ == '__main__':
     # mytz=pytz.timezone('Africa/Johannesburg')
 
     #uapishka
-    ctime_start= 1661011607
-    ctime_stop = 1666620593
+    # ctime_start= 1661011607
+    # ctime_stop = 1666620593
+    # mytz=pytz.timezone('US/Eastern')
+
+    ctime_start= 1666816036
+    ctime_stop = 1667663037
     mytz=pytz.timezone('US/Eastern')
     
     sttime=get_localtime_from_UTC(ctime_start,mytz).strftime("%b-%d %H:%M")
     entime=get_localtime_from_UTC(ctime_stop,mytz).strftime("%b-%d %H:%M")
 
     binned=get_binned('pol01r',ctime_start,ctime_stop)
+    t1=time.time()
     statsreal=reduce_binned(binned,1440,2048)
+    t2=time.time()
+    print("time taken for reduction",t2-t1)
 
     binned=get_binned('pol01i',ctime_start,ctime_stop)
     statsimag=reduce_binned(binned,1440,2048)
@@ -133,7 +174,7 @@ if __name__ == '__main__':
     myext=[0, 125, 24, 0]
     plt.subplot(221)
     plt.title("Mean xpower")
-    plt.imshow(np.log10(np.abs(meanz)),vmin=7,vmax=10,extent=myext,aspect='auto')
+    plt.imshow(np.log10(np.abs(meanz)),vmin=3,vmax=8,extent=myext,aspect='auto')
     plt.colorbar()
 
     plt.subplot(222)
@@ -143,7 +184,7 @@ if __name__ == '__main__':
 
     plt.subplot(223)
     plt.title("Median")
-    plt.imshow(np.log10(np.abs(medianz)),vmin=7,vmax=10,extent=myext,aspect='auto')
+    plt.imshow(np.log10(np.abs(medianz)),vmin=3,vmax=8,extent=myext,aspect='auto')
     plt.colorbar()
 
     plt.subplot(224)
@@ -156,8 +197,8 @@ if __name__ == '__main__':
     # plt.plot(np.arange(0,1440),stats['counts'])
 
     
-    plt.savefig('/project/s/sievers/mohanagr/lstbinned_xpower.png')
-    print('/project/s/sievers/mohanagr/lstbinned_xpower.png')
+    plt.savefig('/project/s/sievers/mohanagr/lstbinned_franken_uapishka.png')
+    print('/project/s/sievers/mohanagr/lstbinned_franken_uapishka.png')
 
 
         
