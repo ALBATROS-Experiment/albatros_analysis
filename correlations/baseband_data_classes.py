@@ -138,6 +138,7 @@ class BasebandFileIterator():
 
 	def __next__(self):
 		t1=time.time()
+		print("Current obj first spec vs acc start", self.obj.spec_idx[0], self.spec_num_start)
 		if(self.nchunks and self.chunksread==self.nchunks):
 			raise StopIteration
 		pol0=numpy.zeros((self.acclen,self.obj.chanend-self.obj.chanstart),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
@@ -146,12 +147,12 @@ class BasebandFileIterator():
 		rem=self.acclen
 		i=0
 		while(rem):
+			print("Rem is", rem)
 			if(self.spec_num_start < self.obj.spec_num[0]):
 				# we are in a gap between the files
-				assert(1==0)
 				step = min(self.obj.spec_num[0]-self.spec_num_start,rem)
 				rem-=step
-				i+=self.acclen-rem
+				# i+=self.acclen-rem
 				self.spec_num_start+=step
 			else:
 				
