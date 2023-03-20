@@ -63,7 +63,9 @@ class Baseband:
 	
 	def get_hist(self, mode=-1):
 		# mode = 0 for pol0, 1 for pol1, -1 for both
-		return unpk.hist(self.raw_data, self.length_channels, self.bit_mode, mode)
+		rowstart=0
+		rowend=len(self.spec_idx)
+		return unpk.hist(self.raw_data, rowstart, rowend, self.length_channels, self.bit_mode, mode)
 
 
 class BasebandFloat(Baseband):
@@ -108,7 +110,7 @@ class BasebandPacked(Baseband):
 	def _unpack(self, rowstart, rowend):
 		# There should NOT be an option to modify channels you're working with in a private function.
 		# If you want different set of channels, create a new object
-		return unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, self.spec_idx, rowstart, rowend, self.chanstart, self.chanend)
+		return unpk.sortpols(self.raw_data, self.length_channels, self.bit_mode, rowstart, rowend, self.chanstart, self.chanend)
 
 def get_rows_from_specnum(stidx,endidx,spec_arr):
     #follows numpy convention

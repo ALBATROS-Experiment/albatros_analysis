@@ -102,7 +102,9 @@ def test_histogram_4bit(packed_4bit,real_im_4bit_pol0, real_im_4bit_pol1):
     length_channels=10
     bit_depth=4
     mode=0
-    histvals = unpk.hist(packed_4bit, length_channels, bit_depth, mode)
+    rowstart=0
+    rowend=2
+    histvals = unpk.hist(packed_4bit, rowstart, rowend, length_channels, bit_depth, mode)
     # print(len(np.where(r0==0)[0])+len(np.where(im0==0)[0]))
     # print(histvals)
     assert histvals[0,3]==1
@@ -110,14 +112,14 @@ def test_histogram_4bit(packed_4bit,real_im_4bit_pol0, real_im_4bit_pol1):
     assert histvals[4,3]==1
 
     mode=1
-    histvals = unpk.hist(packed_4bit, length_channels, bit_depth, mode)
+    histvals = unpk.hist(packed_4bit, rowstart, rowend, length_channels, bit_depth, mode)
     # print(len(np.where(r0==0)[0])+len(np.where(im0==0)[0]))
     assert histvals[0,3]==1
     assert np.sum(histvals[7,:])==len(np.where(r1==7)[0])+len(np.where(im1==7)[0])
     assert histvals[12,3]==1
 
     mode=-1
-    histvals = unpk.hist(packed_4bit, length_channels, bit_depth, mode)
+    histvals = unpk.hist(packed_4bit,rowstart, rowend, length_channels, bit_depth, mode)
     # print(len(np.where(r0==0)[0])+len(np.where(im0==0)[0]))
     assert np.sum(histvals[0,:])==len(np.where(r1==0)[0])+len(np.where(im1==0)[0])+\
                                     len(np.where(r0==0)[0])+len(np.where(im0==0)[0])
