@@ -271,7 +271,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int rowstart, int ro
       uint8_t p0c0,p0c1,p0c2,p0c3,p1c0,p1c1,p1c2,p1c3;
       for(int j=0; j<ncols-1; j++)
       {
-        idx = ceil(nchan/2)*i + 2*j+ chanstart/2;
+        idx = ceil(nchan/2)*(i+rowstart) + 2*j+ chanstart/2; //skipping by 2*j = 4 channels since we fill each byte of output with 4 chans
         //byte 1
         p0c0 = (data[idx])&192;
         p1c0 = (data[idx])&48;
@@ -288,7 +288,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int rowstart, int ro
         pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
       }
       int j = ncols-1;
-      idx = ceil(nchan/2)*i + 2*j+chanstart/2;
+      idx = ceil(nchan/2)*(i+rowstart) + 2*j+chanstart/2;
       m = ncols*i+j;
 
       switch(cndn)
