@@ -168,7 +168,9 @@ class BasebandFileIterator():
                 # print("dist to end is", l, "rem is", rem)
                 if(rem>=l):
                     #spillover to next file. 
+                    
                     rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
+                    print("From if:, rowstart, rowend", rowstart, rowend)
                     specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
                     # print("len specnum from new file", rowend-rowstart)
                     rem-=l
@@ -181,6 +183,7 @@ class BasebandFileIterator():
                     # print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
                 else:
                     rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
+                    print("From else:, rowstart, rowend", rowstart, rowend)
                     specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
                     # print("len specnum from else", rowend-rowstart)
                     pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)

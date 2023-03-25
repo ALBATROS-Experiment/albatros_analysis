@@ -116,12 +116,12 @@ def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     nrows= len(specnums)
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     xcorr = np.empty(nchannels,dtype='complex64',order='c')
-    print("Input shape is", data0.shape)
+    print("Input shape is", nrows)
     t1=time.time()
     avg_xcorr_1bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, nchannels, nrows, data0.shape[1])
     t2=time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return xcorr/nrows
+    return xcorr
 
 
 
