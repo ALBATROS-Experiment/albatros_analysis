@@ -8,12 +8,12 @@ import os
 fpath=os.path.join(os.path.dirname(os.path.abspath(__file__)),'data/1627202039.raw')
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def file_obj_float():
     obj = bdc.BasebandFloat(fpath)
     return obj
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def file_obj_packed():
     obj = bdc.BasebandPacked(fpath)
     return obj
