@@ -121,7 +121,7 @@ def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     avg_xcorr_1bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, nchannels, nrows, data0.shape[1])
     t2=time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return xcorr
+    return xcorr/nrows
 
 
 

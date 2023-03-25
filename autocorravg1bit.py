@@ -28,7 +28,7 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend
         t2=time.time()
         print("time taken for one loop", t2-t1)
         j=ant1.spec_num_start
-        print("After a loop spec_num start at:", j, "Expected at", m+(i+1)*acclen)
+        assert(j==m+(i+1)*acclen)
         print(i+1,"CHUNK READ")
     print("Time taken final:", time.time()-st)
     pol01 = np.ma.masked_invalid(pol01)
