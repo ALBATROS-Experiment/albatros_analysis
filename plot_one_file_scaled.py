@@ -26,18 +26,21 @@ except:
             tmp.append(dat[i])
     dat=np.vstack(tmp)
 
-print(dat.shape)
 
-median_data=np.median(dat,axis=0)
-      
-#Norms data
-dat_norm=np.repeat([median_data],dat.shape[0],axis=0)
 
-plt.clf()
-plt.imshow(dat/dat_norm,vmin=0.5,vmax=2)
 
-plt.axis('auto')
-plt.savefig(args.odir+str(args.oname)+'.png')
+if args.ptype == 'flux':
+
+    median_data=np.median(dat,axis=0)
+          
+    #Norms data
+    dat_norm=np.repeat([median_data],dat.shape[0],axis=0)
+    
+    plt.clf()
+    plt.imshow(dat/dat_norm,vmin=0.5,vmax=2)
+    
+    plt.axis('auto')
+    plt.savefig(args.odir+str(args.oname)+'.png')
 
 
 #Example usage
