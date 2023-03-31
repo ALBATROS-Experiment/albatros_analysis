@@ -1,5 +1,0 @@
-python plot_overnight_new.py -l -o /PATH/to/output/ /project/s/sievers/albatros/uapishka/data_auto_cross/snap1/ 1625872349 1625898056
-
- python quick_spectra.py -l -o /PATH/to/output/ /project/s/sievers/albatros/uapishka/data_auto_cross/snap1/16285/1628500403/
-
-python plot_hist.py -r -o /Path/to/output/ /project/s/sievers/albatros/uapishka/baseband/snap1/16277/1627730001.raw
