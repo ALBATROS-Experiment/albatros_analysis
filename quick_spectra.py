@@ -6,6 +6,10 @@ import argparse
 import pytz
 import datetime as dt
 
+def _parse_slice(s):
+    a = [int(e) if e.strip() else None for e in s.split(":")]
+    return slice(*a)
+
 def get_acctime(fpath):
 	dat = np.fromfile(fpath,dtype='uint32')
 	diff = np.diff(dat)
@@ -21,6 +25,7 @@ if __name__ == "__main__":
 	parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
 	parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
+	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to")
 	args = parser.parse_args()
 
 	#data_dir = pathlib.Path(args.data_dir)
@@ -37,8 +42,17 @@ if __name__ == "__main__":
 	pol01r = pol01r[1:,:]
 	pol01i = pol01i[1:,:]
 	# Add real and image for pol01	
-	pol01 = pol01r + 1J*pol01i
 
+	if args.tslice:
+		print(args.tslice, type(args.tslice))
+		
+		pol00 = pol00[args.tslice, :]
+		pol11 = pol11[args.tslice, :]
+		pol01r = pol01r[args.tslice, :]
+		pol01i = pol01i[args.tslice, :]
+		print(pol00.shape)
+	pol01 = pol01r + 1J*pol01i
+	
 	freq = np.linspace(0, 125, np.shape(pol00)[1])
 
 	pol00_med = np.median(pol00, axis=0)
