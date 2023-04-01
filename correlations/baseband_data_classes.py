@@ -2,6 +2,7 @@ import numpy
 import struct
 import time
 import numba as nb
+import os
 # import unpacking as unpk
 from . import unpacking as unpk
 
@@ -13,51 +14,64 @@ def fill_arr(myarr,specnum, spec_per_packet):
             myarr[i*spec_per_packet+j] = specnum[i]+j
 
 class Baseband:
-    def __init__(self, file_name):
-        file_data=open(file_name, "rb") #,encoding='ascii')
-        header_bytes = struct.unpack(">Q", file_data.read(8))[0]
-            #setting all the header values
-        self.header_bytes = 8 + header_bytes
-        self.bytes_per_packet = struct.unpack(">Q", file_data.read(8))[0]
-        self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
-        self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
-        self.bit_mode = struct.unpack(">Q", file_data.read(8))[0]
-        self.have_trimble = struct.unpack(">Q", file_data.read(8))[0]
-        self.channels = numpy.frombuffer(file_data.read(self.header_bytes - 88), ">%dQ"%(int((header_bytes-8*10)/8)))[0] #this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
-        self.gps_week = struct.unpack(">Q", file_data.read(8))[0]
-        self.gps_timestamp = struct.unpack(">Q", file_data.read(8))[0]
-        self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
-        self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
-        self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
+    def __init__(self, file_name, readlen=-1):
+        with open(file_name, "rb") as file_data: #,encoding='ascii')
+            header_bytes = struct.unpack(">Q", file_data.read(8))[0]
+                #setting all the header values
+            self.header_bytes = 8 + header_bytes
+            self.bytes_per_packet = struct.unpack(">Q", file_data.read(8))[0]
+            self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
+            self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
+            self.bit_mode = struct.unpack(">Q", file_data.read(8))[0]
+            self.have_trimble = struct.unpack(">Q", file_data.read(8))[0]
+            self.channels = numpy.frombuffer(file_data.read(self.header_bytes - 88), ">%dQ"%(int((header_bytes-8*10)/8)))[0] #this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
+            self.gps_week = struct.unpack(">Q", file_data.read(8))[0]
+            self.gps_timestamp = struct.unpack(">Q", file_data.read(8))[0]
+            self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
+            self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
+            self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
+            
+            if self.bit_mode == 1:
+                self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
+                self.length_channels = int(self.length_channels * 2)
+            if self.bit_mode == 4:
+                self.channels = self.channels[::2]
+                self.length_channels = int(self.length_channels / 2)
+            
+            self.num_packets = (os.fstat(file_data.fileno()).st_size - self.header_bytes)//self.bytes_per_packet
+            if(readlen>=1):
+                #interpreted as number of packets
+                self.read_packets = int(readlen)
+            elif(readlen>0 and readlen<1):
+                #fraction of file
+                self.read_packets = int(self.num_packets*readlen)
+            elif(readlen==0):
+                print("Not reading any data")
+                self.read_packets=0
+            else:
+                self.read_packets=-1
 
-        if self.bit_mode == 1:
-            self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
-            self.length_channels = int(self.length_channels * 2)
-        if self.bit_mode == 4:
-            self.channels = self.channels[::2]
-            self.length_channels = int(self.length_channels / 2)
-        
-        file_data.seek(self.header_bytes)
-        t1 = time.time()
-        data = numpy.fromfile(file_data, count= -1, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(self.bytes_per_packet-4))])
-        t2 = time.time()
-        print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
-        file_data.close()
-        
-        self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
-        self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
-        self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
-        fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
-        # self.spec_idx = self.spec_idx - self.spec_idx[0]
+            if(self.read_packets!=0):
+                file_data.seek(self.header_bytes)
+                t1 = time.time()
+                data = numpy.fromfile(file_data, count=self.read_packets, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(self.bytes_per_packet-4))])
+                t2 = time.time()
+                print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
+                
+                self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
+                self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
+                self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
+                fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
+                # self.spec_idx = self.spec_idx - self.spec_idx[0]
 
-        specdiff=numpy.diff(self.spec_num)
-        idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
-        self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
-        self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
+                specdiff=numpy.diff(self.spec_num)
+                idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
+                self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
+                self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
 
     def print_header(self):
         print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
-            str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Have trimble = " + str(self.have_trimble) + ". Channels: " + str(self.channels) + \
+            str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Total packets = " + str(self.num_packets) +". Read packets = " + str(self.read_packets) + ". Have trimble = " + str(self.have_trimble) + ". Channels: " + str(self.channels) + \
                 " GPS week = " + str(self.gps_week)+ ". GPS timestamp = " + str(self.gps_timestamp) + ". GPS latitude = " + str(self.gps_latitude) + ". GPS longitude = " +\
                     str(self.gps_longitude) + ". GPS elevation = " + str(self.gps_elevation) + ".")
     
@@ -67,9 +81,14 @@ class Baseband:
         rowend=len(self.spec_idx)
         return unpk.hist(self.raw_data, rowstart, rowend, self.length_channels, self.bit_mode, mode)
 
+def get_header(file_name,verbose=True):
+    obj=Baseband(file_name,readlen=0)
+    if(verbose):
+        obj.print_header()
+    return obj.__dict__
 
 class BasebandFloat(Baseband):
-    def __init__(self, file_name,chanstart=0, chanend=None):
+    def __init__(self, file_name,readlen=-1,chanstart=0, chanend=None):
         super().__init__(file_name)
         self.chanstart = chanstart
         if(chanend==None):
@@ -84,18 +103,10 @@ class BasebandFloat(Baseband):
         else:
             print("Unknown bit depth")
 
-# test: 
-#
-# obj0=bd.BasebandPacked('/project/s/sievers/albatros/uapishka/baseband/snap1/16272/1627202039.raw')
-# assert((obj0.pol0.ravel()-obj0.raw_data.ravel()[::2]).sum()==0)
-# assert((obj0.pol1.ravel()-obj0.raw_data.ravel()[1::2]).sum()==0)
-# obj0._unpack(11,50)
-# assert((obj0.pol0.ravel()-obj0.raw_data[1:5,:].ravel()[128::2]).sum()==0)
-
 class BasebandPacked(Baseband):
     #turn spec_selection to true and enter the range of spectra you want to save only part of the file
-    def __init__(self, file_name, rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
-        super().__init__(file_name)
+    def __init__(self, file_name, readlen=-1,rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
+        super().__init__(file_name,readlen)
 
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
         self.chanstart = chanstart
