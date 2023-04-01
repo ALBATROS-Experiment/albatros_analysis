@@ -149,6 +149,12 @@ class BasebandFileIterator():
         self.obj = BasebandPacked(file_paths[fileidx],chanstart=chanstart,chanend=chanend, unpack=False)
         self.spec_num_start=idxstart+self.obj.spec_idx[0] # REPLACE SPEC_IDX to be SPEC_NUM, not 0 indexed
         print("START SPECNUM IS", self.spec_num_start, "obj start at", self.obj.spec_num[0])
+        if self.obj.bit_mode == 4:
+            self.ncols = self.obj.chanend-self.obj.chanstart # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
+        elif self.obj.bit_mode == 1:
+            if(self.obj.chanstart%2>0):
+                raise ValueError("ERROR: Start channel index must be even.")
+            self.ncols = numpy.ceil((self.obj.chanend-self.obj.chanstart)/4).astype(int)
     
     def __iter__(self):
         return self
@@ -158,14 +164,8 @@ class BasebandFileIterator():
         # print("Current obj first spec vs acc start", self.obj.spec_idx[0], self.spec_num_start)
         if(self.nchunks and self.chunksread==self.nchunks):
             raise StopIteration
-        if self.obj.bit_mode == 4:
-            ncols = self.obj.chanend-self.obj.chanstart # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
-        elif self.obj.bit_mode == 1:
-            if(self.obj.chanstart%2>0):
-                raise ValueError("ERROR: Start channel index must be even.")
-            ncols = numpy.ceil((self.obj.chanend-self.obj.chanstart)/4).astype(int)
-        pol0=numpy.zeros((self.acclen,ncols),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
-        pol1=numpy.zeros((self.acclen,ncols),dtype='uint8',order='c') 
+        pol0=numpy.zeros((self.acclen,self.ncols),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
+        pol1=numpy.zeros((self.acclen,self.ncols),dtype='uint8',order='c') 
         specnums=numpy.array([],dtype='int64') #len of this array will control everything in corr, neeeeed the len.
         rem=self.acclen
         i=0

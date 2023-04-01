@@ -72,23 +72,9 @@ if __name__=="__main__":
     r = np.real(pol01)
     im = np.imag(pol01)
 
-    from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    t_acclen = args.acclen*2048/125e6 #seconds
-
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol01.shape[0]*t_acclen/60, 0])
-
-    plt.suptitle(f'Minutes since {args.time_start}')
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
-    ax[0].set_title('real part')
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
-    ax[1].set_title('imag part')
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
     fname=f'pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
-    plt.savefig(fpath)
+    plot_1bit(pol01,channels,args.acclen,args.time_start,fpath,minutes=True,logplot=False)
     print(fpath)
 
 
