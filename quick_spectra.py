@@ -25,7 +25,7 @@ if __name__ == "__main__":
 	parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
 	parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
-	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to")
+	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
 	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
 	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
 	args = parser.parse_args()
@@ -46,13 +46,23 @@ if __name__ == "__main__":
 	# Add real and image for pol01	
 
 	if args.tslice:
-		print(args.tslice, type(args.tslice))
+		#convert tslice in minutes to samps
+		tstart, tstop, tstep = args.tslice.start, args.tslice.stop, args.tslice.step
 		
-		pol00 = pol00[args.tslice, :]
-		pol11 = pol11[args.tslice, :]
-		pol01r = pol01r[args.tslice, :]
-		pol01i = pol01i[args.tslice, :]
-		print(pol00.shape)
+		if tstart is not None:
+			tstart = int(np.floor(tstart*60/acctime))
+		if tstop is not None:
+			tstop = int(np.floor(tstop*60/acctime))
+		if tstep is not None:
+			tstep = int(np.floor(tstep*60/acctime))	
+			
+		tslice = slice(tstart, tstop, tstep)
+	
+		pol00 = pol00[tslice, :]
+		pol11 = pol11[tslice, :]
+		pol01r = pol01r[tslice, :]
+		pol01i = pol01i[tslice, :]
+
 	pol01 = pol01r + 1J*pol01i
 	
 	freq = np.linspace(0, 125, np.shape(pol00)[1])
@@ -100,8 +110,8 @@ if __name__ == "__main__":
 
 	print("Estimated accumulation time from timestamp file: ", acctime)
 	tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
-	myext = np.array([0, 125, tot_minutes, 0])
-
+	myext = np.array([0, 125, tot_minutes, 0])	
+        
 	plt.figure(figsize=(18,10), dpi=200)
 
 	plt.subplot(2,3,1)
