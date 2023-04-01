@@ -26,6 +26,8 @@ if __name__ == "__main__":
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
 	parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
 	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to")
+	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
+	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
 	args = parser.parse_args()
 
 	#data_dir = pathlib.Path(args.data_dir)
@@ -71,8 +73,10 @@ if __name__ == "__main__":
 	b=np.percentile(xx,1)
 	xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
 	stddev = np.std(xx_clean)
-	vmin= max(med - 2*stddev,10**7)
-	vmax = med + 2*stddev
+	if args.vmin is None:
+		vmin= max(med - 2*stddev,10**7)
+	if args.vmax is None:
+		vmax = med + 2*stddev
 	
 	pmax = np.max(pol00)
 	axrange = [0, 125, 0, pmax]
