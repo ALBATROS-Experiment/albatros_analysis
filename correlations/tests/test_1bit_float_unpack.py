@@ -67,3 +67,41 @@ def test_unpack(packed_1bit,real_im_1bit_pol0, real_im_1bit_pol1):
     assert pol1[1,0] == str_to_bits('10001010')
     assert pol1[0,0] == str_to_bits('01010101')
     assert pol1[1,1] == str_to_bits('10000000')
+
+def test_unpack_arb_row(packed_1bit,real_im_1bit_pol0, real_im_1bit_pol1):
+    rowstart=1
+    rowend=2
+    chanstart=2
+    chanend=7
+    pol0,pol1 = unpk.sortpols(packed_1bit, 8, 1, rowstart, rowend, chanstart, chanend)
+    # print(pol0,pol1)
+    assert pol0[0,0] == str_to_bits('01110101')
+    assert pol0[0,1] == str_to_bits('01000000')
+    assert pol1[0,0] == str_to_bits('10001010')
+    assert pol1[0,1] == str_to_bits('10000000')
+
+def test_histogram_1bit(packed_1bit,real_im_1bit_pol0, real_im_1bit_pol1):
+    rowstart=0
+    rowend=2
+    length_channels=8
+    bit_depth=1
+    mode=0
+    hist = unpk.hist(packed_1bit, rowstart, rowend, length_channels, bit_depth, mode)
+    assert(hist[0,3]==1)
+    assert(hist[1,3]==3)
+    assert(hist[0,4]==2)
+    assert(hist[0,4]==2)
+
+    mode=1
+    hist = unpk.hist(packed_1bit, rowstart, rowend, length_channels, bit_depth, mode)
+    assert(hist[0,3]==3)
+    assert(hist[1,3]==1)
+    assert(hist[0,4]==2)
+    assert(hist[0,4]==2)
+
+    mode=-1
+    hist = unpk.hist(packed_1bit, rowstart, rowend, length_channels, bit_depth, mode)
+    assert(hist[0,3]==4)
+    assert(hist[1,3]==4)
+    assert(hist[0,4]==4)
+    assert(hist[0,4]==4)

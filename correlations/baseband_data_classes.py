@@ -94,7 +94,7 @@ class BasebandFloat(Baseband):
 
 class BasebandPacked(Baseband):
     #turn spec_selection to true and enter the range of spectra you want to save only part of the file
-    def __init__(self, file_name, chanstart=0, chanend=None, unpack=True):
+    def __init__(self, file_name, rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
         super().__init__(file_name)
 
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
@@ -105,7 +105,11 @@ class BasebandPacked(Baseband):
             self.chanend = chanend
 
         if(unpack):
-            self.pol0, self.pol1 = self._unpack(0,len(self.spec_idx))
+            if(rowstart and rowend):
+                self.pol0, self.pol1 = self._unpack(rowstart,rowend)
+            else:
+                self.pol0, self.pol1 = self._unpack(0,len(self.spec_idx))
+
     
     def _unpack(self, rowstart, rowend):
         # There should NOT be an option to modify channels you're working with in a private function.
