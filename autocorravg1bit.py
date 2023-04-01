@@ -59,12 +59,6 @@ if __name__=="__main__":
     pol01,channels = get_avg_fast_1bit(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
     print("RUN 1 DONE")
 
-    # pol01_2,channels = get_avg_fast_1bit(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks)
-    # print("RUN 2 DONE")
-
-    # diff1=np.sum(np.abs(pol01_1-pol01_2),axis=1)
-    # print(diff1) checked that this is zero. 
-
     import os
     fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
     fpath = os.path.join(args.outdir,fname)
@@ -74,7 +68,7 @@ if __name__=="__main__":
 
     fname=f'pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
-    plot_1bit(pol01,channels,args.acclen,args.time_start,fpath,minutes=True,logplot=False)
+    butils.plot_1bit(pol01,channels,args.acclen,args.time_start,fpath,minutes=True,logplot=False)
     print(fpath)
 
 

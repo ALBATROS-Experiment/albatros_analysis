@@ -1,3 +1,5 @@
+#usage: python missing_frac.py ~/Projects/baseband/SNAP1/16272
+
 from correlations import baseband_data_classes as bdc
 from glob import glob
 import os
@@ -13,23 +15,22 @@ def get_missing_frac(fname):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('dirpath', type=str,help='Path to folder/sub-folder whose all files you want to plot')
-    parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='./',
-              help='Output directory for data and plots')
+    parser.add_argument('dirpath', type=str,help='Path to a 5-digit timestamp folder whose files you want to look at.')
+    # parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='./',
+    #           help='Output directory for data and plots')
     args = parser.parse_args()
 
-    print(args.dirpath)
-    print(os.path.abspath(args.dirpath)+'/*', "PATH")
+    print("INPUT DIRPATH:", os.path.abspath(args.dirpath)+'/*')
     files = glob(os.path.abspath(args.dirpath)+'/*')
-    print(files)
+    # print(files)
     files.sort()
     fracs = np.zeros(len(files))
 
     for i,file in enumerate(files):
-        print("Processing file:", file)
+        tag=file.split('/')[-1]
         fracs[i] = get_missing_frac(file)
-
-    print("Missing fracs are:", fracs)
+        print(f"File {tag}, missing frac = {fracs[i]*100:5.3f}%")
+    # print("Missing fracs are:", fracs)
     plt.plot(fracs)
     plt.show()
 

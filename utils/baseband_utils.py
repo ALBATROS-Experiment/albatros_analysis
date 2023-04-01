@@ -104,16 +104,20 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,opath,minutes=False,l
         t_end = t_end/60
         tag='Minutes'
     myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
-
+    plt.suptitle(f"{tag} since {time_start}")
     plt.subplot(2,3,1)
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
-    plt.title(f'pol00 - {tag} since {time_start}')
+    plt.title('pol00')
+    plt.xlabel('Frequency (MHz)')
+    plt.ylabel(tag)
     cb00 = plt.colorbar()
     cb00.ax.plot([0, 1], [7.0]*2, 'w')
 
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext)
+    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol11')
+    plt.xlabel('Frequency (MHz)')
+    plt.ylabel(tag)
     plt.colorbar()
 
     plt.subplot(2,3,2)
@@ -137,12 +141,14 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,opath,minutes=False,l
     plt.subplot(2,3,3)
     plt.imshow(pol01_mag, aspect='auto', extent=myext)
     plt.title('pol01 magnitude')
-    plt.ylabel('minutes')
+    plt.xlabel('Frequency (MHz)')
+    plt.ylabel(tag)
     plt.colorbar()
 
     plt.subplot(2,3,6)
     plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
-    plt.ylabel('minutes')
+    plt.ylabel(tag)
+    plt.xlabel('Frequency (MHz)')
     plt.title('pol01 phase')
     plt.colorbar()
     plt.savefig(opath)
@@ -159,9 +165,9 @@ def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False
     myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
 
     plt.suptitle(f'{tag} since {time_start}')
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
+    img1=ax[0].imshow(np.real(pol01),aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
     ax[0].set_title('pol01 real part')
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
+    img2=ax[1].imshow(np.imag(pol01),aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
     ax[1].set_title('pol01 imag part')
     plt.colorbar(img1,ax=ax[0])
     plt.colorbar(img2,ax=ax[1])

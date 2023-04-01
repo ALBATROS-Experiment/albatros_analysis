@@ -42,9 +42,11 @@ class Baseband:
             if(readlen>=1):
                 #interpreted as number of packets
                 self.read_packets = int(readlen)
+                print("Reading", self.read_packets, "packets")
             elif(readlen>0 and readlen<1):
                 #fraction of file
                 self.read_packets = int(self.num_packets*readlen)
+                print("Reading", self.read_packets, "packets")
             elif(readlen==0):
                 print("Not reading any data")
                 self.read_packets=0
