@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from matplotlib import pyplot as plt
 import os
-from palettable.colorbrewer.sequential import PuBuGn_8 as mycmap
+from palettable.colorbrewer.sequential import GnBu_9 as mycmap
 
 if(__name__=='__main__'):
 	"Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
@@ -18,15 +18,20 @@ if(__name__=='__main__'):
 	hist=obj.get_hist(mode=args.mode)
 	print('Hist vals shape: \n',hist.shape)
 	# np.savetxt('./hist_dump_mohan_laptop.txt',hist) this was to check output against code on niagara. all match.
-	if(args.rescale):
-		bins = np.fft.fftshift(np.fft.fftfreq(16)*16)
-		hist = np.fft.fftshift(hist,axes=0)
+	nlevels=2**obj.bit_mode
+	if(args.rescale and obj.bit_mode==4):
+		bins = np.arange(-7,8)
+		hist = np.fft.fftshift(hist,axes=0) #first row would correspond to -8 which is 0
+		assert np.all(hist[0,:]==0)
+		hist = hist[1:,:].copy()
+	elif(args.rescale and obj.bit_mode==1):
+		bins = [-1,1]
 	else:
-		bins = np.arange(0,16)
-	
+		bins = np.arange(0,nlevels)
+	print(bins)
 	print(f"total data points: {hist.sum()}")
-	snap,five_digit,bbfile=args.filepath.split('/')[-3:]
-	bbfile=bbfile.split('.')[0]
+	snap,five_digit,timestamp=args.filepath.split('/')[-3:]
+	timestamp=timestamp.split('.')[0]
 
 	f=plt.gcf()
 	f.set_size_inches(10,4)
@@ -35,7 +40,7 @@ if(__name__=='__main__'):
 	else:
 		tag='both_pols'
 
-	plt.suptitle(f'Histogram for {snap} {bbfile} {tag}')
+	plt.suptitle(f'Histogram for {snap} {timestamp} {tag}')
 	plt.subplot(121)
 	plt.imshow(hist,aspect="auto",interpolation='none',cmap=mycmap.mpl_colormap)
 	# ax=plt.gca()
@@ -44,12 +49,14 @@ if(__name__=='__main__'):
 	locs,labels=plt.xticks()
 	locs=np.arange(0,len(obj.channels))
 	labels=[str(x) for x in obj.channels]
-	plt.xticks(locs[::5],labels[::5],rotation=-50)
-	print(locs,labels)
+	osamp=len(obj.channels)//64
+	print(osamp)
+	plt.xticks(locs[::3*osamp],labels[::3*osamp],rotation=-50)
+	# print(locs,labels)
 
 	locs,labels=plt.yticks()
-	locs=np.arange(0,16)
-	labels=np.arange(-8,8)
+	locs=np.arange(0,len(bins))
+	labels=bins
 	plt.yticks(locs,labels)
 	plt.colorbar()
 	plt.xlabel('channels')
@@ -57,10 +64,11 @@ if(__name__=='__main__'):
 	plt.subplot(122)
 	hist_total = np.sum(hist,axis=1)
 	plt.bar(bins,hist_total,label=f'mode={args.mode}')
+	plt.xticks(bins,bins)
 	plt.tight_layout()
 
 	
-	fname = os.path.join(args.output_dir,f'hist_{snap}_{bbfile}_{tag}.png')
+	fname = os.path.join(args.output_dir,f'hist_{snap}_{timestamp}_{tag}.png')
 	plt.savefig(fname)
 	print(fname)
 

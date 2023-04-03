@@ -4,7 +4,7 @@
 #include <math.h>
 #include <omp.h>
 
-void hist_4bit(uint8_t * data, uint64_t * hist, int nspec, int nchan, int nbins, int mode)
+void hist_4bit(uint8_t * data, uint64_t * hist, int rowstart, int rowend, int nchan, int nbins, int mode)
 {/*
 	Default implementation assumes bins are 0 indexed, of width = 1, and nbins = len(hist)-1.
 	Bin convention is [l,r). First bin left edge is included. Last bin right edge is excluded.
@@ -15,7 +15,8 @@ void hist_4bit(uint8_t * data, uint64_t * hist, int nspec, int nchan, int nbins,
 	-1 	= both pols
 	
 */
-  int c1 = 2*nchan;
+  int nrows=rowend-rowstart;
+  int c1 = 2*nchan; //c1 is how many bytes to skip to get to the next spectra
   int hist_len = nchan*(nbins+1);
 	for(int k=0;k<hist_len;k++)
   {
@@ -33,33 +34,33 @@ void hist_4bit(uint8_t * data, uint64_t * hist, int nspec, int nchan, int nbins,
     } 
     
     #pragma omp for nowait
-    for(int i=0;i<nspec;i++)
+    for(int i=0;i<nrows;i++)
     {
       for(int j=0; j<nchan; j++)
       {
         if(mode==0)
         {
-          im=data[i*c1+2*j]&imask;
-          r=(data[i*c1+2*j]&rmask)>>4;
+          im=data[(i+rowstart)*c1+2*j]&imask;
+          r=(data[(i+rowstart)*c1+2*j]&rmask)>>4;
           ++hist_pvt[r*nchan+j];
           ++hist_pvt[im*nchan+j];
         }
         else if(mode==1)
         {
-          im=data[i*c1+2*j+1]&imask;
-          r=(data[i*c1+2*j+1]&rmask)>>4;
+          im=data[(i+rowstart)*c1+2*j+1]&imask;
+          r=(data[(i+rowstart)*c1+2*j+1]&rmask)>>4;
           ++hist_pvt[r*nchan+j];
           ++hist_pvt[im*nchan+j];
         }
         else if(mode==-1)
         {
-          im=data[i*c1+2*j]&imask;
-          r=(data[i*c1+2*j]&rmask)>>4;
+          im=data[(i+rowstart)*c1+2*j]&imask;
+          r=(data[(i+rowstart)*c1+2*j]&rmask)>>4;
           ++hist_pvt[r*nchan+j];
           ++hist_pvt[im*nchan+j];
 
-          im=data[i*c1+2*j+1]&imask;
-          r=(data[i*c1+2*j+1]&rmask)>>4;
+          im=data[(i+rowstart)*c1+2*j+1]&imask;
+          r=(data[(i+rowstart)*c1+2*j+1]&rmask)>>4;
           ++hist_pvt[r*nchan+j];
           ++hist_pvt[im*nchan+j];
         }
@@ -72,9 +73,83 @@ void hist_4bit(uint8_t * data, uint64_t * hist, int nspec, int nchan, int nbins,
   }
 }
 
-void myfunc()
+void hist_1bit(uint8_t * data, uint64_t * hist, int rowstart, int rowend, int nchan, int nbins, int mode)
 {
-	printf("Finally yea");
+  int nrows=rowend-rowstart;
+  int ncols= nchan/2;
+  int hist_len = nchan*(nbins+1);
+	for(int k=0;k<hist_len;k++)
+  {
+    hist[k]=0;
+  }
+
+  #pragma omp parallel
+  {
+    uint64_t hist_pvt[hist_len];
+    uint8_t p0c0r,p0c0im,p0c1r,p0c1im,p1c0r,p1c0im,p1c1r,p1c1im;
+
+    for(int k=0;k<hist_len;k++)
+    {
+      hist_pvt[k]=0;
+    } 
+    
+    #pragma omp for nowait
+    for(int i=0;i<nrows;i++)
+    {
+      for(int j=0; j<ncols; j++)
+      {
+        int idx = (i+rowstart)*ncols+j;
+        if(mode==0)
+        {
+          //byte 1
+          p0c0r = (data[idx]>>7)&1;
+          p0c0im = (data[idx]>>6)&1;
+          p0c1r = (data[idx]>>3)&1;
+          p0c1im = (data[idx]>>2)&1;
+          ++hist_pvt[p0c0r*nchan+2*j];
+          ++hist_pvt[p0c0im*nchan+2*j];
+          ++hist_pvt[p0c1r*nchan+2*j+1];
+          ++hist_pvt[p0c1im*nchan+2*j+1];
+        }
+        else if(mode==1)
+        {
+          p1c0r = (data[idx]>>5)&1;
+          p1c0im = (data[idx]>>4)&1;
+          p1c1r = (data[idx]>>1)&1;
+          p1c1im = (data[idx])&1;
+          ++hist_pvt[p1c0r*nchan+2*j];
+          ++hist_pvt[p1c0im*nchan+2*j];
+          ++hist_pvt[p1c1r*nchan+2*j+1];
+          ++hist_pvt[p1c1im*nchan+2*j+1];
+        }
+        else if(mode==-1)
+        {
+          p0c0r = (data[idx]>>7)&1;
+          p0c0im = (data[idx]>>6)&1;
+          p0c1r = (data[idx]>>3)&1;
+          p0c1im = (data[idx]>>2)&1;
+          p1c0r = (data[idx]>>5)&1;
+          p1c0im = (data[idx]>>4)&1;
+          p1c1r = (data[idx]>>1)&1;
+          p1c1im = (data[idx])&1;
+          ++hist_pvt[p0c0r*nchan+2*j];
+          ++hist_pvt[p0c0im*nchan+2*j];
+          ++hist_pvt[p0c1r*nchan+2*j+1];
+          ++hist_pvt[p0c1im*nchan+2*j+1];
+          ++hist_pvt[p1c0r*nchan+2*j];
+          ++hist_pvt[p1c0im*nchan+2*j];
+          ++hist_pvt[p1c1r*nchan+2*j+1];
+          ++hist_pvt[p1c1im*nchan+2*j+1];
+        }
+      }
+    }
+    for(int k=0;k<=hist_len;k++)
+    {
+      #pragma omp atomic //let's try atomic instead of a whole critical block
+      hist[k]+=hist_pvt[k];
+    }
+  
+  }
 }
 
 void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int chanstart, int chanend, int nchan)
@@ -196,7 +271,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int rowstart, int ro
       uint8_t p0c0,p0c1,p0c2,p0c3,p1c0,p1c1,p1c2,p1c3;
       for(int j=0; j<ncols-1; j++)
       {
-        idx = ceil(nchan/2)*i + 2*j+ chanstart/2;
+        idx = ceil(nchan/2)*(i+rowstart) + 2*j+ chanstart/2; //skipping by 2*j = 4 channels since we fill each byte of output with 4 chans
         //byte 1
         p0c0 = (data[idx])&192;
         p1c0 = (data[idx])&48;
@@ -213,7 +288,7 @@ void sortpols (uint8_t *data, uint8_t *pol0, uint8_t *pol1, int rowstart, int ro
         pol1[m] = (p1c0<<2)+(p1c1<<4)+(p1c2>>2)+p1c3;
       }
       int j = ncols-1;
-      idx = ceil(nchan/2)*i + 2*j+chanstart/2;
+      idx = ceil(nchan/2)*(i+rowstart) + 2*j+chanstart/2;
       m = ncols*i+j;
 
       switch(cndn)

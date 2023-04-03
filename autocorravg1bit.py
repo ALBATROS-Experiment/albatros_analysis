@@ -13,99 +13,26 @@ def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ",idxstart, "in filenum: ",fileidx)
     print(files[fileidx])
-    
-    obj = bdc.BasebandPacked(files[fileidx],chanstart,chanend)
-    channels=obj.channels[chanstart:chanend]
-    assert(obj.pol0.shape[0]==obj.pol1.shape[0])
-    assert(obj.bit_mode==1)
 
-    objlen=obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
-
-    if(chanend):
-        ncols = chanend-chanstart
-    else:
-        ncols=obj.length_channels
-
-    pol01=np.zeros((nchunks,ncols),dtype='complex64',order='c')
-
-    fc=0 #file counter
+    ant1 = bdc.BasebandFileIterator(files,fileidx,idxstart,acclen,nchunks=nchunks,chanstart=chanstart,chanend=chanend)
+    if(ant1.obj.bit_mode!=1):
+        raise NotImplementedError(f"BIT MODE {ant1.obj.bit_mode} IS NOT SUPPORTED BY THIS SCRIPT.")
+    nchans=ant1.obj.chanend-ant1.obj.chanstart
+    pol01=np.zeros((nchunks,nchans),dtype='complex64',order='c')
+    j=ant1.spec_num_start
+    m=ant1.spec_num_start
     st=time.time()
-    file_spec_gap=0
-    for i in range(nchunks):
-        if(file_spec_gap>=acclen):
-            # next chunk is not present. missing spec data.
-            print("MASSIVE GAP BETWEEN TWO FILES. NEW CHUNK IN GAP.")
-            pol01[i,:] = np.nan
-            continue
-        else:
-            rem=acclen-file_spec_gap #file_spec_gap will be non-zero if a chunk ended at the end of one file.
-            # we only need (acclen-file_spec_gap) spectra from new file.
-        missing_spec_gap=0
-        while(True):
-            l=objlen-idxstart
-            if(l<rem):
-                # print("less than rem:", "idxstart l objlen", idxstart, l, objlen)
-                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+objlen,obj.spec_idx,obj.spectra_per_packet)
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+objlen,obj.missing_loc,obj.missing_num)
-                pol01[i,:]=pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:], obj.pol1[rowstart:rowend,:],ncols)
-
-                #if the code is here another part of chunk will be read from next file. 
-                # So it WILL go to the else block, and that's where we'll divide. Just adding here.
-
-                fc+=1
-                idxstart=0
-                file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet) # file_spec_gap = first spec num of new file - (last specnum + spec_per_pack of old file)
-                # del obj
-                obj = bdc.BasebandPacked(files[fileidx+fc],chanstart,chanend)
-
-                file_spec_gap += obj.spec_num[0]
-                file_spec_gap = int(file_spec_gap)
-                print("FILE SPEC GAP IS ", file_spec_gap)
-                if(file_spec_gap>0):
-                    print("WARNING: SPEC GAP NOTICED BETWEEN FILES")
-                objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
-                rem = rem-l #new remaining % of chunk left to read
-                if(file_spec_gap>=rem):
-                    print("MASSIVE GAP BETWEEN TWO FILES")
-                    #if the spec gap b/w two files is bigger than what we had to read, the small part read earlier is the whole chunk
-                    pol01[i,:]=pol01[i,:]/(l-missing_spec_gap)
-                    file_spec_gap = file_spec_gap - rem # for the next chunk that'll be read from new file read above
-                    break
-                else:
-                    rem = rem - file_spec_gap # continue the while loop and go to else block
-
-            elif(l==rem):
-                # one chunk ends exactly at end of file
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
-                pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],ncols))/(acclen-file_spec_gap-missing_spec_gap)
-                #file_spec_gap above shouldn't affect the avg since we're still in the same file. And it doesn't because it's zero until a new file is read.
-                fc+=1
-                idxstart=0
-                file_spec_gap = -(obj.spec_num[-1]+obj.spectra_per_packet)
-                obj = bdc.BasebandPacked(files[fileidx+fc],chanstart,chanend)
-                file_spec_gap += obj.spec_num[0]
-                objlen= obj.spec_num[-1]-obj.spec_num[0]+obj.spectra_per_packet
-                #don't reset file_spec_gap because upcoming chunk will be read from new file.
-                break
-            else:
-                # print(obj.missing_loc,obj.missing_num,obj.spec_idx)
-                missing_spec_gap += butils.get_num_missing(idxstart,idxstart+rem,obj.missing_loc,obj.missing_num)
-                rowstart, rowend = butils.get_rows_from_specnum(idxstart,idxstart+rem,obj.spec_idx,obj.spectra_per_packet)
-                if(rowstart==rowend):
-                    print("WHOLE CHUNK LIES IN MISSING REGION")
-                    pol01[i,:] = np.nan  # if the whole specnum block lies in missing area. will be masked later
-                else:
-                    pol01[i,:]=(pol01[i,:] + cr.avg_xcorr_1bit(obj.pol0[rowstart:rowend,:],obj.pol1[rowstart:rowend,:],ncols))/(acclen-file_spec_gap-missing_spec_gap)
-                idxstart+=rem
-                file_spec_gap=0 # reset this because we're continuing in same file for upcoming chunks
-                break
-        print(i+1," blocks read")
-    et=time.time()
-    print(f"time taken {et-st:4.2f}")
+    for i, chunk in enumerate(ant1):
+        t1=time.time()
+        pol01[i,:] = cr.avg_xcorr_1bit(chunk['pol0'], chunk['pol1'],chunk['specnums'],nchans)
+        t2=time.time()
+        print("time taken for one loop", t2-t1)
+        j=ant1.spec_num_start
+        assert(j==m+(i+1)*acclen)
+        print(i+1,"CHUNK READ")
+    print("Time taken final:", time.time()-st)
     pol01 = np.ma.masked_invalid(pol01)
-    return pol01,channels
-
+    return pol01,ant1.obj.channels
 
 if __name__=="__main__":
 
@@ -132,12 +59,6 @@ if __name__=="__main__":
     pol01,channels = get_avg_fast_1bit(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
     print("RUN 1 DONE")
 
-    # pol01_2,channels = get_avg_fast_1bit(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks)
-    # print("RUN 2 DONE")
-
-    # diff1=np.sum(np.abs(pol01_1-pol01_2),axis=1)
-    # print(diff1) checked that this is zero. 
-
     import os
     fname = f"pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
     fpath = os.path.join(args.outdir,fname)
@@ -145,23 +66,9 @@ if __name__=="__main__":
     r = np.real(pol01)
     im = np.imag(pol01)
 
-    from matplotlib import pyplot as plt
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    t_acclen = args.acclen*2048/125e6 #seconds
-
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol01.shape[0]*t_acclen/60, 0])
-
-    plt.suptitle(f'Minutes since {args.time_start}')
-    img1=ax[0].imshow(r,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
-    ax[0].set_title('real part')
-    img2=ax[1].imshow(im,aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
-    ax[1].set_title('imag part')
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
     fname=f'pol01_1bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
-    plt.savefig(fpath)
+    butils.plot_1bit(pol01,channels,args.acclen,args.time_start,fpath,minutes=True,logplot=False)
     print(fpath)
 
 
