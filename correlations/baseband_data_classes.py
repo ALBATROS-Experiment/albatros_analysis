@@ -91,7 +91,7 @@ def get_header(file_name,verbose=True):
 
 class BasebandFloat(Baseband):
     def __init__(self, file_name,readlen=-1,chanstart=0, chanend=None):
-        super().__init__(file_name)
+        super().__init__(file_name, readlen)
         self.chanstart = chanstart
         if(chanend==None):
             self.chanend = self.length_channels
