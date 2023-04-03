@@ -114,9 +114,12 @@ def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     assert(data0.shape[0]==data1.shape[0])
     assert(data0.shape[1]==data1.shape[1])
     nrows= len(specnums)
+    print("Input shape is", nrows)
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     xcorr = np.empty(nchannels,dtype='complex64',order='c')
-    print("Input shape is", nrows)
+    if(nrows==0):
+        xcorr=np.nan
+        return xcorr
     t1=time.time()
     avg_xcorr_1bit_c(data0.ctypes.data,data1.ctypes.data, xcorr.ctypes.data, nchannels, nrows, data0.shape[1])
     t2=time.time()
