@@ -6,6 +6,10 @@ import argparse
 import pytz
 import datetime as dt
 
+def _parse_slice(s):
+    a = [int(e) if e.strip() else None for e in s.split(":")]
+    return slice(*a)
+
 def get_acctime(fpath):
 	dat = np.fromfile(fpath,dtype='uint32')
 	diff = np.diff(dat)
@@ -21,6 +25,9 @@ if __name__ == "__main__":
 	parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
 	parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
 	parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
+	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
+	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
+	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
 	args = parser.parse_args()
 
 	#data_dir = pathlib.Path(args.data_dir)
@@ -37,8 +44,27 @@ if __name__ == "__main__":
 	pol01r = pol01r[1:,:]
 	pol01i = pol01i[1:,:]
 	# Add real and image for pol01	
-	pol01 = pol01r + 1J*pol01i
 
+	if args.tslice:
+		#convert tslice in minutes to samps
+		tstart, tstop, tstep = args.tslice.start, args.tslice.stop, args.tslice.step
+		
+		if tstart is not None:
+			tstart = int(np.floor(tstart*60/acctime))
+		if tstop is not None:
+			tstop = int(np.floor(tstop*60/acctime))
+		if tstep is not None:
+			tstep = int(np.floor(tstep*60/acctime))	
+			
+		tslice = slice(tstart, tstop, tstep)
+	
+		pol00 = pol00[tslice, :]
+		pol11 = pol11[tslice, :]
+		pol01r = pol01r[tslice, :]
+		pol01i = pol01i[tslice, :]
+
+	pol01 = pol01r + 1J*pol01i
+	
 	freq = np.linspace(0, 125, np.shape(pol00)[1])
 
 	pol00_med = np.median(pol00, axis=0)
@@ -57,8 +83,10 @@ if __name__ == "__main__":
 	b=np.percentile(xx,1)
 	xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
 	stddev = np.std(xx_clean)
-	vmin= max(med - 2*stddev,10**7)
-	vmax = med + 2*stddev
+	if args.vmin is None:
+		vmin= max(med - 2*stddev,10**7)
+	if args.vmax is None:
+		vmax = med + 2*stddev
 	
 	pmax = np.max(pol00)
 	axrange = [0, 125, 0, pmax]
@@ -82,8 +110,8 @@ if __name__ == "__main__":
 
 	print("Estimated accumulation time from timestamp file: ", acctime)
 	tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
-	myext = np.array([0, 125, tot_minutes, 0])
-
+	myext = np.array([0, 125, tot_minutes, 0])	
+        
 	plt.figure(figsize=(18,10), dpi=200)
 
 	plt.subplot(2,3,1)
