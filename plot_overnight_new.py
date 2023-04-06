@@ -1,7 +1,7 @@
 import os, sys
 import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
-    print('no display found. Using non-interactive Agg backend')
+    erint('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
 from matplotlib import pyplot as plt
 import numpy as np
@@ -257,11 +257,43 @@ def full_plot(data_arrs, mytz, chunk_time):
 
     pol00_stats = get_stats(pol00)
     pol11_stats = get_stats(pol11)
+ 
+    vmin_pol = vmin
+    vmax_pol = vmax
+    ''' 
+    if rescaling:
+        #dat_norm_00=np.repeat([pol00_stats[rescaling]], pol00.shape[0], axis=0)
+        #dat_norm_11=np.repeat([pol11_stats[rescaling]], pol11.shape[0], axis=0)
+        dat_norm_00=np.repeat([np.nanmedian(pol00, axis = 0)], pol00.shape[0], axis=0)
+        dat_norm_11=np.repeat([np.nanmedian(pol11, axis = 0)], pol11.shape[0], axis=0)
+    
+        pol00 /= dat_norm_00
+        pol11 /= dat_norm_11
+        #Sneakily get min of pol00_min, pol11_min and max of pol00_max, pol11_max
+        #vmin_pol /= max(np.amax(pol00_stats[rescaling]), np.amax(pol11_stats[rescaling]))
+        #vmax_pol /= min(np.amin(pol00_stats[rescaling]), np.amin(pol11_stats[rescaling]))
+        vmin_pol /= max(np.amax(dat_norm_00), np.amax(dat_norm_11))
+        vmax_pol /= min(np.amin(dat_norm_00), np.amin(dat_norm_11))
+    print('mmin pol00: ', np.amin(pol00)) 
+    print('max pol00: ', np.amax(pol00)) 
+    print('vmin: ', vmin_pol)
+    print('vmax: ', vmax_pol)
+    '''
+    pol00 /= pol00_stats['mean']
+    pol11 /= pol11_stats['mean']
 
     if logplot is True:
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
     
+    #pol00 /= pol00_stats['mean']
+    #pol11 /= pol11_stats['mean']
+
+    print('mmin pol00: ', np.amin(pol00)) 
+    print('max pol00: ', np.amax(pol00)) 
+    print('vmin: ', vmin_pol)
+    print('vmax: ', vmax_pol)
+
     y_extent = get_ylim_times(tstart,tend)
     ticks = np.linspace(y_extent[0], y_extent[1],10)
     # print(y_extent)
@@ -271,7 +303,8 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.figure(figsize=(18,10), dpi=200)
     plt.subplot(2,3,1)
 
-    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol00, vmin=6, vmax=7, aspect='auto', extent=myext)
+    #plt.imshow(pol00,  aspect = 'auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
     cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
@@ -287,9 +320,10 @@ def full_plot(data_arrs, mytz, chunk_time):
     # locator=mdates.HourLocator(interval=hourinterval,tz=mytz)
     # ax.yaxis.set_major_locator(locator)
     
-    
-    plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.subplot(2,3,4) 
+
+    plt.imshow(pol11, vmin=6, vmax=7, aspect='auto', extent=myext)
+    #plt.imshow(pol11, aspect = 'auto', extent=myext)
     plt.title('pol11')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
@@ -371,11 +405,12 @@ def main():
     parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%m/%d %H:%M", type=str, help="Format for dates on axes of plots")
     parser.add_argument("-cs", "--cstart", dest='cstart', default = 0, type=int, help="Channel index start")
     parser.add_argument("-ce", "--cend", dest='cend', default = 2048, type=int, help="Channel index end")
-
+    parser.add_argument("-rs", "--rescaling", default = None, type=str, help="Rescaling to perform. Default is none. Options are median and mean")
+    
     args = parser.parse_args()
 
     #=============== defining some global variables ===============#
-    global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt
+    global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt, rescaling
     
     timezone = args.timezone
     vmin = args.vmin
@@ -385,6 +420,8 @@ def main():
     outdir = args.outdir
     mytz = pytz.timezone(args.timezone)
     datetimefmt = mdates.DateFormatter(args.datetimefmt,tz=mytz) #formatter needs to be tz aware
+
+    rescaling = args.rescaling
 
     #=============================================================#
     
