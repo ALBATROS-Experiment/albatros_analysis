@@ -53,13 +53,26 @@ if __name__ == "__main__":
     ceps00, _ = complex_cepstrum(pol00_stat)
     ceps11, _ = complex_cepstrum(pol11_stat)
    
-    peaks, peak_dict = signal.find_peaks(ceps00, height = 1e-3, prominence=1e-1, threshold=1e-1)
-    print((1/t[peaks])/1e6)
+    peaks00, peak00_dict = signal.find_peaks(ceps00, height = 1e-3, prominence=1e-1, threshold=1e-1)
+    print("Peaks pol00: ", (1/t[peaks00])/1e6,"MHz")
 
-    plt.plot(t, ceps00)
-    plt.scatter(t[peaks], ceps00[peaks], marker='x', color='red')
-    plt.xlabel('quefrency in seconds')
-    plt.yscale('log')
+    peaks11, peak11_dict = signal.find_peaks(ceps11, height = 1e-3, prominence=1e-1, threshold=1e-1)
+    print("Peaks pol11: ", (1/t[peaks11]/1e6),"MHz")
+
+    fig = plt.figure()
+    ax0 = fig.add_subplot(211)
+    ax0.plot(t, ceps00)
+    ax0.scatter(t[peaks00], ceps00[peaks00], marker='x', color='red')
+    ax0.set_xlabel('quefrency in seconds')
+    ax0.set_yscale('log')
+    ax0.set_title('pol00')
+ 
+    ax1 = fig.add_subplot(212)
+    ax1.plot(t, ceps11)
+    ax1.scatter(t[peaks11], ceps11[peaks11], marker='x', color='red')
+    ax1.set_xlabel('quefrency in seconds')
+    ax1.set_yscale('log')
+    ax1.set_title('pol11')
 
     timestamp = args.data_dir.split('/')[-1]
     outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_cepstrum' + '.png')
@@ -67,8 +80,8 @@ if __name__ == "__main__":
     plt.close()
 
     print("Saved to ", outfile)
-    print(peak_dict['prominences']/peak_dict['peak_heights'])
-
+    print("Prominence over peak height, pol00: ", peak00_dict['prominences']/peak00_dict['peak_heights'])
+    print("Prominence over peak height, pol11: ", peak11_dict['prominences']/peak11_dict['peak_heights'])
 
 
     
