@@ -1,10 +1,16 @@
 import numpy as np
 from acoustics.cepstrum import complex_cepstrum
-import os, argparse
+import os, sys, argparse
 from  scio import scio
 import matplotlib.pyplot as plt
 import scipy.signal as signal
 
+def simple_harm_sweep(x, fmin):
+    to_return = np.zeros(len(x))
+    for i in range(fmin, int(len(x)/2)):
+        to_return[i] = x[i::i].sum()
+    return to_return/np.mean(x)
+        
 def complex_cepstrum_from_spectrum(spectrum, n=None):
     r"""Compute the complex cepstrum of a spectrum.
     Parameters
@@ -74,9 +80,8 @@ if __name__ == "__main__":
     pol11 = pol11[1:,:]
     pol01r = pol01r[1:,:]
     pol01i = pol01i[1:,:] 
-
     #fs = 16.384 #us
-    t = np.arange(pol00.shape[1]) / 250e6
+
     
     #if args.sim:
     #    pol00=[1 if i%int(args.sim) else 2 for i in range(pol00.shape[1])]
@@ -88,6 +93,38 @@ if __name__ == "__main__":
     if args.stattype == "mean":
         pol00_stat = np.mean(pol00, axis=0)
         pol11_stat = np.mean(pol11, axis=0)
+
+    t = np.arange(pol00.shape[1]) / 250e6
+    freqs = np.arange(0, len(pol00_stat))*61000
+    harm00 = simple_harm_sweep(pol00_stat, 10)
+    harm11 = simple_harm_sweep(pol11_stat, 10)
+
+    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e1, prominence=1e1, threshold=1e1)
+    print("Peaks pol00: ", (freqs[peaks00])/1e6,"MHz")
+
+    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e1, prominence=1e1, threshold=1e1)
+    print("Peaks pol11: ", (freqs[peaks11]/1e6),"MHz")
+
+    fig = plt.figure()
+    ax0 = fig.add_subplot(211)
+    ax0.plot(freqs/1e6, harm00)
+    ax0.scatter(freqs[peaks00]/1e6, harm00[peaks00], marker='x', color='red')
+    ax0.set_xlabel('MHz')
+    #ax0.set_yscale('log')
+    ax0.set_title('pol00')
+    ax0.set_xlim(0, 10)
+
+    ax1 = fig.add_subplot(212)
+    ax1.plot(freqs/1e6, harm11)
+    ax1.scatter(freqs[peaks11]/1e6, harm11[peaks11], marker='x', color='red')
+    ax1.set_xlabel('MHz')
+    #ax1.set_yscale('log')
+    ax1.set_title('pol11')
+    ax1.set_xlim(0,10)
+
+    plt.savefig('./plots/harm_test.png')
+
+    sys.exit()
 
     if args.sim:
         #fundamental = 100.0
