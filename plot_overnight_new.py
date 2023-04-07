@@ -104,7 +104,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     tstart=0
     tend=0
     for i, d in enumerate(avgpol00):
-        # print("reading", data_subdirs[i], "with size ", d.shape[0])
+        # print("Mean, median are", np.mean(d,axis=0),np.median(d,axis=0))
         if(i==0):
             pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
@@ -126,6 +126,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
         # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
+        # print("reading", data_subdirs[i], "with size ", d.shape[0], "NROWS", oldnrows,nrows)
         tstart=newts
         ts=newts+d.shape[0]*chunk_time*blocklen
     tend=ts
@@ -160,7 +161,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             continue
         newts = get_ts_from_name(data_subdirs[i])
         diff=int((newts-ts)/chunk_time/blocklen)
-        if(diff>1):
+        if(diff>0):
             pol11[nrows:nrows+diff,:]=np.nan
             pol01r[nrows:nrows+diff,:]=np.nan
             pol01i[nrows:nrows+diff,:]=np.nan
@@ -208,12 +209,17 @@ def get_stats(data_arr):
     Given a 2D array containing some data chunk, returns the 
     min, median, mean, and max over that chunk.
     '''
+    # print("WHERE MIN ZERO",np.where(np.min(data_arr,axis=0)==0))
+    # print("WHERE MEDIAN ZERO",np.where(np.median(data_arr,axis=0)==0))
+    # print("MEDIAN",np.median(data_arr,axis=0))
+    # print("MEDIAN MA",np.ma.median(data_arr,axis=0))
     if logplot:
-        stats = {"min":np.log10(np.min(data_arr,axis=0)), "median":np.log10(np.median(data_arr,axis=0)), 
-                "mean":np.log10(np.mean(data_arr,axis=0)), "max":np.log10(np.max(data_arr,axis=0))}
+        stats = {"min":np.log10(np.ma.min(data_arr,axis=0)), "median":np.log10(np.ma.median(data_arr,axis=0)), 
+                "mean":np.log10(np.ma.mean(data_arr,axis=0)), "max":np.log10(np.ma.max(data_arr,axis=0))}
     else:
-        stats = {"min":np.min(data_arr,axis=0), "median":np.median(data_arr,axis=0), 
-                "mean":np.mean(data_arr,axis=0), "max":np.max(data_arr,axis=0)}
+        stats = {"min":np.ma.min(data_arr,axis=0), "median":np.ma.median(data_arr,axis=0), 
+                "mean":np.ma.mean(data_arr,axis=0), "max":np.ma.max(data_arr,axis=0)}
+    print
     return stats
 
 def get_vmin_vmax(data_arr):
@@ -254,10 +260,12 @@ def full_plot(data_arrs, mytz, chunk_time):
     '''
 
     pol00,pol11,pol01,tstart,tend = data_arrs
-
+    print("Generating stats for pol00")
     pol00_stats = get_stats(pol00)
+    print("Generating stats for pol11")
     pol11_stats = get_stats(pol11)
-
+    # print("WHERE POL11 ZERO", np.where(pol11==0))
+    # print("Pol00 median", pol00_stats['median'])
     if logplot is True:
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
@@ -341,7 +349,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     print("start and end times are",tstart,tend)
     plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {blocksize*chunk_time/60:4.2f} minutes.')
     plt.tight_layout()
-    outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.png')
+    outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.jpg')
     plt.savefig(outfile)
     
     print('Wrote ' + outfile)
