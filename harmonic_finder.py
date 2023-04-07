@@ -53,8 +53,8 @@ if __name__ == "__main__":
     ceps00, _ = complex_cepstrum(pol00_stat)
     ceps11, _ = complex_cepstrum(pol11_stat)
    
-    peaks, peak_dict = signal.find_peaks(ceps00, threshold=1e-1)
-    print(1/t[peaks])
+    peaks, peak_dict = signal.find_peaks(ceps00, height = 1e-3, prominence=1e-1, threshold=1e-1)
+    print((1/t[peaks])/1e6)
 
     plt.plot(t, ceps00)
     plt.scatter(t[peaks], ceps00[peaks], marker='x', color='red')
@@ -67,8 +67,8 @@ if __name__ == "__main__":
     plt.close()
 
     print("Saved to ", outfile)
+    print(peak_dict['prominences']/peak_dict['peak_heights'])
+
+
+
     
-
-
-
-
