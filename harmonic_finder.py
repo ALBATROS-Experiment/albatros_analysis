@@ -4,6 +4,45 @@ import os, argparse
 from  scio import scio
 import matplotlib.pyplot as plt
 import scipy.signal as signal
+
+def complex_cepstrum_from_spectrum(spectrum, n=None):
+    r"""Compute the complex cepstrum of a spectrum.
+    Parameters
+    ----------
+    x : ndarray
+        Real sequence to compute complex cepstrum of.
+    n : {None, int}, optional
+        Length of the Fourier transform.
+    Returns
+    -------
+    ceps : ndarray
+        The complex cepstrum of the real data sequence `x` computed using the
+        Fourier transform.
+    ndelay : int
+        The amount of samples of circular delay added to `x`.
+    The complex cepstrum is given by
+    .. math:: c[n] = F^{-1}\\left{\\log_{10}{\\left(F{x[n]}\\right)}\\right}
+    where :math:`x_[n]` is the input signal and :math:`F` and :math:`F_{-1}
+    are respectively the forward and backward Fourier transform.
+    """
+
+    def _unwrap(phase):
+        samples = phase.shape[-1]
+        unwrapped = np.unwrap(phase)
+        center = (samples + 1) // 2
+        if samples == 1:
+            center = 0
+        ndelay = np.array(np.round(unwrapped[..., center] / np.pi))
+        unwrapped -= np.pi * ndelay[..., None] * np.arange(samples) / center
+        return unwrapped, ndelay
+    
+    unwrapped_phase, ndelay = _unwrap(np.angle(spectrum))
+    log_spectrum = np.log(np.abs(spectrum)) + 1j * unwrapped_phase
+
+    ceps = np.fft.ifft(log_spectrum).real
+
+    return ceps, ndelay
+
 def _parse_slice(s):
     a = [int(e) if e.strip() else None for e in s.split(":")]
     return slice(*a)
@@ -39,10 +78,10 @@ if __name__ == "__main__":
     #fs = 16.384 #us
     t = np.arange(pol00.shape[1]) / 250e6
     
-    if args.sim:
-        pol00=[0 if i%int(args.sim) else 1 for i in range(pol00.shape[1])]
-        pol00 = np.array(pol00)
-        pol00 = np.repeat([pol00], pol11.shape[0],axis=0) 
+    #if args.sim:
+    #    pol00=[1 if i%int(args.sim) else 2 for i in range(pol00.shape[1])]
+    #    pol00 = np.array(pol00)
+    #    pol00 = np.repeat([pol00], pol11.shape[0],axis=0) 
 
     pol01 = pol01r + 1J*pol01i
     
@@ -50,8 +89,19 @@ if __name__ == "__main__":
         pol00_stat = np.mean(pol00, axis=0)
         pol11_stat = np.mean(pol11, axis=0)
 
-    ceps00, _ = complex_cepstrum(pol00_stat)
-    ceps11, _ = complex_cepstrum(pol11_stat)
+    if args.sim:
+        #fundamental = 100.0
+        harmonics = np.arange(1, 30)
+        pol00_stat = 2+np.sin(2.0*np.pi*args.sim*t*harmonics[:, None]).sum(axis=0)
+    
+#    ceps00, _ = complex_cepstrum(pol00_stat)
+#    ceps11, _ = complex_cepstrum(pol11_stat)
+
+    ceps00, _ = complex_cepstrum_from_spectrum(pol00_stat)
+    ceps11, _ = complex_cepstrum_from_spectrum(pol11_stat)
+    print(ceps00)
+#    ceps00 = np.fft.ifft(np.log(np.abs(pol00_stat))).real
+#    ceps11 = np.fft.ifft(np.log(np.abs(pol11_stat))).real 
    
     peaks00, peak00_dict = signal.find_peaks(ceps00, height = 1e-3, prominence=1e-1, threshold=1e-1)
     print("Peaks pol00: ", (1/t[peaks00])/1e6,"MHz")
