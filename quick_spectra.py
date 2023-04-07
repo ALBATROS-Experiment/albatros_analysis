@@ -28,6 +28,8 @@ if __name__ == "__main__":
 	parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
 	parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
 	parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
+	parser.add_argument("-fma", "--fmax", dest='fmax', default = None, type=float, help="maximum for frequency to plot")
+	parser.add_argument("-fmi", "--fmin", dest='fmin', default = None, type=float, help="minimum for frequency to plot")
 	args = parser.parse_args()
 
 	#data_dir = pathlib.Path(args.data_dir)
@@ -44,6 +46,13 @@ if __name__ == "__main__":
 	pol01r = pol01r[1:,:]
 	pol01i = pol01i[1:,:]
 	# Add real and image for pol01	
+
+	fmin, fmax = 0, 125
+
+	if args.fmin:
+		fmin = args.fmin
+	if args.fmax:
+		fmax = args.fmax
 
 	if args.tslice:
 		#convert tslice in minutes to samps
@@ -134,6 +143,7 @@ if __name__ == "__main__":
 	plt.xlabel('Frequency (MHz)')
 	plt.ylabel('pol00')
 	plt.axis(axrange)
+	plt.xlim(fmin, fmax)
 
 	plt.subplot(2,3,5)
 	plt.plot(freq, pol11_max, 'r-', label='Max')
@@ -143,6 +153,7 @@ if __name__ == "__main__":
 	plt.xlabel('Frequency (MHz)')
 	plt.ylabel('pol11')
 	plt.axis(axrange)
+	plt.xlim(fmin, fmax)
 	plt.legend(loc='lower right', fontsize='small')
 
 	plt.subplot(2,3,3)
