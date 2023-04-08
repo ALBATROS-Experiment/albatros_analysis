@@ -3,13 +3,38 @@ from acoustics.cepstrum import complex_cepstrum
 import os, sys, argparse
 from  scio import scio
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 import scipy.signal as signal
+def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, window = None, window_size = None, interp = None):
+    if fmin is None:
+        fmin = min(freqs)
+    if fmax is None:
+        fmax = max(freqs) 
+    numf = int(numf)
 
-def simple_harm_sweep(x, fmin):
-    to_return = np.zeros(len(x))
-    for i in range(fmin, int(len(x)/2)):
-        to_return[i] = x[i::i].sum()
-    return to_return/np.mean(x)
+    if interp:
+        fspace = np.linspace(fmin, fmax, numf)
+        interp_x = interp1d(freqs, x, kind=interp)
+        to_return = np.zeros(len(fspace))
+        for i in range(len(to_return)-1):
+            #Don't look at more than some number of  harmonics since it washes out the power 
+            harm_freqs = np.arange(fspace[i], min(max(freqs), harm_max*fspace[i]), fspace[i])
+            
+            if window:
+                nwindow = np.floor(window_size / (x[1] - x[0])) 
+                window = signal.windows.get_window(window, window_size)
+                print(window)
+            to_return[i] = interp_x(harm_freqs).sum() / len(harm_freqs)
+        return fspace, to_return /np.mean(x)
+
+    else:
+        to_return = np.zeros(len(x))
+
+        for i in range(10, int(len(x)/2)):
+            to_return[i] = x[i::i].sum() / len(range(i, len(x), i))
+    
+
+    return freqs, to_return/np.mean(x)
         
 def complex_cepstrum_from_spectrum(spectrum, n=None):
     r"""Compute the complex cepstrum of a spectrum.
@@ -95,34 +120,57 @@ if __name__ == "__main__":
         pol11_stat = np.mean(pol11, axis=0)
 
     t = np.arange(pol00.shape[1]) / 250e6
-    freqs = np.arange(0, len(pol00_stat))*61000
-    harm00 = simple_harm_sweep(pol00_stat, 10)
-    harm11 = simple_harm_sweep(pol11_stat, 10)
+    freqs = np.arange(0, len(pol00_stat))*61035.15
+    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 1e6, fmax = 1e7, numf = 100, harm_max = 10, window = 'boxcar', window_size = 1e5, interp = 'linear')
+    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 1e6, fmax = 1e7, numf = 100, harm_max = 10, window = 'boxcar', window_size = 1e5, interp = 'linear') 
 
-    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e1, prominence=1e1, threshold=1e1)
-    print("Peaks pol00: ", (freqs[peaks00])/1e6,"MHz")
+    plt.plot(f00/1e6, harm00)
+    plt.yscale('log')
+    plt.savefig('./plots/interp_test.png')
 
-    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e1, prominence=1e1, threshold=1e1)
-    print("Peaks pol11: ", (freqs[peaks11]/1e6),"MHz")
+    
+
+    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e0, prominence=1e-1, threshold=1e-1)
+    print("Peaks pol00: ", (f00[peaks00])/1e6,"MHz")
+
+    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e0, prominence=1e-1, threshold=1e-1)
+    print("Peaks pol11: ", (f11[peaks11]/1e6),"MHz")
 
     fig = plt.figure()
     ax0 = fig.add_subplot(211)
-    ax0.plot(freqs/1e6, harm00)
-    ax0.scatter(freqs[peaks00]/1e6, harm00[peaks00], marker='x', color='red')
+    ax0.plot(f00/1e6, harm00)
+    ax0.scatter(f00[peaks00]/1e6, harm00[peaks00], marker='x', color='red')
     ax0.set_xlabel('MHz')
-    #ax0.set_yscale('log')
+    ax0.set_yscale('log')
     ax0.set_title('pol00')
     ax0.set_xlim(0, 10)
 
     ax1 = fig.add_subplot(212)
-    ax1.plot(freqs/1e6, harm11)
-    ax1.scatter(freqs[peaks11]/1e6, harm11[peaks11], marker='x', color='red')
+    ax1.plot(f11/1e6, harm11)
+    ax1.scatter(f11[peaks11]/1e6, harm11[peaks11], marker='x', color='red')
     ax1.set_xlabel('MHz')
-    #ax1.set_yscale('log')
+    ax1.set_yscale('log')
     ax1.set_title('pol11')
     ax1.set_xlim(0,10)
 
     plt.savefig('./plots/harm_test.png')
+
+    fig = plt.figure()
+    ax0 = fig.add_subplot(211)
+    ax0.plot(freqs/1e6, pol00_stat) 
+    ax0.set_xlabel('MHz')
+    ax0.set_yscale('log')
+    ax0.set_title('pol00')
+    ax0.set_xlim(0,20)
+
+    ax1 = fig.add_subplot(212)
+    ax1.plot(freqs/1e6, pol11_stat) 
+    ax1.set_xlabel('MHz')
+    ax1.set_yscale('log')
+    ax1.set_title('pol11')
+    ax1.set_xlim(0,20)
+
+    plt.savefig('./plots/spectra_test.png')
 
     sys.exit()
 
