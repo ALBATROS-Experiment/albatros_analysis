@@ -28,7 +28,7 @@ def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, 
         for i in range(len(to_return)-1):
             #Don't look at more than some number of  harmonics since it washes out the power 
             harm_freqs = np.arange(fspace[i], min(max(freqs), harm_max*fspace[i]), fspace[i])
-            print(i) 
+            
             #if window:
             #    nwindow = np.floor(window_size / (x[1] - x[0])) 
             #    window = signal.windows.get_window(window, window_size)
@@ -44,9 +44,14 @@ def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, 
 
     else:
         to_return = np.zeros(len(x))
-
-        for i in range(10, int(len(x)/2)):
-            to_return[i] = x[i::i].sum() / len(range(i, len(x), i))
+        index_fmin = np.floor(fmin/(x[1]-x[0]))
+        index_fmax - np.floor(fmax/(x[1]-x[0]))
+        index_harm_max = min(index_fmin*harm_max, len(x))
+        #for i in range(10, int(len(x)/2)):
+        for i in range(index_fmin, index_fmax):
+            index_harm_max = min(i*harm_max, len(x)) 
+            print(len(range(i, index_harm_max, i)))
+            to_return[i] = x[i:index_harm_max:i].sum() / len(range(i, index_harm_max, i))
     
 
     return freqs, to_return/np.mean(x)
@@ -136,8 +141,8 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
-    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = 'linear')
-    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = 'linear') 
+    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = None)
+    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = None) 
 
     kernel = Gaussian1DKernel(10)
     harm00 = convolve(harm00, kernel)
