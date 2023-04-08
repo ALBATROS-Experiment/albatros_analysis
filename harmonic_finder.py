@@ -3,9 +3,18 @@ from acoustics.cepstrum import complex_cepstrum
 import os, sys, argparse
 from  scio import scio
 import matplotlib.pyplot as plt
+
+from astropy.convolution import Gaussian1DKernel
+from astropy.convolution import convolve
+
 from scipy.interpolate import interp1d
 import scipy.signal as signal
-def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, window = None, window_size = None, interp = None):
+from scipy.integrate import quad
+
+def gaussian(x, mu, sig):
+    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+
+def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, window_size = None, interp = None):
     if fmin is None:
         fmin = min(freqs)
     if fmax is None:
@@ -19,12 +28,18 @@ def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, 
         for i in range(len(to_return)-1):
             #Don't look at more than some number of  harmonics since it washes out the power 
             harm_freqs = np.arange(fspace[i], min(max(freqs), harm_max*fspace[i]), fspace[i])
+            print(i) 
+            #if window:
+            #    nwindow = np.floor(window_size / (x[1] - x[0])) 
+            #    window = signal.windows.get_window(window, window_size)
+            #    print(window)
+            gaus_window = lambda x: gaussian(x, harm_freqs[:, None], window_size).sum(axis=0)
             
-            if window:
-                nwindow = np.floor(window_size / (x[1] - x[0])) 
-                window = signal.windows.get_window(window, window_size)
-                print(window)
-            to_return[i] = interp_x(harm_freqs).sum() / len(harm_freqs)
+            if window_size is None: 
+                to_return[i] = interp_x(harm_freqs).sum() / len(harm_freqs)
+            else:
+                integrand = lambda x: interp_x(x)*gaus_window(x)
+                to_return[i] = quad(integrand, min(freqs), max(freqs))[0] / quad(gaus_window, min(freqs), max(freqs))[0]
         return fspace, to_return /np.mean(x)
 
     else:
@@ -121,19 +136,18 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
-    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 1e6, fmax = 1e7, numf = 100, harm_max = 10, window = 'boxcar', window_size = 1e5, interp = 'linear')
-    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 1e6, fmax = 1e7, numf = 100, harm_max = 10, window = 'boxcar', window_size = 1e5, interp = 'linear') 
+    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = 'linear')
+    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = 'linear') 
 
-    plt.plot(f00/1e6, harm00)
-    plt.yscale('log')
-    plt.savefig('./plots/interp_test.png')
+    kernel = Gaussian1DKernel(10)
+    harm00 = convolve(harm00, kernel)
+    harm11 = convolve(harm11, kernel)
+ 
 
-    
-
-    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e0, prominence=1e-1, threshold=1e-1)
+    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e-1, prominence=1e-1, threshold=1e-1)
     print("Peaks pol00: ", (f00[peaks00])/1e6,"MHz")
 
-    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e0, prominence=1e-1, threshold=1e-1)
+    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e-1, prominence=1e-1, threshold=1e-1)
     print("Peaks pol11: ", (f11[peaks11]/1e6),"MHz")
 
     fig = plt.figure()
