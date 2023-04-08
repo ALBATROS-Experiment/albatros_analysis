@@ -11,10 +11,12 @@ from scipy.interpolate import interp1d
 import scipy.signal as signal
 from scipy.integrate import quad
 
+from palettable.cartocolors.qualitative import Safe_10
+
 def gaussian(x, mu, sig):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
-def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, window_size = None, interp = None):
+def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_min = 1, harm_max = 5, window_size = None, interp = None):
     if fmin is None:
         fmin = min(freqs)
     if fmax is None:
@@ -27,73 +29,32 @@ def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_max = 5, 
         to_return = np.zeros(len(fspace))
         for i in range(len(to_return)-1):
             #Don't look at more than some number of  harmonics since it washes out the power 
-            harm_freqs = np.arange(fspace[i], min(max(freqs), harm_max*fspace[i]), fspace[i])
-            
-            #if window:
-            #    nwindow = np.floor(window_size / (x[1] - x[0])) 
-            #    window = signal.windows.get_window(window, window_size)
-            #    print(window)
-            gaus_window = lambda x: gaussian(x, harm_freqs[:, None], window_size).sum(axis=0)
-            
+            harm_freqs = np.arange(harm_min*fspace[i], min(max(freqs), harm_max*fspace[i]), fspace[i]) 
+
             if window_size is None: 
                 to_return[i] = interp_x(harm_freqs).sum() / len(harm_freqs)
             else:
+                gaus_window = lambda x: gaussian(x, harm_freqs[:, None], window_size).sum(axis=0)
                 integrand = lambda x: interp_x(x)*gaus_window(x)
                 to_return[i] = quad(integrand, min(freqs), max(freqs))[0] / quad(gaus_window, min(freqs), max(freqs))[0]
         return fspace, to_return /np.mean(x)
 
     else:
         to_return = np.zeros(len(x))
-        index_fmin = np.floor(fmin/(x[1]-x[0]))
-        index_fmax - np.floor(fmax/(x[1]-x[0]))
-        index_harm_max = min(index_fmin*harm_max, len(x))
+        index_fmin = int(np.floor(fmin/(freqs[1]-freqs[0])))
+        index_fmax = int(np.floor(fmax/(freqs[1]-freqs[0])))
+     
+        
+        
         #for i in range(10, int(len(x)/2)):
         for i in range(index_fmin, index_fmax):
-            index_harm_max = min(i*harm_max, len(x)) 
-            print(len(range(i, index_harm_max, i)))
+            index_harm_min = int(np.floor((i+1)*harm_min))
+            index_harm_max = min((i+1)*harm_max, len(x))  
             to_return[i] = x[i:index_harm_max:i].sum() / len(range(i, index_harm_max, i))
     
 
     return freqs, to_return/np.mean(x)
         
-def complex_cepstrum_from_spectrum(spectrum, n=None):
-    r"""Compute the complex cepstrum of a spectrum.
-    Parameters
-    ----------
-    x : ndarray
-        Real sequence to compute complex cepstrum of.
-    n : {None, int}, optional
-        Length of the Fourier transform.
-    Returns
-    -------
-    ceps : ndarray
-        The complex cepstrum of the real data sequence `x` computed using the
-        Fourier transform.
-    ndelay : int
-        The amount of samples of circular delay added to `x`.
-    The complex cepstrum is given by
-    .. math:: c[n] = F^{-1}\\left{\\log_{10}{\\left(F{x[n]}\\right)}\\right}
-    where :math:`x_[n]` is the input signal and :math:`F` and :math:`F_{-1}
-    are respectively the forward and backward Fourier transform.
-    """
-
-    def _unwrap(phase):
-        samples = phase.shape[-1]
-        unwrapped = np.unwrap(phase)
-        center = (samples + 1) // 2
-        if samples == 1:
-            center = 0
-        ndelay = np.array(np.round(unwrapped[..., center] / np.pi))
-        unwrapped -= np.pi * ndelay[..., None] * np.arange(samples) / center
-        return unwrapped, ndelay
-    
-    unwrapped_phase, ndelay = _unwrap(np.angle(spectrum))
-    log_spectrum = np.log(np.abs(spectrum)) + 1j * unwrapped_phase
-
-    ceps = np.fft.ifft(log_spectrum).real
-
-    return ceps, ndelay
-
 def _parse_slice(s):
     a = [int(e) if e.strip() else None for e in s.split(":")]
     return slice(*a)
@@ -112,7 +73,8 @@ if __name__ == "__main__":
     parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
     parser.add_argument("-st", "--stattype", type=str, default="mean", help="Statisitcal method for reducing the data long time axis. Options are median or mean")
     parser.add_argument("-si", "--sim", type=int, default=0, help="sim")
-
+    parser.add_argument("-fr", "--freqrange", type=_parse_slice, default=slice(5e5, 1e7, 1e5), help="Slice of freqeucny space over which to perform the comb")
+    parser.add_argument("-hr", "--harmrange", type=_parse_slice, default=slice(1, 10, 1), help="First and last harmonic to consider in the harmonics comb")
     args = parser.parse_args()
 
     pol00 = scio.read(os.path.join(args.data_dir, "pol00.scio.bz2"))
@@ -127,11 +89,23 @@ if __name__ == "__main__":
     pol01i = pol01i[1:,:] 
     #fs = 16.384 #us
 
-    
-    #if args.sim:
-    #    pol00=[1 if i%int(args.sim) else 2 for i in range(pol00.shape[1])]
-    #    pol00 = np.array(pol00)
-    #    pol00 = np.repeat([pol00], pol11.shape[0],axis=0) 
+    if args.tslice:
+        #convert tslice in minutes to samps
+        tstart, tstop, tstep = args.tslice.start, args.tslice.stop, args.tslice.step
+
+        if tstart is not None:
+                tstart = int(np.floor(tstart*60/acctime))
+        if tstop is not None:
+                tstop = int(np.floor(tstop*60/acctime))
+        if tstep is not None:
+                tstep = int(np.floor(tstep*60/acctime))
+
+        tslice = slice(tstart, tstop, tstep)
+
+        pol00 = pol00[tslice, :]
+        pol11 = pol11[tslice, :]
+        pol01r = pol01r[tslice, :]
+        pol01i = pol01i[tslice, :] 
 
     pol01 = pol01r + 1J*pol01i
     
@@ -139,26 +113,56 @@ if __name__ == "__main__":
         pol00_stat = np.mean(pol00, axis=0)
         pol11_stat = np.mean(pol11, axis=0)
 
+    
+    fmin, fmax = args.freqrange.start, args.freqrange.stop
+    hmin, hmax = args.harmrange.start, args.harmrange.stop
+    
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
-    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = None)
-    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = 5e5, fmax = 1e7, numf = 500, harm_max = 10, window_size = None, interp = None) 
+    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
+    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
-    kernel = Gaussian1DKernel(10)
+    f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
+    f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
+
+    kernel = Gaussian1DKernel(4)
     harm00 = convolve(harm00, kernel)
     harm11 = convolve(harm11, kernel)
- 
 
-    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e-1, prominence=1e-1, threshold=1e-1)
+    harm00_interp = convolve(harm00_interp, kernel)
+    harm11_interp = convolve(harm11_interp, kernel) 
+
+    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e-2, prominence=1e-2, threshold=1e-2)
     print("Peaks pol00: ", (f00[peaks00])/1e6,"MHz")
 
-    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e-1, prominence=1e-1, threshold=1e-1)
+    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e-2, prominence=1e-2, threshold=1e-2)
     print("Peaks pol11: ", (f11[peaks11]/1e6),"MHz")
+
+    peaks00_interp, peak00_dict_interp = signal.find_peaks(harm00_interp, height = 1e-2, prominence=1e-2, threshold=1e-2)
+    print("Peaks pol00 interp: ", (f00_interp[peaks00_interp])/1e6,"MHz")
+
+    peaks11_interp, peak11_dict_interp = signal.find_peaks(harm11_interp, height = 1e-2, prominence=1e-2, threshold=1e-2)
+    print("Peaks pol11 interp: ", (f11_interp[peaks11_interp]/1e6),"MHz")
+
+    f00_max = np.where((harm00 == np.amax(harm00)))[0]
+    f11_max = np.where((harm11 == np.amax(harm11)))[0]
+    f00_max_interp = np.where((harm00_interp == np.amax(harm00_interp)))[0]
+    f11_max_interp = np.where((harm11_interp == np.amax(harm11_interp)))[0]
+
+    print("Tmax pol00: ", f00[f00_max]/1e6)
+    print("Tmax pol11: ", f11[f11_max]/1e6)
+    print("Tmax pol00 interp: ", f00_interp[f00_max_interp]/1e6)
+    print("Tmax pol11 interp: ", f11_interp[f11_max_interp]/1e6)
+
+    colors = np.array(Safe_10.colors)/256
+
+    timestamp = args.data_dir.split('/')[-1]
 
     fig = plt.figure()
     ax0 = fig.add_subplot(211)
     ax0.plot(f00/1e6, harm00)
-    ax0.scatter(f00[peaks00]/1e6, harm00[peaks00], marker='x', color='red')
+    ax0.scatter(f00[f00_max]/1e6, harm00[f00_max], marker='x', color='red', zorder = 1)
+    ax0.scatter(f00[peaks00]/1e6, harm00[peaks00], marker='x', color='black', zorder = 0)
     ax0.set_xlabel('MHz')
     ax0.set_yscale('log')
     ax0.set_title('pol00')
@@ -166,76 +170,74 @@ if __name__ == "__main__":
 
     ax1 = fig.add_subplot(212)
     ax1.plot(f11/1e6, harm11)
-    ax1.scatter(f11[peaks11]/1e6, harm11[peaks11], marker='x', color='red')
+    ax1.scatter(f11[f11_max]/1e6, harm11[f11_max], marker='x', color='red', zorder = 1)
+    ax1.scatter(f11[peaks11]/1e6, harm11[peaks11], marker='x', color='black', zorder = 0)
     ax1.set_xlabel('MHz')
     ax1.set_yscale('log')
     ax1.set_title('pol11')
     ax1.set_xlim(0,10)
-
-    plt.savefig('./plots/harm_test.png')
+ 
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}'.format(tstart, tstop) + '.png')
+    print(outfile)
+    plt.savefig(outfile)
+    plt.close() 
 
     fig = plt.figure()
     ax0 = fig.add_subplot(211)
-    ax0.plot(freqs/1e6, pol00_stat) 
+    ax0.plot(f00_interp/1e6, harm00_interp)
+    ax0.scatter(f00_interp[f00_max_interp]/1e6, harm00_interp[f00_max_interp], marker='x', color='red', zorder = 1)
+    ax0.scatter(f00_interp[peaks00_interp]/1e6, harm00_interp[peaks00_interp], marker='x', color='black', zorder = 0) 
     ax0.set_xlabel('MHz')
     ax0.set_yscale('log')
     ax0.set_title('pol00')
-    ax0.set_xlim(0,20)
+    ax0.set_xlim(0,10)
 
     ax1 = fig.add_subplot(212)
-    ax1.plot(freqs/1e6, pol11_stat) 
+    ax1.plot(f11_interp/1e6, harm11_interp) 
+    ax1.scatter(f11_interp[f11_max_interp]/1e6, harm11_interp[f11_max_interp], marker='x', color='red', zorder = 1)    
+    ax1.scatter(f11_interp[peaks11_interp]/1e6, harm11_interp[peaks11_interp], marker='x', color='black', zorder = 0)
     ax1.set_xlabel('MHz')
     ax1.set_yscale('log')
     ax1.set_title('pol11')
-    ax1.set_xlim(0,20)
-
-    plt.savefig('./plots/spectra_test.png')
-
-    sys.exit()
-
-    if args.sim:
-        #fundamental = 100.0
-        harmonics = np.arange(1, 30)
-        pol00_stat = 2+np.sin(2.0*np.pi*args.sim*t*harmonics[:, None]).sum(axis=0)
+    ax1.set_xlim(0,10)
     
-#    ceps00, _ = complex_cepstrum(pol00_stat)
-#    ceps11, _ = complex_cepstrum(pol11_stat)
-
-    ceps00, _ = complex_cepstrum_from_spectrum(pol00_stat)
-    ceps11, _ = complex_cepstrum_from_spectrum(pol11_stat)
-    print(ceps00)
-#    ceps00 = np.fft.ifft(np.log(np.abs(pol00_stat))).real
-#    ceps11 = np.fft.ifft(np.log(np.abs(pol11_stat))).real 
-   
-    peaks00, peak00_dict = signal.find_peaks(ceps00, height = 1e-3, prominence=1e-1, threshold=1e-1)
-    print("Peaks pol00: ", (1/t[peaks00])/1e6,"MHz")
-
-    peaks11, peak11_dict = signal.find_peaks(ceps11, height = 1e-3, prominence=1e-1, threshold=1e-1)
-    print("Peaks pol11: ", (1/t[peaks11]/1e6),"MHz")
-
-    fig = plt.figure()
-    ax0 = fig.add_subplot(211)
-    ax0.plot(t, ceps00)
-    ax0.scatter(t[peaks00], ceps00[peaks00], marker='x', color='red')
-    ax0.set_xlabel('quefrency in seconds')
-    ax0.set_yscale('log')
-    ax0.set_title('pol00')
- 
-    ax1 = fig.add_subplot(212)
-    ax1.plot(t, ceps11)
-    ax1.scatter(t[peaks11], ceps11[peaks11], marker='x', color='red')
-    ax1.set_xlabel('quefrency in seconds')
-    ax1.set_yscale('log')
-    ax1.set_title('pol11')
-
-    timestamp = args.data_dir.split('/')[-1]
-    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_cepstrum' + '.png')
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_interp'.format(tstart, tstop) + '.png')
     plt.savefig(outfile)
     plt.close()
+    print(outfile)
+  
+    fig = plt.figure()
+    ax0 = fig.add_subplot(211) 
+    ax0.plot(freqs/1e6, pol00_stat)
+    ax0.vlines(range(1, 10)*f00_interp[f00_max_interp]/1e6, 0, 1e14, color='black')
+    ax0.set_xlabel('MHz') 
+    ax0.set_yscale('log')
+    ax0.set_title('pol00')
+    ax0.set_xlim(0,30)
+    ax0.set_ylim(1e7,1e12)
 
-    print("Saved to ", outfile)
-    print("Prominence over peak height, pol00: ", peak00_dict['prominences']/peak00_dict['peak_heights'])
-    print("Prominence over peak height, pol11: ", peak11_dict['prominences']/peak11_dict['peak_heights'])
-
-
+    spectrum_peaks, _ = signal.find_peaks(pol11_stat, height = 1e10, prominence=1e10, threshold=1e10) 
     
+    ax1 = fig.add_subplot(212)
+    ax1.plot(freqs/1e6, pol11_stat)
+    ax1.scatter(freqs[spectrum_peaks]/1e6, pol11_stat[spectrum_peaks], marker='x', color = 'black')
+    #ax1.vlines(range(1, 10)*f11_interp[f11_max_interp]/1e6, 0, 1e14, color='black')
+    #ax1.vlines(range(1, 20)*(f11_interp[peaks11_interp[1]])/1e6, 0, 1e14, color='black')
+    ax1.set_xlabel('MHz')
+    ax1.set_yscale('log')
+    ax1.set_title('pol11')
+    ax1.set_xlim(0,30) 
+    ax1.set_ylim(1e7, 1e13)
+    
+    #for i in range(min(3, len(peaks00_interp))):
+    #    ax1.vlines(range(1,10)*(f00_interp[peaks00_interp[i]])/1e6, 0, 1e14, color = colors[i])  
+
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_spectrum'.format(tstart, tstop) + '.png')
+    plt.savefig(outfile) 
+    plt.close()
+    print(outfile)
+
+    print('Spectrum peaks', freqs[spectrum_peaks]/1e6)  
+
+
+
