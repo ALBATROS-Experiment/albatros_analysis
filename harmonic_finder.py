@@ -75,6 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("-si", "--sim", type=int, default=0, help="sim")
     parser.add_argument("-fr", "--freqrange", type=_parse_slice, default=slice(5e5, 1e7, 1e5), help="Slice of freqeucny space over which to perform the comb")
     parser.add_argument("-hr", "--harmrange", type=_parse_slice, default=slice(1, 10, 1), help="First and last harmonic to consider in the harmonics comb")
+    parser.add_argument("-nf", "--numf", type = int, default=500, help = "number of interpolated points over which to comb")
     args = parser.parse_args()
 
     pol00 = scio.read(os.path.join(args.data_dir, "pol00.scio.bz2"))
@@ -117,15 +118,17 @@ if __name__ == "__main__":
     fmin, fmax = args.freqrange.start, args.freqrange.stop
     hmin, hmax = args.harmrange.start, args.harmrange.stop
     
+    numf = args.numf
+
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
-    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
-    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
+    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
+    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
-    f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
-    f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = 500, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
+    f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
+    f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
 
-    kernel = Gaussian1DKernel(4)
+    kernel = Gaussian1DKernel((4/500)*numf)
     harm00 = convolve(harm00, kernel)
     harm11 = convolve(harm11, kernel)
 
@@ -215,12 +218,27 @@ if __name__ == "__main__":
     ax0.set_title('pol00')
     ax0.set_xlim(0,30)
     ax0.set_ylim(1e7,1e12)
+ 
+    kernel = Gaussian1DKernel(2)
+    pol00_stat = convolve(pol00_stat, kernel)
+    pol11_stat = convolve(pol11_stat, kernel) 
 
-    spectrum_peaks, _ = signal.find_peaks(pol11_stat, height = 1e10, prominence=1e10, threshold=1e10) 
+    spectrum00_peaks, _ = signal.find_peaks(pol00_stat, height = 1e7, prominence=1e7, threshold=1e7) 
+    spectrum11_peaks, _ = signal.find_peaks(pol11_stat, height = 1e7, prominence=1e7, threshold=1e7)
+
+    fig = plt.figure()
+    ax0 = fig.add_subplot(211)  
+    ax0.plot(freqs/1e6, pol00_stat)
+    ax0.scatter(freqs[spectrum00_peaks]/1e6, pol00_stat[spectrum00_peaks], marker='x', color = 'black')
+    ax0.set_xlabel('MHz') 
+    ax0.set_yscale('log')
+    ax0.set_title('pol00')
+    ax0.set_xlim(0,30)
+    ax0.set_ylim(1e7,1e13)
     
     ax1 = fig.add_subplot(212)
     ax1.plot(freqs/1e6, pol11_stat)
-    ax1.scatter(freqs[spectrum_peaks]/1e6, pol11_stat[spectrum_peaks], marker='x', color = 'black')
+    ax1.scatter(freqs[spectrum11_peaks]/1e6, pol11_stat[spectrum11_peaks], marker='x', color = 'black')
     #ax1.vlines(range(1, 10)*f11_interp[f11_max_interp]/1e6, 0, 1e14, color='black')
     #ax1.vlines(range(1, 20)*(f11_interp[peaks11_interp[1]])/1e6, 0, 1e14, color='black')
     ax1.set_xlabel('MHz')
@@ -237,7 +255,19 @@ if __name__ == "__main__":
     plt.close()
     print(outfile)
 
-    print('Spectrum peaks', freqs[spectrum_peaks]/1e6)  
+    print('pol00')
+    print('Spectrum peaks', freqs[spectrum00_peaks]/1e6)  
+    print('Peak diffs: ', np.ediff1d(freqs[spectrum00_peaks]/1e6))
+    print('Peaks div fundamental: ', freqs[spectrum00_peaks]/(f00_interp[peaks00_interp][0]))
+    print('Peaks div max: ', freqs[spectrum00_peaks]/f00_interp[f00_max_interp])
+    print('\n')
+    print('pol11')
+    print('Spectrum peaks', freqs[spectrum11_peaks]/1e6)
+    print('Peak diffs: ', np.ediff1d(freqs[spectrum11_peaks]/1e6))
+    print('Peaks div fundamental: ', freqs[spectrum11_peaks]/(f11_interp[peaks11_interp][0]))
+    print('Peaks div max: ', freqs[spectrum11_peaks]/f11_interp[f11_max_interp])
 
+#python harmonic_finder.py -hr=0:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16807/1680766468
+#python harmonic_finder.py -hr=0:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16808/1680851401
 
 
