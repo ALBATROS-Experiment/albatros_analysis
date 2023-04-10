@@ -10,6 +10,7 @@ from astropy.convolution import convolve
 from scipy.interpolate import interp1d
 import scipy.signal as signal
 from scipy.integrate import quad
+import scipy.fft as fft
 
 from palettable.cartocolors.qualitative import Safe_10
 
@@ -122,15 +123,20 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
+
+    kernel = Gaussian1DKernel(2)
+    pol00_stat = convolve(pol00_stat, kernel)
+    pol11_stat = convolve(pol11_stat, kernel) 
+
     f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
     f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
     f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
     f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
 
-    kernel = Gaussian1DKernel((4/500)*numf)
-    harm00 = convolve(harm00, kernel)
-    harm11 = convolve(harm11, kernel)
+    #kernel = Gaussian1DKernel((4/500)*numf)
+    #harm00 = convolve(harm00, kernel)
+    #harm11 = convolve(harm11, kernel)
 
     harm00_interp = convolve(harm00_interp, kernel)
     harm11_interp = convolve(harm11_interp, kernel) 
@@ -185,72 +191,63 @@ if __name__ == "__main__":
     plt.savefig(outfile)
     plt.close() 
 
-    fig = plt.figure()
-    ax0 = fig.add_subplot(211)
+    fig = plt.figure(figsize=(14, 6))
+    ax0 = fig.add_subplot(221)
     ax0.plot(f00_interp/1e6, harm00_interp)
     ax0.scatter(f00_interp[f00_max_interp]/1e6, harm00_interp[f00_max_interp], marker='x', color='red', zorder = 1)
     ax0.scatter(f00_interp[peaks00_interp]/1e6, harm00_interp[peaks00_interp], marker='x', color='black', zorder = 0) 
     ax0.set_xlabel('MHz')
     ax0.set_yscale('log')
-    ax0.set_title('pol00')
-    ax0.set_xlim(0,10)
+    ax0.set_title('pol00 harmonics')
+    ax0.set_xlim(0,15)
 
-    ax1 = fig.add_subplot(212)
+    ax1 = fig.add_subplot(223)
     ax1.plot(f11_interp/1e6, harm11_interp) 
     ax1.scatter(f11_interp[f11_max_interp]/1e6, harm11_interp[f11_max_interp], marker='x', color='red', zorder = 1)    
     ax1.scatter(f11_interp[peaks11_interp]/1e6, harm11_interp[peaks11_interp], marker='x', color='black', zorder = 0)
     ax1.set_xlabel('MHz')
     ax1.set_yscale('log')
-    ax1.set_title('pol11')
-    ax1.set_xlim(0,10)
+    ax1.set_title('pol11 harmonics')
+    ax1.set_xlim(0,15)
     
-    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_interp'.format(tstart, tstop) + '.png')
-    plt.savefig(outfile)
-    plt.close()
-    print(outfile)
+    #outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_interp'.format(tstart, tstop) + '.png')
+    #plt.savefig(outfile)
+    #plt.close()
+    #print(outfile)
   
-    fig = plt.figure()
-    ax0 = fig.add_subplot(211) 
-    ax0.plot(freqs/1e6, pol00_stat)
-    ax0.vlines(range(1, 10)*f00_interp[f00_max_interp]/1e6, 0, 1e14, color='black')
-    ax0.set_xlabel('MHz') 
-    ax0.set_yscale('log')
-    ax0.set_title('pol00')
-    ax0.set_xlim(0,30)
-    ax0.set_ylim(1e7,1e12)
- 
-    kernel = Gaussian1DKernel(2)
-    pol00_stat = convolve(pol00_stat, kernel)
-    pol11_stat = convolve(pol11_stat, kernel) 
+    #kernel = Gaussian1DKernel(2)
+    #pol00_stat = convolve(pol00_stat, kernel)
+    #pol11_stat = convolve(pol11_stat, kernel) 
 
     spectrum00_peaks, _ = signal.find_peaks(pol00_stat, height = 1e7, prominence=1e7, threshold=1e7) 
     spectrum11_peaks, _ = signal.find_peaks(pol11_stat, height = 1e7, prominence=1e7, threshold=1e7)
 
-    fig = plt.figure()
-    ax0 = fig.add_subplot(211)  
-    ax0.plot(freqs/1e6, pol00_stat)
-    ax0.scatter(freqs[spectrum00_peaks]/1e6, pol00_stat[spectrum00_peaks], marker='x', color = 'black')
-    ax0.set_xlabel('MHz') 
-    ax0.set_yscale('log')
-    ax0.set_title('pol00')
-    ax0.set_xlim(0,30)
-    ax0.set_ylim(1e7,1e13)
     
-    ax1 = fig.add_subplot(212)
-    ax1.plot(freqs/1e6, pol11_stat)
-    ax1.scatter(freqs[spectrum11_peaks]/1e6, pol11_stat[spectrum11_peaks], marker='x', color = 'black')
+    ax2 = fig.add_subplot(222)  
+    ax2.plot(freqs/1e6, pol00_stat)
+    ax2.scatter(freqs[spectrum00_peaks]/1e6, pol00_stat[spectrum00_peaks], marker='x', color = 'black')
+    ax2.set_xlabel('MHz') 
+    ax2.set_yscale('log')
+    ax2.set_title('pol00 spectrum')
+    ax2.set_xlim(0,15)
+    ax2.set_ylim(1e7,1e13)
+    
+    ax3 = fig.add_subplot(224)
+    ax3.plot(freqs/1e6, pol11_stat)
+    ax3.scatter(freqs[spectrum11_peaks]/1e6, pol11_stat[spectrum11_peaks], marker='x', color = 'black')
     #ax1.vlines(range(1, 10)*f11_interp[f11_max_interp]/1e6, 0, 1e14, color='black')
     #ax1.vlines(range(1, 20)*(f11_interp[peaks11_interp[1]])/1e6, 0, 1e14, color='black')
-    ax1.set_xlabel('MHz')
-    ax1.set_yscale('log')
-    ax1.set_title('pol11')
-    ax1.set_xlim(0,30) 
-    ax1.set_ylim(1e7, 1e13)
+    ax3.set_xlabel('MHz')
+    ax3.set_yscale('log')
+    ax3.set_title('pol11 spectrum')
+    ax3.set_xlim(0,15) 
+    ax3.set_ylim(1e7, 1e13)
     
     #for i in range(min(3, len(peaks00_interp))):
     #    ax1.vlines(range(1,10)*(f00_interp[peaks00_interp[i]])/1e6, 0, 1e14, color = colors[i])  
 
-    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_spectrum'.format(tstart, tstop) + '.png')
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_combined'.format(tstart, tstop) + '.png')
+
     plt.savefig(outfile) 
     plt.close()
     print(outfile)
@@ -267,7 +264,17 @@ if __name__ == "__main__":
     print('Peaks div fundamental: ', freqs[spectrum11_peaks]/(f11_interp[peaks11_interp][0]))
     print('Peaks div max: ', freqs[spectrum11_peaks]/f11_interp[f11_max_interp])
 
-#python harmonic_finder.py -hr=0:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16807/1680766468
-#python harmonic_finder.py -hr=0:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16808/1680851401
+    #pol00_fft = fft.fftshift(fft.fft(pol00_stat))
+    #plt.plot(pol00_fft)
+
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_fft'.format(tstart, tstop) + '.png')
+    plt.savefig(outfile)
+
+
+#python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16807/1680766468
+#python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16808/1680851401
+#python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16809/1680937220
+#python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16810/1681023554
+
 
 
