@@ -6,6 +6,7 @@ import argparse
 import pytz
 import datetime as dt
 
+
 def _parse_slice(s):
     a = [int(e) if e.strip() else None for e in s.split(":")]
     return slice(*a)
@@ -124,9 +125,18 @@ if __name__ == "__main__":
 	plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
 	plt.title('pol11')
 	plt.colorbar()
+	
+	binwidth = 250/4096
+
+	if args.logplot:
+		tot_power00 = sum(10**pol00_mean*binwidth)/1e9
+		tot_power11 = sum(10**pol11_mean*binwidth)/1e9
+	else:
+		tot_power00 = sum(pol00_mean*binwidth)
+		tot_power11 = sum(pol11_mean*binwidth)
 
 	plt.subplot(2,3,2)
-	plt.title('Basic stats for frequency bins')
+	plt.title('Basic stats for frequency bins\n Tot Power = {}'.format(np.round(tot_power00,0)))
 	plt.plot(freq, pol00_max, 'r-', label='Max')
 	plt.plot(freq, pol00_min, 'b-', label='Min')
 	plt.plot(freq, pol00_mean, 'k-', label='Mean')
@@ -136,6 +146,7 @@ if __name__ == "__main__":
 	plt.axis(axrange)
 
 	plt.subplot(2,3,5)
+	plt.title('Tot Power = {}'.format(np.round(tot_power11,0)))
 	plt.plot(freq, pol11_max, 'r-', label='Max')
 	plt.plot(freq, pol11_min, 'b-', label='Min')
 	plt.plot(freq, pol11_mean, 'k-', label='Mean')
