@@ -41,18 +41,19 @@ if __name__ == "__main__":
 	pol01i = scio.read(os.path.join(args.data_dir, "pol01i.scio.bz2"))
 	acctime = get_acctime(os.path.join(args.data_dir, "time_gps_start.raw"))
 	# Remove starting data chunk if it's bad :(
-	pol00 = pol00[1:,:]
-	pol11 = pol11[1:,:]
-	pol01r = pol01r[1:,:]
-	pol01i = pol01i[1:,:]
-	# Add real and image for pol01	
+        fmin, fmax = 0, 125
 
-	fmin, fmax = 0, 125
-
-	if args.fmin:
-		fmin = args.fmin
-	if args.fmax:
-		fmax = args.fmax
+        if args.fmin:
+                fmin = args.fmin
+        if args.fmax: 
+                fmax = args.fmax
+        cstart = int(np.floor(fmin/(250/4096)))
+        cend = int(np.floor(fmax/(250/4096)))
+	pol00 = pol00[1:,cstart:cend]
+	pol11 = pol11[1:,cstart:cend]
+	pol01r = pol01r[1:,cstart:cend]
+	pol01i = pol01i[1:,cstart:cend]
+	# Add real and image for pol01
 
 	if args.tslice:
 		#convert tslice in minutes to samps
