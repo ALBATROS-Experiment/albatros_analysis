@@ -14,6 +14,54 @@ import scipy.fft as fft
 
 from palettable.cartocolors.qualitative import Safe_10
 
+def triangle(start, stop, freqs):
+    '''Function which returns a single triangle window with designated start and stop.
+       Input: start, the start frequency
+              stop, the stop frequency
+              freqs, an array of the freqs over which the triangle window will be applies
+    '''
+    mid = (stop+start)/2
+    to_return = np.zeros(len(freqs))
+    for i in range(len(freqs)):
+        if freqs[i]<start or freqs[i] > stop:
+            continue
+        elif freqs[i] <= mid:
+            to_return[i] = (freqs[i] - start) / (mid - start)
+        elif freqs[i] > mid:
+            to_return[i] = (freqs[i] - stop) / (mid-stop)
+
+    return to_return    
+
+def get_Hb(freqs, nb=30):
+    '''Function for generating the power response function Hb from klapuri06
+       Inputs: freqs, the frequencies associated with x
+               nb, the number of subbands
+       Outputs: Hb, the responses
+    '''
+    bs = np.arange(0,nb+2,1) 
+    cb =  229 * (10**((1+bs)/(21.4))-1)*1.80e4
+    Hb = np.zeros((len(freqs), nb)) 
+    for i in range(1, nb+1):
+        Hb[...,i-1] = triangle(cb[i-1], cb[i+1], freqs)
+    
+    return Hb, cb[1:-1]
+
+def whittener(x, freqs, nu=0.33, nb = 30):
+    ''' Spectral whittening function from Klapuri06: https://www.ee.columbia.edu/~dpwe/papers/Klap06-multif0.pdf
+        Input: x, the spectrum to be whitened
+               nu, a whittening scaling parameter
+        Reutrns: gamma(f), the whittening function as a function of frequency.
+    '''
+    Hb, cb = get_Hb(freqs = freqs, nb = nb)
+    sigma_bs = np.zeros(len(cb))
+    for i in range(len(sigma_bs)):
+        sigma_bs[i] = np.sqrt(1/len(x) * sum(Hb[...,i] * np.abs(x)**2))  
+        
+    yb = sigma_bs**(nu-1)
+    
+    return interp1d(cb, yb, fill_value = 'extrapolate') 
+
+
 def gaussian(x, mu, sig):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
@@ -123,11 +171,34 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15
+    
+    #Hb, cb = get_Hb(freqs, nb = 30)
+    #for i in range(Hb.shape[-1]):
+    #    plt.plot(freqs, Hb[...,i])
+    #plt.vlines(cb, -1, 2) 
+    #plt.savefig('./plots/Hb.png')
+    
+    whittener00 = whittener(pol00_stat, freqs)
+    whittener11 = whittener(pol11_stat, freqs)
+    #plt.plot(freqs, whittener(freqs))
+    #plt.savefig('./plots/whittener.png')
+    #plt.close()
+ 
+    #plt.plot(freqs, pol00_stat*whittener(freqs))
+    #plt.yscale('log')
+    #plt.savefig('./plots/whittened.png')
+
+    
 
     kernel = Gaussian1DKernel(2)
-    pol00_stat = convolve(pol00_stat, kernel)
-    pol11_stat = convolve(pol11_stat, kernel) 
+    #pol00_stat = convolve(pol00_stat, kernel)
+    #pol11_stat = convolve(pol11_stat, kernel) 
+    pol00_unwhite = pol00_stat
+    pol11_unwhite = pol11_stat 
 
+    pol00_stat = whittener00(freqs)*pol00_stat
+    pol11_stat = whittener11(freqs)*pol11_stat
+    
     f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
     f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
@@ -216,16 +287,16 @@ if __name__ == "__main__":
     #print(outfile)
   
     #kernel = Gaussian1DKernel(2)
-    #pol00_stat = convolve(pol00_stat, kernel)
-    #pol11_stat = convolve(pol11_stat, kernel) 
+    pol00_unwhite = convolve(pol00_unwhite, kernel)
+    pol11_unwhite = convolve(pol11_unwhite, kernel) 
 
-    spectrum00_peaks, _ = signal.find_peaks(pol00_stat, height = 1e7, prominence=1e7, threshold=1e7) 
-    spectrum11_peaks, _ = signal.find_peaks(pol11_stat, height = 1e7, prominence=1e7, threshold=1e7)
+    spectrum00_peaks, _ = signal.find_peaks(pol00_unwhite, height = 1e7, prominence=1e7, threshold=1e7) 
+    spectrum11_peaks, _ = signal.find_peaks(pol11_unwhite, height = 1e7, prominence=1e7, threshold=1e7)
 
     
     ax2 = fig.add_subplot(222)  
-    ax2.plot(freqs/1e6, pol00_stat)
-    ax2.scatter(freqs[spectrum00_peaks]/1e6, pol00_stat[spectrum00_peaks], marker='x', color = 'black')
+    ax2.plot(freqs/1e6, pol00_unwhite)
+    ax2.scatter(freqs[spectrum00_peaks]/1e6, pol00_unwhite[spectrum00_peaks], marker='x', color = 'black')
     ax2.set_xlabel('MHz') 
     ax2.set_yscale('log')
     ax2.set_title('pol00 spectrum')
@@ -233,8 +304,8 @@ if __name__ == "__main__":
     ax2.set_ylim(1e7,1e13)
     
     ax3 = fig.add_subplot(224)
-    ax3.plot(freqs/1e6, pol11_stat)
-    ax3.scatter(freqs[spectrum11_peaks]/1e6, pol11_stat[spectrum11_peaks], marker='x', color = 'black')
+    ax3.plot(freqs/1e6, pol11_unwhite)
+    ax3.scatter(freqs[spectrum11_peaks]/1e6, pol11_unwhite[spectrum11_peaks], marker='x', color = 'black')
     #ax1.vlines(range(1, 10)*f11_interp[f11_max_interp]/1e6, 0, 1e14, color='black')
     #ax1.vlines(range(1, 20)*(f11_interp[peaks11_interp[1]])/1e6, 0, 1e14, color='black')
     ax3.set_xlabel('MHz')
