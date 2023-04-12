@@ -178,8 +178,8 @@ if __name__ == "__main__":
     #plt.vlines(cb, -1, 2) 
     #plt.savefig('./plots/Hb.png')
     
-    whittener00 = whittener(pol00_stat, freqs)
-    whittener11 = whittener(pol11_stat, freqs)
+    whittener00 = whittener(pol00_stat, freqs, nu = 0.3)
+    whittener11 = whittener(pol11_stat, freqs, nu = 0.3)
     #plt.plot(freqs, whittener(freqs))
     #plt.savefig('./plots/whittener.png')
     #plt.close()
