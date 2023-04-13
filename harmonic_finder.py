@@ -54,7 +54,8 @@ def whittener(x, freqs, nu=0.33, nb = 30):
     '''
     Hb, cb = get_Hb(freqs = freqs, nb = nb)
     sigma_bs = np.zeros(len(cb))
-    for i in range(len(sigma_bs)):
+    test = x/ 1e10
+    for i in range(len(sigma_bs)):  
         sigma_bs[i] = np.sqrt(1/len(x) * sum(Hb[...,i] * np.abs(x)**2))  
         
     yb = sigma_bs**(nu-1)
@@ -125,6 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("-fr", "--freqrange", type=_parse_slice, default=slice(5e5, 1e7, 1e5), help="Slice of freqeucny space over which to perform the comb")
     parser.add_argument("-hr", "--harmrange", type=_parse_slice, default=slice(1, 10, 1), help="First and last harmonic to consider in the harmonics comb")
     parser.add_argument("-nf", "--numf", type = int, default=500, help = "number of interpolated points over which to comb")
+   
     args = parser.parse_args()
 
     pol00 = scio.read(os.path.join(args.data_dir, "pol00.scio.bz2"))
@@ -162,15 +164,20 @@ if __name__ == "__main__":
     if args.stattype == "mean":
         pol00_stat = np.mean(pol00, axis=0)
         pol11_stat = np.mean(pol11, axis=0)
-
-    
+    if args.stattype == "max":
+        pol00_stat = np.amax(pol00, axis=0)
+        pol11_stat = np.amax(pol11, axis=0)
+        
+        pol00_stat = np.array(pol00_stat, dtype=float)
+        pol11_stat = np.array(pol11_stat, dtype=float)
+ 
     fmin, fmax = args.freqrange.start, args.freqrange.stop
     hmin, hmax = args.harmrange.start, args.harmrange.stop
     
     numf = args.numf
 
     t = np.arange(pol00.shape[1]) / 250e6
-    freqs = np.arange(0, len(pol00_stat))*61035.15
+    freqs = np.arange(0, len(pol00_stat))*61035.15       
     
     #Hb, cb = get_Hb(freqs, nb = 30)
     #for i in range(Hb.shape[-1]):
