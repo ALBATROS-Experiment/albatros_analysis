@@ -67,6 +67,20 @@ def gaussian(x, mu, sig):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
 def simple_harm_sweep(x, freqs, fmin=None, fmax=None, numf = 1e5, harm_min = 1, harm_max = 5, window_size = None, interp = None):
+    '''This function takes a spectrum and applies a harmonic comb to it, identifying which frequencies f are present in the spectrum at 1*f, 2*f, 3*f, etc. Useful when you suspect that there is a harmonic series present in a spectrum, and would like to identify what the fundamentals are
+
+        Input: x, the spectrum to be considered
+               freqs, the coresponding frequencies of the spectrum
+               fmin, the minimum fundamental frequency to consider
+               fmax, the maximum fundamental frequency to consider 
+               numf, the number of points in fundamental frequency space to sample
+               harm_min, the lowest harmonic on the frequency comb. harm_min=1 gives the simplest case where we begin the comb at the fundamental, harm_min = 2 starts with the second harmonic, etc.
+               harm_max, the highest harmonic of the comb. Including too many harmonics washes out the comb power
+               window, depreciated, type of window by which the spectrum is smoothed. Superceded by whittening, but kept in case we want to return to smoothing 
+               interp, how to interpolate the spectrum for applying the comb. If none, no interpolation is performed
+       Returns: fspace if interp, else freqs. The fundamental frequencies. When no interpolating, this is the same as the input frequencies.
+                to_return, the comb response at fspace/freqs, normalized by the average spectrum.    '''
+
     if fmin is None:
         fmin = min(freqs)
     if fmax is None:
@@ -139,7 +153,7 @@ if __name__ == "__main__":
     pol11 = pol11[1:,:]
     pol01r = pol01r[1:,:]
     pol01i = pol01i[1:,:] 
-    #fs = 16.384 #us
+
 
     if args.tslice:
         #convert tslice in minutes to samps
@@ -178,26 +192,12 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15       
-    
-    #Hb, cb = get_Hb(freqs, nb = 30)
-    #for i in range(Hb.shape[-1]):
-    #    plt.plot(freqs, Hb[...,i])
-    #plt.vlines(cb, -1, 2) 
-    #plt.savefig('./plots/Hb.png')
-    
+       
     whittener00 = whittener(pol00_stat, freqs, nu = 0.3)
-    whittener11 = whittener(pol11_stat, freqs, nu = 0.3)
-    #plt.plot(freqs, whittener(freqs))
-    #plt.savefig('./plots/whittener.png')
-    #plt.close()
- 
-    #plt.plot(freqs, pol00_stat*whittener(freqs))
-    #plt.yscale('log')
-    #plt.savefig('./plots/whittened.png')
-
-    
+    whittener11 = whittener(pol11_stat, freqs, nu = 0.3) 
 
     kernel = Gaussian1DKernel(2)
+    #uncomment to smooth the spectrum by kernel before whittening
     #pol00_stat = convolve(pol00_stat, kernel)
     #pol11_stat = convolve(pol11_stat, kernel) 
     pol00_unwhite = pol00_stat
@@ -206,12 +206,14 @@ if __name__ == "__main__":
     pol00_stat = whittener00(freqs)*pol00_stat
     pol11_stat = whittener11(freqs)*pol11_stat
     
+    #Code returns both interpolated and no-interpolated harmonic combs as of now, but they generally give the same results and interpolated is much easier to parse so may just remove the non-interp in the future
     f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
     f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
     f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
     f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
 
+    #Uncomment to smooth the resulting harmonic comb
     #kernel = Gaussian1DKernel((4/500)*numf)
     #harm00 = convolve(harm00, kernel)
     #harm11 = convolve(harm11, kernel)
@@ -287,12 +289,8 @@ if __name__ == "__main__":
     ax1.set_yscale('log')
     ax1.set_title('pol11 harmonics')
     ax1.set_xlim(0,15)
-    
-    #outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_interp'.format(tstart, tstop) + '.png')
-    #plt.savefig(outfile)
-    #plt.close()
-    #print(outfile)
-  
+   
+    #Kernel is same as above but can uncomment here to change 
     #kernel = Gaussian1DKernel(2)
     pol00_unwhite = convolve(pol00_unwhite, kernel)
     pol11_unwhite = convolve(pol11_unwhite, kernel) 
@@ -313,18 +311,13 @@ if __name__ == "__main__":
     ax3 = fig.add_subplot(224)
     ax3.plot(freqs/1e6, pol11_unwhite)
     ax3.scatter(freqs[spectrum11_peaks]/1e6, pol11_unwhite[spectrum11_peaks], marker='x', color = 'black')
-    #ax1.vlines(range(1, 10)*f11_interp[f11_max_interp]/1e6, 0, 1e14, color='black')
-    #ax1.vlines(range(1, 20)*(f11_interp[peaks11_interp[1]])/1e6, 0, 1e14, color='black')
+    
     ax3.set_xlabel('MHz')
     ax3.set_yscale('log')
     ax3.set_title('pol11 spectrum')
     ax3.set_xlim(0,15) 
     ax3.set_ylim(1e7, 1e13)
-    
-    #for i in range(min(3, len(peaks00_interp))):
-    #    ax1.vlines(range(1,10)*(f00_interp[peaks00_interp[i]])/1e6, 0, 1e14, color = colors[i])  
-
-    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_combined'.format(tstart, tstop) + '.png')
+        outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_combined'.format(tstart, tstop) + '.png')
 
     plt.savefig(outfile) 
     plt.close()
@@ -342,13 +335,11 @@ if __name__ == "__main__":
     print('Peaks div fundamental: ', freqs[spectrum11_peaks]/(f11_interp[peaks11_interp][0]))
     print('Peaks div max: ', freqs[spectrum11_peaks]/f11_interp[f11_max_interp])
 
-    #pol00_fft = fft.fftshift(fft.fft(pol00_stat))
-    #plt.plot(pol00_fft)
-
     outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_fft'.format(tstart, tstop) + '.png')
     plt.savefig(outfile)
 
 
+#Some example usage
 #python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16807/1680766468
 #python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16808/1680851401
 #python harmonic_finder.py -hr=2:10 -sl=0:60 -o=./plots ~/albatros_data/uapishka_april_23/data_auto_cross/16809/1680937220
