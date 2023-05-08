@@ -317,7 +317,7 @@ if __name__ == "__main__":
     ax3.set_title('pol11 spectrum')
     ax3.set_xlim(0,15) 
     ax3.set_ylim(1e7, 1e13)
-        outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_combined'.format(tstart, tstop) + '.png')
+    outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_{}_{}_combined'.format(tstart, tstop) + '.png')
 
     plt.savefig(outfile) 
     plt.close()
