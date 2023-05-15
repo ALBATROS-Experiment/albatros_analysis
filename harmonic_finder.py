@@ -54,7 +54,7 @@ def whittener(x, freqs, nu=0.33, nb = 30):
     '''
     Hb, cb = get_Hb(freqs = freqs, nb = nb)
     sigma_bs = np.zeros(len(cb))
-    test = x/ 1e10
+    
     for i in range(len(sigma_bs)):  
         sigma_bs[i] = np.sqrt(1/len(x) * sum(Hb[...,i] * np.abs(x)**2))  
         
@@ -207,8 +207,8 @@ if __name__ == "__main__":
     pol11_stat = whittener11(freqs)*pol11_stat
     
     #Code returns both interpolated and no-interpolated harmonic combs as of now, but they generally give the same results and interpolated is much easier to parse so may just remove the non-interp in the future
-    f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
-    f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
+    #f00, harm00 = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None)
+    #f11, harm11 = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = None) 
 
     f00_interp, harm00_interp = simple_harm_sweep(pol00_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
     f11_interp, harm11_interp = simple_harm_sweep(pol11_stat, freqs, fmin = fmin, fmax = fmax, numf = numf, harm_min = hmin, harm_max = hmax, window_size = None, interp = 'linear')
@@ -221,11 +221,11 @@ if __name__ == "__main__":
     harm00_interp = convolve(harm00_interp, kernel)
     harm11_interp = convolve(harm11_interp, kernel) 
 
-    peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e-2, prominence=1e-2, threshold=1e-2)
-    print("Peaks pol00: ", (f00[peaks00])/1e6,"MHz")
+    #peaks00, peak00_dict = signal.find_peaks(harm00, height = 1e-2, prominence=1e-2, threshold=1e-2)
+    #print("Peaks pol00: ", (f00[peaks00])/1e6,"MHz")
 
-    peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e-2, prominence=1e-2, threshold=1e-2)
-    print("Peaks pol11: ", (f11[peaks11]/1e6),"MHz")
+    #peaks11, peak11_dict = signal.find_peaks(harm11, height = 1e-2, prominence=1e-2, threshold=1e-2)
+    #print("Peaks pol11: ", (f11[peaks11]/1e6),"MHz")
 
     peaks00_interp, peak00_dict_interp = signal.find_peaks(harm00_interp, height = 1e-2, prominence=1e-2, threshold=1e-2)
     print("Peaks pol00 interp: ", (f00_interp[peaks00_interp])/1e6,"MHz")
@@ -233,20 +233,20 @@ if __name__ == "__main__":
     peaks11_interp, peak11_dict_interp = signal.find_peaks(harm11_interp, height = 1e-2, prominence=1e-2, threshold=1e-2)
     print("Peaks pol11 interp: ", (f11_interp[peaks11_interp]/1e6),"MHz")
 
-    f00_max = np.where((harm00 == np.amax(harm00)))[0]
-    f11_max = np.where((harm11 == np.amax(harm11)))[0]
+    #f00_max = np.where((harm00 == np.amax(harm00)))[0]
+    #f11_max = np.where((harm11 == np.amax(harm11)))[0]
     f00_max_interp = np.where((harm00_interp == np.amax(harm00_interp)))[0]
     f11_max_interp = np.where((harm11_interp == np.amax(harm11_interp)))[0]
 
-    print("Tmax pol00: ", f00[f00_max]/1e6)
-    print("Tmax pol11: ", f11[f11_max]/1e6)
+    #print("Tmax pol00: ", f00[f00_max]/1e6)
+    #print("Tmax pol11: ", f11[f11_max]/1e6)
     print("Tmax pol00 interp: ", f00_interp[f00_max_interp]/1e6)
     print("Tmax pol11 interp: ", f11_interp[f11_max_interp]/1e6)
 
     colors = np.array(Safe_10.colors)/256
 
     timestamp = args.data_dir.split('/')[-1]
-
+    '''
     fig = plt.figure()
     ax0 = fig.add_subplot(211)
     ax0.plot(f00/1e6, harm00)
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     print(outfile)
     plt.savefig(outfile)
     plt.close() 
-
+    '''
     fig = plt.figure(figsize=(14, 6))
     ax0 = fig.add_subplot(221)
     ax0.plot(f00_interp/1e6, harm00_interp)
