@@ -269,7 +269,15 @@ def full_plot(data_arrs, mytz, chunk_time):
     if logplot is True:
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
-    
+    myvmin,myvmax=[vmin,vmax]
+    if rescale:
+        scaling_pol00 = np.tile(pol00_stats['median'],pol00.shape[0]).reshape(*pol00.shape)
+        scaling_pol11 = np.tile(pol11_stats['median'],pol11.shape[0]).reshape(*pol11.shape)
+        pol00[:]=10*(pol00-scaling_pol00) # - instead of / for type 2 scaling: log(pol00/pol00_median)
+        pol11[:]=10*(pol11-scaling_pol11)
+        myvmin=-1
+        myvmax=1
+        
     y_extent = get_ylim_times(tstart,tend)
     ticks = np.linspace(y_extent[0], y_extent[1],10)
     # print(y_extent)
@@ -279,10 +287,10 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.figure(figsize=(18,10), dpi=200)
     plt.subplot(2,3,1)
 
-    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol00,vmin=myvmin,vmax=myvmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
-    cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
+    cb00.ax.set_ylabel('Uncalibrated log(power)', rotation=90)
     plt.xlabel('Frequency (MHz)')
     plt.yticks(ticks)
     ax=plt.gca()
@@ -295,13 +303,12 @@ def full_plot(data_arrs, mytz, chunk_time):
     # locator=mdates.HourLocator(interval=hourinterval,tz=mytz)
     # ax.yaxis.set_major_locator(locator)
     
-    
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol11,vmin=myvmin,vmax=myvmax, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
-    cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
+    cb00.ax.set_ylabel('Uncalibrated log(power)', rotation=90)
     plt.yticks(ticks)
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
@@ -377,13 +384,14 @@ def main():
     parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
     parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
     parser.add_argument("-d", "--datetimefmt", dest='datetimefmt', default = "%m/%d %H:%M", type=str, help="Format for dates on axes of plots")
-    parser.add_argument("-cs", "--cstart", dest='cstart', default = 0, type=int, help="Channel index start")
-    parser.add_argument("-ce", "--cend", dest='cend', default = 2048, type=int, help="Channel index end")
+    parser.add_argument("-fma", "--fmax", dest='fmax', default = None, type=float, help="maximum for frequency to plot")
+    parser.add_argument("-fmi", "--fmin", dest='fmin', default = None, type=float, help="minimum for frequency to plot")  
+    parser.add_argument("-r", "--rescale", dest='rescale', default = False, action="store_true",help="Rescale autospectra using median power")
 
     args = parser.parse_args()
 
     #=============== defining some global variables ===============#
-    global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt
+    global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt, rescale
     
     timezone = args.timezone
     vmin = args.vmin
@@ -391,6 +399,7 @@ def main():
     logplot=args.logplot
     blocksize = args.blocksize
     outdir = args.outdir
+    rescale = args.rescale
     mytz = pytz.timezone(args.timezone)
     datetimefmt = mdates.DateFormatter(args.datetimefmt,tz=mytz) #formatter needs to be tz aware
 
@@ -416,13 +425,23 @@ def main():
     pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
     # import sys
     # sys.exit(0)
-    pol00=pol00[:,args.cstart:args.cend]
-    pol11=pol11[:,args.cstart:args.cend]
-    pol01r=pol01r[:,args.cstart:args.cend]
-    pol01i=pol01i[:,args.cstart:args.cend]
+
+    fmin, fmax = 0, 125
+    if args.fmin:
+        fmin = args.fmin
+    if args.fmax:
+        fmax = args.fmax
+
+    cstart = int(np.floor(fmin/(250/4096)))
+    cend = int(np.floor(fmax/(250/4096)))
+
+    pol00=pol00[:,cstart:cend]
+    pol11=pol11[:,cstart:cend]
+    pol01r=pol01r[:,cstart:cend]
+    pol01i=pol01i[:,cstart:cend]
 
     pol01 = pol01r + 1J*pol01i
-    freq = np.arange(args.cstart,args.cend)*250/4096 #125 MHz is max frequency
+    freq = np.arange(cstart,cend)*250/4096 #125 MHz is max frequency
     
     
     #============ setting vmin and vmax ============#
