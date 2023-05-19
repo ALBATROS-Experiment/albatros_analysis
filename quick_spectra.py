@@ -64,8 +64,6 @@ if __name__ == "__main__":
     tstart = 0 #for myext below
     if args.tslice is not None:
         tstart = int(args.tslice.start)
-        tstop  = int(args.tslice.stop)
-
     
     if args.tslice:
         #convert tslice in minutes to samps
@@ -81,6 +79,11 @@ if __name__ == "__main__":
         pol01r = pol01r[1:,cstart:cend]
         pol01i = pol01i[1:,cstart:cend]
 
+    tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
+    tstop = tstart + tot_minutes
+    if args.tslice is not None:
+        tstop  = int(args.tslice.stop)
+    
     # Add real and image for pol01
     pol01 = pol01r + 1J*pol01i
     
@@ -140,7 +143,6 @@ if __name__ == "__main__":
       )
 
     print("Estimated accumulation time from timestamp file: ", acctime)
-    tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
     myext = np.array([fmin,fmax, tstart+tot_minutes, tstart])	
         
     plt.figure(figsize=(18,10), dpi=200)
