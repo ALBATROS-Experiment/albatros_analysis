@@ -24,7 +24,7 @@ def getstats(file, stat_type):
 parser = argparse.ArgumentParser()
 parser.add_argument("data_dir", type=str, help="location of .npz files written by quick_spectra")
 parser.add_argument("-s", "--stat", dest='stat', default = 'med', type=str, help="stat type: min, max, mean, med=default")
-parser.add_argument("-d", "--top_desc", dest='top_desc', default = None, type=str, help="optional description")
+parser.add_argument("-d", "--desc", dest='top_desc', default = None, type=str, help="optional description")
 args = parser.parse_args()
 
 filepath = args.data_dir
