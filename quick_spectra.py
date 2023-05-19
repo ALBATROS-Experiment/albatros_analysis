@@ -62,7 +62,9 @@ if __name__ == "__main__":
     
     tstart = 0 #for myext below
     if args.tslice is not None:
-        tstart=int(args.tslice.start)
+        tstart = int(args.tslice.start)
+        tstop  = int(args.tslice.stop)
+
     
     if args.tslice:
         #convert tslice in minutes to samps
@@ -124,6 +126,17 @@ if __name__ == "__main__":
         pmax = np.log10(pmax)
         axrange = [fmin, fmax, 6.5, pmax]
 
+    # save statistics for possible overplotting
+    timestamp = args.data_dir.split('/')[-1]
+    np.savez('qs_stats_{0}_{1}_{2}.npz'.format(timestamp, tstart, tstop), \
+      timestamp=timestamp, tstart=tstart, tstop=tstop \
+      , freq=freq \
+      , pol00_mean=pol00_mean, pol11_mean=pol11_mean \
+      , pol00_med=pol00_med, pol11_med=pol11_med \
+      , pol00_min=pol00_min, pol11_min=pol11_min \
+      , pol00_max=pol00_max, pol11_max=pol11_max \
+      )
+
     print("Estimated accumulation time from timestamp file: ", acctime)
     tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
     myext = np.array([fmin,fmax, tstart+tot_minutes, tstart])	
@@ -182,7 +195,6 @@ if __name__ == "__main__":
     plt.xlabel('Frequency (MHz)')
 
     args.data_dir=os.path.abspath(args.data_dir)
-    timestamp = args.data_dir.split('/')[-1]
     mytz = pytz.timezone(args.timezone)
     utctime = dt.datetime.fromtimestamp(int(timestamp),tz=pytz.utc) # this might be a safer way compared to passing tz directly to fromtimestamp
     localtimestr = utctime.astimezone(tz=mytz).strftime("%b-%d %H:%M:%S")
