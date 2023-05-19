@@ -40,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
     parser.add_argument("-fma", "--fmax", dest='fmax', default = None, type=float, help="maximum for frequency to plot")
     parser.add_argument("-fmi", "--fmin", dest='fmin', default = None, type=float, help="minimum for frequency to plot")
+    parser.add_argument("-d", "--desc", dest='desc', default = '', type=str, help="description string to add to plot and write out to file for overplotting legends")
     args = parser.parse_args()
 
     #data_dir = pathlib.Path(args.data_dir)
@@ -131,6 +132,7 @@ if __name__ == "__main__":
     np.savez('qs_stats_{0}_{1}_{2}.npz'.format(timestamp, tstart, tstop), \
       timestamp=timestamp, tstart=tstart, tstop=tstop \
       , freq=freq \
+      , desc=args.desc \
       , pol00_mean=pol00_mean, pol11_mean=pol11_mean \
       , pol00_med=pol00_med, pol11_med=pol11_med \
       , pol00_min=pol00_min, pol11_min=pol11_min \
@@ -198,7 +200,7 @@ if __name__ == "__main__":
     mytz = pytz.timezone(args.timezone)
     utctime = dt.datetime.fromtimestamp(int(timestamp),tz=pytz.utc) # this might be a safer way compared to passing tz directly to fromtimestamp
     localtimestr = utctime.astimezone(tz=mytz).strftime("%b-%d %H:%M:%S")
-    plt.suptitle(f"Minutes since {localtimestr} localtime. File ctime {timestamp}")
+    plt.suptitle(f"Minutes since {localtimestr} localtime. File ctime {timestamp}. {args.desc}")
 
     outfile = os.path.normpath(args.output_dir + '/' + timestamp + '_quick' + '.png')
     plt.savefig(outfile)
