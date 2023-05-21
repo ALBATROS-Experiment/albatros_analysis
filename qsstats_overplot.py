@@ -39,7 +39,7 @@ for file in filenames:
 #plt.figure()
 fig, axs = plt.subplots(2)
 ax1 = plt.subplot(2,1,1)
-ax2 = plt.subplot(2,1,2, sharex=ax1)
+ax2 = plt.subplot(2,1,2, sharex=ax1, sharey=ax1)
 
 for f in files:
     freq, pol00_stat, pol11_stat, tstart, tstop, timestamp, desc = getstats(f, args.stat)
