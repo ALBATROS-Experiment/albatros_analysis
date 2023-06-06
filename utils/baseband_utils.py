@@ -50,36 +50,46 @@ def get_plot_lims(pol,acclen):
     # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
     # Pivot to using mean if acclen too small.
 
-    if(acclen>250000):
-        med = np.mean(pol)
-        xx=np.ravel(pol).copy()
-        u=np.percentile(xx,99)
-        b=np.percentile(xx,1)
-        xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
-        stddev = np.std(xx_clean)
-    else:
-        med = np.mean(pol)
-        stddev = np.std(pol)
-    vmin= max(med - 2*stddev,1)
+    # if(acclen>250000):
+    #     med = np.mean(pol)
+    #     xx=np.ravel(pol).copy()
+    #     u=np.percentile(xx,99)
+    #     b=np.percentile(xx,1)
+    #     xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
+    #     stddev = np.std(xx_clean)
+    # else:
+    #     med = np.mean(pol)
+    #     stddev = np.std(pol)
+    med = np.ma.mean(pol)
+    stddev = np.ma.std(pol)
+    vmin= med - 2*stddev
     vmax = med + 2*stddev
-    print(med,vmin,vmax)
+    print("med and plot lims",med,vmin,vmax)
     return med,vmin,vmax
 
-def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,opath,minutes=False,logplot=True):
+def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minutes=False,logplot=True):
 
     freq = channels*125/2048 #MHz
-    pol00_med = np.median(pol00, axis=0)
-    pol11_med = np.median(pol11, axis=0)
-    pol00_mean = np.mean(pol00, axis=0)
-    pol11_mean = np.mean(pol11, axis=0)
-    pol00_max = np.max(pol00, axis=0)
-    pol11_max = np.max(pol11, axis=0)
-    pol00_min = np.min(pol00, axis=0)
-    pol11_min = np.min(pol11, axis=0)
-    med,vmin,vmax=get_plot_lims(pol00,acclen)
-    med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+    pol00_med = np.ma.median(pol00, axis=0)
+    pol11_med = np.ma.median(pol11, axis=0)
+    pol00_mean = np.ma.mean(pol00, axis=0)
+    pol11_mean = np.ma.mean(pol11, axis=0)
+    pol00_max = np.ma.max(pol00, axis=0)
+    pol11_max = np.ma.max(pol11, axis=0)
+    pol00_min = np.ma.min(pol00, axis=0)
+    pol11_min = np.ma.min(pol11, axis=0)
+    if (vmin is None) and (vmax is None):
+        med,vmin,vmax=get_plot_lims(pol00,acclen)
+        med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+    else:
+        print("SETTING VMIN AND VMAX")
+        vmin = 10**vmin
+        vmax = 10**vmax
+        vmin2=vmin
+        vmax2=vmax
     pol01_mag = np.abs(pol01)
     if(logplot):
+        print("IN LOGPLOT")
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
         pol00_med = np.log10(pol00_med)
@@ -114,7 +124,7 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,opath,minutes=False,l
     cb00.ax.plot([0, 1], [7.0]*2, 'w')
 
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel(tag)

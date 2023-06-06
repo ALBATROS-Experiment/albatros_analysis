@@ -51,6 +51,8 @@ if __name__=="__main__":
     parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='/scratch/s/sievers/mohanagr/',
               help='Output directory for data and plots')
+    parser.add_argument("-vmi", "--vmin", dest='vmin', default = None, type=float, help="minimum for colorbar. if nothing is specified, vmin is automatically set")
+    parser.add_argument("-vma", "--vmax", dest='vmax', default = None, type=float, help="maximum for colorbar. if nothing is specified, vmax is automatically set")
     args = parser.parse_args()
 
     if(args.time_stop):
@@ -74,7 +76,7 @@ if __name__=="__main__":
 
     fname=f'pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
-    butils.plot_4bit(pol00,pol11,pol01,channels,args.acclen,args.time_start,fpath,minutes=True,logplot=args.logplot)
+    butils.plot_4bit(pol00,pol11,pol01,channels,args.acclen,args.time_start,args.vmin,args.vmax,fpath,minutes=True,logplot=args.logplot)
     print(fpath)
 
 

@@ -42,6 +42,7 @@ if(__name__=='__main__'):
 
 	plt.suptitle(f'Histogram for {snap} {timestamp} {tag}')
 	plt.subplot(121)
+	print("Per chan hist is", hist)
 	plt.imshow(hist,aspect="auto",interpolation='none',cmap=mycmap.mpl_colormap)
 	# ax=plt.gca()
 	# ax.yaxis.set_major_locator(bins)
@@ -49,9 +50,9 @@ if(__name__=='__main__'):
 	locs,labels=plt.xticks()
 	locs=np.arange(0,len(obj.channels))
 	labels=[str(x) for x in obj.channels]
-	osamp=len(obj.channels)//64
-	print(osamp)
-	plt.xticks(locs[::3*osamp],labels[::3*osamp],rotation=-50)
+	# osamp=len(obj.channels)//64
+	osamp=int(obj.length_channels//64)
+	plt.xticks(locs[::osamp],labels[::osamp],rotation=-50)
 	# print(locs,labels)
 
 	locs,labels=plt.yticks()

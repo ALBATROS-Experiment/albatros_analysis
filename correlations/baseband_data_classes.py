@@ -163,7 +163,7 @@ class BasebandFileIterator():
 
     def __next__(self):
         t1=time.time()
-        # print("Current obj first spec vs acc start", self.obj.spec_idx[0], self.spec_num_start)
+        print("Current obj first spec vs acc start", self.obj.spec_idx[0], self.spec_num_start)
         if(self.nchunks and self.chunksread==self.nchunks):
             raise StopIteration
         pol0=numpy.zeros((self.acclen,self.ncols),dtype='uint8',order='c') #for now take all channels. will modify to accept chanstart, chanend
@@ -172,9 +172,10 @@ class BasebandFileIterator():
         rem=self.acclen
         i=0
         while(rem):
-            # print("Rem is", rem)
+            print("Rem is", rem)
             if(self.spec_num_start < self.obj.spec_num[0]):
                 # we are in a gap between the files
+                print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0]-self.spec_num_start,rem)
                 rem-=step
                 # i+=self.acclen-rem
@@ -187,7 +188,7 @@ class BasebandFileIterator():
                     #spillover to next file. 
                     
                     rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+l,self.obj.spec_idx)
-                    # print("From if:, rowstart, rowend", rowstart, rowend)
+                    print("From if:, rowstart, rowend", rowstart, rowend, rowend-rowstart)
                     specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
                     # print("len specnum from new file", rowend-rowstart)
                     rem-=l
@@ -197,10 +198,10 @@ class BasebandFileIterator():
                     # print("Reading new file")
                     self.fileidx+=1
                     self.obj = BasebandPacked(self.file_paths[self.fileidx],chanstart=self.chanstart,chanend=self.chanend, unpack=False)
-                    # print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
+                    print("My specnum pointer at", self.spec_num_start, "first specnum of new obj", self.obj.spec_num[0])
                 else:
                     rowstart, rowend = get_rows_from_specnum(self.spec_num_start,self.spec_num_start+rem,self.obj.spec_idx)
-                    # print("From else:, rowstart, rowend", rowstart, rowend)
+                    print("From else:, rowstart, rowend", rowstart, rowend, rowend-rowstart)
                     specnums=numpy.append(specnums,self.obj.spec_idx[rowstart:rowend])
                     # print("len specnum from else", rowend-rowstart)
                     pol0[i:i+rowend-rowstart],pol1[i:i+rowend-rowstart] = self.obj._unpack(rowstart, rowend)
