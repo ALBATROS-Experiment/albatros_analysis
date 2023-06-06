@@ -42,7 +42,7 @@ if __name__=='__main__':
             pol01[i,:]=cr.avg_xcorr_4bit(obj.pol0[st:en],obj.pol1[st:en],specnum)
         fname=f'rapid_4bit_{str(time_start)}_{str(args.acclen)}_{str(nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
         fpath=os.path.join(args.outdir,fname)
-        butils.plot_4bit(pol00,pol11,pol01,channels,args.acclen,time_start,fpath,minutes=False,logplot=True)
+        butils.plot_4bit(pol00,pol11,pol01,channels,args.acclen,time_start,None, None,fpath,minutes=False,logplot=True)
     elif(obj.bit_mode==1):
         for i in range(0,nchunks):
             st=i*args.acclen

@@ -105,6 +105,9 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     tend=0
     for i, d in enumerate(avgpol00):
         # print("Mean, median are", np.mean(d,axis=0),np.median(d,axis=0))
+        print("working on",data_subdirs[i])
+        if(d is None):
+            continue
         if(i==0):
             pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
@@ -151,6 +154,8 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     
     nrows=0
     for i in range(len(avgpol00)):
+        if((avgpol11[i] is None) or (avgpol01i[i] is None) or (avgpol01r[i] is None)):
+            continue
         if(i==0):
             r=avgpol11[i].shape[0]
             pol11[:r,:]=avgpol11[i]
@@ -186,6 +191,8 @@ def get_avg(arr,block=10):
     '''
     Fast average array over a given block size. 
     '''
+    if(arr is None):
+        return None
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
     # print(iters,leftover)
@@ -219,7 +226,6 @@ def get_stats(data_arr):
     else:
         stats = {"min":np.ma.min(data_arr,axis=0), "median":np.ma.median(data_arr,axis=0), 
                 "mean":np.ma.mean(data_arr,axis=0), "max":np.ma.max(data_arr,axis=0)}
-    print
     return stats
 
 def get_vmin_vmax(data_arr):
@@ -269,14 +275,25 @@ def full_plot(data_arrs, mytz, chunk_time):
     if logplot is True:
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
-    myvmin,myvmax=[vmin,vmax]
+
     if rescale:
         scaling_pol00 = np.tile(pol00_stats['median'],pol00.shape[0]).reshape(*pol00.shape)
         scaling_pol11 = np.tile(pol11_stats['median'],pol11.shape[0]).reshape(*pol11.shape)
         pol00[:]=10*(pol00-scaling_pol00) # - instead of / for type 2 scaling: log(pol00/pol00_median)
         pol11[:]=10*(pol11-scaling_pol11)
-        myvmin=-1
-        myvmax=1
+        vmin=-1
+        vmax=1
+        vmin2=vmin
+        vmax2=vmax
+    
+    if(args.common):
+        vmin_common = min(vmin,vmin2)
+        vmax_common = max(vmax,vmax2)
+        vmin=vmin_common
+        vmax=vmax_common
+        vmin2=vmin_common
+        vmax2=vmax_common
+    
         
     y_extent = get_ylim_times(tstart,tend)
     ticks = np.linspace(y_extent[0], y_extent[1],10)
@@ -287,7 +304,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.figure(figsize=(18,10), dpi=200)
     plt.subplot(2,3,1)
 
-    plt.imshow(pol00,vmin=myvmin,vmax=myvmax, aspect='auto', extent=myext)
+    plt.imshow(pol00,vmin=vmin,vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
     cb00 = plt.colorbar()
     cb00.ax.set_ylabel('Uncalibrated log(power)', rotation=90)
@@ -304,7 +321,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     # ax.yaxis.set_major_locator(locator)
     
     plt.subplot(2,3,4)
-    plt.imshow(pol11,vmin=myvmin,vmax=myvmax, aspect='auto', extent=myext)
+    plt.imshow(pol11,vmin=vmin2,vmax=vmax2, aspect='auto', extent=myext)
     plt.title('pol11')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
@@ -332,7 +349,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.plot(freq, pol11_stats["median"], color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol11')
-    plt.ylim(vmin,vmax)
+    plt.ylim(vmin2,vmax2)
     
     plt.legend(loc='lower right', fontsize='small')
 
@@ -387,11 +404,11 @@ def main():
     parser.add_argument("-fma", "--fmax", dest='fmax', default = None, type=float, help="maximum for frequency to plot")
     parser.add_argument("-fmi", "--fmin", dest='fmin', default = None, type=float, help="minimum for frequency to plot")  
     parser.add_argument("-r", "--rescale", dest='rescale', default = False, action="store_true",help="Rescale autospectra using median power")
-
+    parser.add_argument("-c", "--common", action="store_true", help="Common colorbar for both pols")
     args = parser.parse_args()
 
     #=============== defining some global variables ===============#
-    global freq, timezone, logplot, vmin, vmax, ctime_start, ctime_stop, blocksize, outdir, datetimefmt, rescale
+    global freq, timezone, logplot, vmin, vmax, vmin2, vmax2, ctime_start, ctime_stop, blocksize, outdir, datetimefmt, rescale
     
     timezone = args.timezone
     vmin = args.vmin
@@ -448,9 +465,12 @@ def main():
     # setting vmin and vmax
     if vmin==None and vmax==None:
         vmin,vmax = get_vmin_vmax(pol00)
+        vmin2,vmax2 = get_vmin_vmax(pol11)
         if logplot==True:
             vmin = np.log10(vmin)
             vmax = np.log10(vmax)
+            vmin2 = np.log10(vmin2)
+            vmax2 = np.log10(vmax2)
 
     #============ and finally: plotting! ============#
     if args.plottype == "full":

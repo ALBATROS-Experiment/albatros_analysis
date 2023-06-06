@@ -26,6 +26,26 @@ def get_acctime(fpath):
     acctime = np.mean(diff[(diff>0)&(diff<100)]) #sometimes timestamps are 0, which causes diff to be huge. could also use np. median
     return acctime
 
+def get_vmin_vmax(data_arr):
+    '''
+    Automatically gets vmin and vmax for colorbar
+    '''
+    # print("shape of passed array", data_arr.shape, data_arr.dtype)
+    xx=np.ravel(data_arr).copy()
+    med = np.percentile(xx,50)
+    # print(med, "median")
+    u=np.percentile(xx,99)
+    b=np.percentile(xx,1)
+    xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
+    stddev = np.std(xx_clean)
+    vmin= max(med - 2*stddev,10**7)
+    vmax = med + 2*stddev
+    if(vmin>vmax):
+        vmin=10**(np.log10(vmin)-1)
+    print(vmin,vmax)
+    # print("vmin, vmax are", vmin, vmax)
+    return vmin,vmax  
+
 
 if __name__ == "__main__":
     "Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
@@ -33,6 +53,7 @@ if __name__ == "__main__":
     parser.add_argument("data_dir", type=str, help="Auto/cross-spectra location. Ex: ~/data_auto_cross/16171/161700000")
     parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
     parser.add_argument("-l", "--logplot", action="store_true", help="Plot in logscale")
+    parser.add_argument("-c", "--common", action="store_true", help="Common colorbar for both pols")
     parser.add_argument("-s", "--show", action="store_true", help="Show final plot")
     parser.add_argument("-tz", "--timezone", type=str, default='US/Eastern', help="Valid timezone of the telescope recognized by pytz. E.g. US/Eastern. Default is US/Eastern.")
     parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
@@ -92,20 +113,20 @@ if __name__ == "__main__":
     pol00_min = np.min(pol00, axis=0)
     pol11_min = np.min(pol11, axis=0)
 
-    med = np.median(pol00)
-
-    xx=np.ravel(pol00).copy()
-    u=np.percentile(xx,99)
-    b=np.percentile(xx,1)
-    xx_clean=xx[(xx<=u)&(xx>=b)] # remove some outliers for better plotting
-    stddev = np.std(xx_clean)
-    if args.vmin is None:
-        vmin= max(med - 2*stddev,10**7)
-    if args.vmax is None:
-        vmax = med + 2*stddev
+    if args.vmin is None and args.vmax is None:
+        vmin,vmax=get_vmin_vmax(pol00)
+        vmin2,vmax2=get_vmin_vmax(pol11)
     
     pmax = np.max(pol00)
     axrange = [fmin, fmax, 0, pmax]
+
+    if(args.common):
+        vmin_common = min(vmin,vmin2)
+        vmax_common = max(vmax,vmax2)
+        vmin=vmin_common
+        vmax=vmax_common
+        vmin2=vmin_common
+        vmax2=vmax_common
 
     if args.logplot == True:
         pol00 = np.log10(pol00)
@@ -118,18 +139,20 @@ if __name__ == "__main__":
         pol11_max = np.log10(pol11_max)
         pol00_min = np.log10(pol00_min)
         pol11_min = np.log10(pol11_min)
-        med = np.log10(med)
         vmin = np.log10(vmin)
         vmax = np.log10(vmax)
+        vmin2 = np.log10(vmin2)
+        vmax2 = np.log10(vmax2)
         pmax = np.log10(pmax)
         axrange = [fmin, fmax, 6.5, pmax]
 
     print("Estimated accumulation time from timestamp file: ", acctime)
     tot_minutes = int(np.ceil(acctime * pol00.shape[0]/60))
     myext = np.array([fmin,fmax, tstart+tot_minutes, tstart])	
+    
         
     plt.figure(figsize=(18,10), dpi=200)
-
+    
     plt.subplot(2,3,1)
     plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
     plt.title('pol00')
@@ -139,7 +162,7 @@ if __name__ == "__main__":
     cb00.ax.set_ylabel('Uncalibrated log(Power)')
 
     plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin, vmax=vmax, aspect='auto', extent=myext)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect='auto', extent=myext)
     plt.title('pol11')
     cb=plt.colorbar()
     cb.ax.set_ylabel('Uncalibrated log(Power)')
@@ -153,7 +176,7 @@ if __name__ == "__main__":
     plt.plot(freq, pol00_med, color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol00')
-    plt.axis(axrange)
+    plt.ylim(vmin,vmax)
     plt.xlim(fmin, fmax)
 
     plt.subplot(2,3,5)
@@ -163,7 +186,7 @@ if __name__ == "__main__":
     plt.plot(freq, pol11_med, color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
     plt.ylabel('pol11')
-    plt.axis(axrange)
+    plt.ylim(vmin2,vmax2)
     plt.xlim(fmin, fmax)
     plt.legend(loc='lower right', fontsize='small')
 
