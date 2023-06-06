@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
     parser.add_argument("-sl", "--tslice", type=_parse_slice, help="Slice on time axis to restrict plot to. Format: -sl=tmin:tmax for timin, tmax in minutes")
     parser.add_argument("-st", "--stattype", type=str, default="mean", help="Statisitcal method for reducing the data long time axis. Options are median or mean")
-    parser.add_argument("-si", "--sim", type=int, default=0, help="sim")
+    parser.add_argument("-si", "--sim", type=float, default=0., help="sim")
     parser.add_argument("-fr", "--freqrange", type=_parse_slice, default=slice(5e5, 1e7, 1e5), help="Slice of freqeucny space over which to perform the comb")
     parser.add_argument("-hr", "--harmrange", type=_parse_slice, default=slice(1, 10, 1), help="First and last harmonic to consider in the harmonics comb")
     parser.add_argument("-nf", "--numf", type = int, default=500, help = "number of interpolated points over which to comb")
@@ -192,7 +192,22 @@ if __name__ == "__main__":
 
     t = np.arange(pol00.shape[1]) / 250e6
     freqs = np.arange(0, len(pol00_stat))*61035.15       
-       
+    
+    if args.sim != 0:
+        max_amp = np.amax(pol00_stat)
+        noise_floor = np.median(pol00_stat)
+        
+        fundamental = args.sim * 1e6   
+        temp = np.zeros(pol00_stat.shape)
+        print(freqs) 
+        for i in range(2,10):
+            temp += max_amp*gaussian(freqs, i*fundamental, 20000)  
+        temp += noise_floor * np.random.rand(len(temp))
+        
+        pol00_stat = temp
+        pol11_stat = temp
+         
+
     whittener00 = whittener(pol00_stat, freqs, nu = 0.3)
     whittener11 = whittener(pol11_stat, freqs, nu = 0.3) 
 
