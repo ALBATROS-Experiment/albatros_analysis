@@ -2,12 +2,15 @@ import numpy
 import struct
 import time
 import numba as nb
+import numpy as np
 import os
 # import unpacking as unpk
 from . import unpacking as unpk
 
 #keeping track of number of times specnum overflows in a given long-averaging run (e.g. several days)
+_OVERFLOW_DICT={}
 _OVERFLOW_CNTR=0
+_CORRECT_OVERFLOW=True
 
 @nb.njit(parallel=True)
 def fill_arr(myarr,specnum, spec_per_packet):
@@ -18,7 +21,7 @@ def fill_arr(myarr,specnum, spec_per_packet):
 
 class Baseband:
     def __init__(self, file_name, readlen=-1):
-        global _OVERFLOW_CNTR
+        global _OVERFLOW_CNTR, _OVERFLOW_DICT, _CORRECT_OVERFLOW
         with open(file_name, "rb") as file_data: #,encoding='ascii')
             header_bytes = struct.unpack(">Q", file_data.read(8))[0]
                 #setting all the header values
@@ -68,8 +71,10 @@ class Baseband:
                 self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
                 #check for specnum overflow
                 where_zero = np.where(np.diff(self.spec_num)<0)[0]
-                if(len(where_zero)==1):
-                    _OVERFLOW_CNTR+=1
+                if(len(where_zero)==1 and _CORRECT_OVERFLOW):
+                    if(file_name not in _OVERFLOW_DICT.keys()):
+                        _OVERFLOW_CNTR+=1
+                        _OVERFLOW_DICT[file_name]=1
                     self.spec_num[where_zero[0]+1:] += (_OVERFLOW_CNTR*2**32)
                 elif(len(where_zero)>1):
                     raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
