@@ -264,7 +264,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     Makes a plot that contains autospectra waterfalls for each pol, as well
     as some statistics (min,max,med,mean spectra), and cross spectra
     '''
-
+    global vmin, vmax, vmin2, vmax2
     pol00,pol11,pol01,tstart,tend = data_arrs
     print("Generating stats for pol00")
     pol00_stats = get_stats(pol00)
@@ -285,14 +285,6 @@ def full_plot(data_arrs, mytz, chunk_time):
         vmax=1
         vmin2=vmin
         vmax2=vmax
-    
-    if(args.common):
-        vmin_common = min(vmin,vmin2)
-        vmax_common = max(vmax,vmax2)
-        vmin=vmin_common
-        vmax=vmax_common
-        vmin2=vmin_common
-        vmax2=vmax_common
     
         
     y_extent = get_ylim_times(tstart,tend)
@@ -471,6 +463,11 @@ def main():
             vmax = np.log10(vmax)
             vmin2 = np.log10(vmin2)
             vmax2 = np.log10(vmax2)
+    if(args.common):
+        vmin = min(vmin,vmin2)
+        vmax = max(vmax,vmax2)
+        vmin2=vmin
+        vmax2=vmax
 
     #============ and finally: plotting! ============#
     if args.plottype == "full":
