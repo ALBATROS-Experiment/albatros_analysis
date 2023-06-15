@@ -6,6 +6,9 @@ import os
 # import unpacking as unpk
 from . import unpacking as unpk
 
+#keeping track of number of times specnum overflows in a given long-averaging run (e.g. several days)
+_OVERFLOW_CNTR=0
+
 @nb.njit(parallel=True)
 def fill_arr(myarr,specnum, spec_per_packet):
     n=len(specnum)
@@ -15,6 +18,7 @@ def fill_arr(myarr,specnum, spec_per_packet):
 
 class Baseband:
     def __init__(self, file_name, readlen=-1):
+        global _OVERFLOW_CNTR
         with open(file_name, "rb") as file_data: #,encoding='ascii')
             header_bytes = struct.unpack(">Q", file_data.read(8))[0]
                 #setting all the header values
@@ -30,6 +34,7 @@ class Baseband:
             self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
+            self.specnum_overflow = 0
             
             if self.bit_mode == 1:
                 self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
@@ -61,6 +66,13 @@ class Baseband:
                 print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
                 
                 self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
+                #check for specnum overflow
+                where_zero = np.where(np.diff(self.spec_num)<0)[0]
+                if(len(where_zero)==1):
+                    _OVERFLOW_CNTR+=1
+                    self.spec_num[where_zero[0]+1:] += (_OVERFLOW_CNTR*2**32)
+                elif(len(where_zero)>1):
+                    raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
                 self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
                 self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
                 fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
