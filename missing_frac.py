@@ -21,7 +21,7 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     print("INPUT DIRPATH:", os.path.abspath(args.dirpath)+'/*')
-    files = glob(os.path.abspath(args.dirpath)+'/*')
+    files = glob(os.path.abspath(args.dirpath)+'/*.raw')
     # print(files)
     files.sort()
     fracs = np.zeros(len(files))
