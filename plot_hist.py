@@ -12,6 +12,7 @@ if(__name__=='__main__'):
 	parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
 	parser.add_argument("-m", "--mode", type=int, default=-1, help="0 for pol0, 1 for pol1, -1 for both")
 	parser.add_argument("-r", "--rescale", action="store_true", help="Map bit values (0-15 for 4 bit data) to -ve to +ve levels.")
+	parser.add_argument("-c", '--chans', type=int, nargs=2, help="Indices of start and end channels to print out.")
 	args = parser.parse_args()
 
 	obj=bdc.Baseband(args.filepath)
@@ -42,7 +43,10 @@ if(__name__=='__main__'):
 
 	plt.suptitle(f'Histogram for {snap} {timestamp} {tag}')
 	plt.subplot(121)
-	print("Per chan hist is", hist)
+	if(args.chans):
+		print("Per chan hist is", hist[:,args.chans[0]:args.chans[1]])
+	else:
+		print("Per chan hist is", hist[:,:])
 	plt.imshow(hist,aspect="auto",interpolation='none',cmap=mycmap.mpl_colormap)
 	# ax=plt.gca()
 	# ax.yaxis.set_major_locator(bins)
