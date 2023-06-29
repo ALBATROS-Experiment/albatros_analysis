@@ -69,7 +69,8 @@ class Baseband:
                 print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
                 
                 self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
-                #check for specnum overflow
+                self.spec_num[:]+=(_OVERFLOW_CNTR*2**32) #correct for past overflows in this run of averaging
+                #check for specnum overflow in current file
                 where_zero = np.where(np.diff(self.spec_num)<0)[0]
                 if(len(where_zero)==1 and _CORRECT_OVERFLOW):
                     if(file_name not in _OVERFLOW_DICT.keys()):
