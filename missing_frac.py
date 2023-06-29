@@ -25,14 +25,17 @@ if __name__=='__main__':
     # print(files)
     files.sort()
     fracs = np.zeros(len(files))
-
-    for i,file in enumerate(files):
-        tag=file.split('/')[-1]
-        fracs[i] = get_missing_frac(file)
-        print(f"File {tag}, missing frac = {fracs[i]*100:5.3f}%")
-    # print("Missing fracs are:", fracs)
-    plt.plot(fracs)
-    plt.show()
+    try:
+        for i,file in enumerate(files):
+            tag=file.split('/')[-1]
+            fracs[i] = get_missing_frac(file)
+            print(f"File {tag}, missing frac = {fracs[i]*100:5.3f}%")
+        # print("Missing fracs are:", fracs)
+    except KeyboardInterrupt:
+        print("exiting...")
+    finally:
+        plt.plot(fracs[:i])
+        plt.show()
 
 
 

@@ -47,6 +47,7 @@ if(__name__=='__main__'):
 		print("Per chan hist is", hist[:,args.chans[0]:args.chans[1]])
 	else:
 		print("Per chan hist is", hist[:,:])
+	print("Min,Max,Std,Mean",np.min(hist,axis=1),np.max(hist,axis=1),np.std(hist,axis=1),np.mean(hist,axis=1))
 	plt.imshow(hist,aspect="auto",interpolation='none',cmap=mycmap.mpl_colormap)
 	# ax=plt.gca()
 	# ax.yaxis.set_major_locator(bins)
