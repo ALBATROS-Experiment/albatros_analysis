@@ -163,7 +163,7 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minut
     plt.colorbar()
     plt.savefig(opath)
 
-def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False):
+def plot_1bit(pol01,channels,acclen,time_start,opath,vmin,vmax,minutes=False,logplot=False):
     fig,ax=plt.subplots(1,2)
     fig.set_size_inches(10,4)
     t_acclen = acclen*2048/125e6 #seconds
@@ -175,9 +175,9 @@ def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False
     myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
 
     plt.suptitle(f'{tag} since {time_start}')
-    img1=ax[0].imshow(np.real(pol01),aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
+    img1=ax[0].imshow(np.real(pol01),aspect='auto',vmin=vmin,vmax=vmax, extent=myext)
     ax[0].set_title('pol01 real part')
-    img2=ax[1].imshow(np.imag(pol01),aspect='auto',vmin=-0.005,vmax=0.005, extent=myext)
+    img2=ax[1].imshow(np.imag(pol01),aspect='auto',vmin=vmin,vmax=vmax, extent=myext)
     ax[1].set_title('pol01 imag part')
     plt.colorbar(img1,ax=ax[0])
     plt.colorbar(img2,ax=ax[1])

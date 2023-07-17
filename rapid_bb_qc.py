@@ -14,6 +14,8 @@ if __name__=='__main__':
               help='Either integer number of packets you want to read from the file OR fraction of total packets')
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='./',
               help='Output directory for data')
+    parser.add_argument("-vmi", "--vmin", dest='vmin', default = -0.005, type=float, help="minimum for colorbar. if nothing is specified, vmin is -0.005")
+    parser.add_argument("-vma", "--vmax", dest='vmax', default = 0.005, type=float, help="maximum for colorbar. if nothing is specified, vmax is 0.005")
     parser.add_argument("-c", '--chans', type=int, nargs=2, help="Indices of start and end channels. Start channel index MUST be even in case of 1 bit file.")
     
     args = parser.parse_args()
@@ -50,6 +52,6 @@ if __name__=='__main__':
             pol01[i,:]=cr.avg_xcorr_1bit(obj.pol0[st:en],obj.pol1[st:en],specnum,nchans)
         fname=f'rapid_1bit_{str(time_start)}_{str(args.acclen)}_{str(nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
         fpath=os.path.join(args.outdir,fname)
-        butils.plot_1bit(pol01,channels,args.acclen,time_start,fpath,minutes=False,logplot=False)
+        butils.plot_1bit(pol01,channels,args.acclen,time_start,fpath,args.vmin,args.vmax,minutes=False,logplot=False)
     
     print(fpath)
