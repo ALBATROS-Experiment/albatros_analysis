@@ -10,7 +10,6 @@ from astropy.convolution import convolve
 from scipy.interpolate import interp1d
 import scipy.signal as signal
 from scipy.integrate import quad
-import scipy.fft as fft
 
 from palettable.cartocolors.qualitative import Safe_10
 

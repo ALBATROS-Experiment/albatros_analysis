@@ -8,7 +8,6 @@ import numpy as np
 import datetime, time, re
 from scio import scio
 import SNAPfiletools as sft
-import argparse
 from datetime import datetime
 import matplotlib.dates as mdates
 from multiprocessing import Pool
