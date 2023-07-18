@@ -177,8 +177,8 @@ def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file='time_gps_
         poldata = read_pol_fast(fnames, tag)
         data.append(poldata)
 
-    for i in xrange(len(pols)):
-        for j in xrange(i+1, len(pols)):
+    for i in range(len(pols)):
+        for j in range(i+1, len(pols)):
             for reality in ['r', 'i']:
                 tag = 'pol{}{}{}.scio'.format(i,j,reality)
                 poldata = read_pol_fast(fnames, tag)
