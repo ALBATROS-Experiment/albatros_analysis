@@ -1,4 +1,4 @@
-import numpy as nm
+import numpy as np
 import re, sys, os, datetime
 
 #==========================================================
@@ -18,8 +18,8 @@ def logs2ctimes(logdir):
         log_ctimes.append(ctime)
     # Sort by ctimes
     log_ctimes, log_files = zip(*sorted(zip(log_ctimes, log_files)))
-    log_files = nm.asarray(log_files)
-    log_ctimes = nm.asarray(log_ctimes)
+    log_files = np.asarray(log_files)
+    log_ctimes = np.asarray(log_ctimes)
     return log_files, log_ctimes
 
 #==========================================================
@@ -51,16 +51,16 @@ if __name__ == '__main__':
         tstamp = datetime.datetime.utcfromtimestamp(ctstamp)
         print 'Time stamp (UTC)', tstamp
         # Find out which config_fpga logfile is the right one
-        ind = nm.where(config_logfiles_ctimes - ctstamp < 0)[0][-1]
+        ind = np.where(config_logfiles_ctimes - ctstamp < 0)[0][-1]
         print 'Config FPGA log file:', config_logfiles[ind]
         # Find closest baseband log file
-        i = nm.where(baseband_logfiles_ctimes - ctstamp < 0)[0][-1]
-        dt = nm.round((ctstamp - baseband_logfiles_ctimes[i])/60.0, 2)
+        i = np.where(baseband_logfiles_ctimes - ctstamp < 0)[0][-1]
+        dt = np.round((ctstamp - baseband_logfiles_ctimes[i])/60.0, 2)
         print 'Nearest baseband log file (time diff =',dt,'minutes):'
         print baseband_logfiles[i]
         # Find closest dump_spectra log file
-        i = nm.where(spectra_logfiles_ctimes - ctstamp < 0)[0][-1]
-        dt = nm.round((ctstamp - spectra_logfiles_ctimes[i])/60.0, 2)
+        i = np.where(spectra_logfiles_ctimes - ctstamp < 0)[0][-1]
+        dt = np.round((ctstamp - spectra_logfiles_ctimes[i])/60.0, 2)
         print 'Nearest dump_spectra log file (time diff =',dt,'minutes):'
         print spectra_logfiles[i]
         # Pull out some of the most useful information from the config file

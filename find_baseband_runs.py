@@ -1,10 +1,10 @@
 import sys, os, re, datetime
 from optparse import OptionParser
-import numpy as nm
+import numpy as np
 
 #==========================================================
 def chan2freq(chan):
-    return nm.round(125.*chan/2048., 2)
+    return np.round(125.*chan/2048., 2)
 
 #==========================================================
 def logs2ctimes(logdir):
@@ -23,8 +23,8 @@ def logs2ctimes(logdir):
         log_ctimes.append(ctime)
     # Sort by ctimes
     log_ctimes, log_files = zip(*sorted(zip(log_ctimes, log_files)))
-    log_ctimes = nm.asarray(log_ctimes)
-    log_files = nm.asarray(log_files)
+    log_ctimes = np.asarray(log_ctimes)
+    log_files = np.asarray(log_files)
     return log_files, log_ctimes
 
 #==========================================================
@@ -68,8 +68,8 @@ if __name__ == '__main__':
                                        datetime.datetime(1970, 1, 1)).total_seconds()) )
             events.append(line.split('\t')[-1].strip())
         events_ctimes, events = zip(*sorted(zip(events_ctimes, events)))
-        events_ctimes = nm.asarray(events_ctimes)
-        events = nm.asarray(events)
+        events_ctimes = np.asarray(events_ctimes)
+        events = np.asarray(events)
 
     # Get time stamps of config_fpga and baseband log files
     config_logfiles, config_logfiles_ctimes = logs2ctimes(opts.logdir+'/albatros_config_fpga')
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         # Add 24 hours to ctstop so that end date is inclusive
         ctstop = int((datetime.datetime.strptime(opts.stop, '%Y%m%d') - \
                       datetime.datetime(1970, 1, 1)).total_seconds()) + 86399
-    inds = nm.where( (baseband_logfiles_ctimes >= ctstart) & (baseband_logfiles_ctimes <= ctstop) )[0]
+    inds = np.where( (baseband_logfiles_ctimes >= ctstart) & (baseband_logfiles_ctimes <= ctstop) )[0]
     if len(inds) == 0:
         print('No files found within specified start and stop dates')
         exit(0)
@@ -115,10 +115,10 @@ if __name__ == '__main__':
         ctstop = int((datetime.datetime.strptime(tstop, '%d-%m-%Y %H:%M:%S') - \
                       datetime.datetime(1970, 1, 1)).total_seconds())
         baseband_runtimes.append(ctstop-ctstart)
-    baseband_runtimes = nm.asarray(baseband_runtimes)
+    baseband_runtimes = np.asarray(baseband_runtimes)
 
     min_sec = opts.min_time*60
-    inds = nm.where(baseband_runtimes >= min_sec)[0]
+    inds = np.where(baseband_runtimes >= min_sec)[0]
     baseband_runtimes = baseband_runtimes[inds]
     baseband_logfiles = baseband_logfiles[inds]
     baseband_logfiles_ctimes = baseband_logfiles_ctimes[inds]
@@ -128,12 +128,12 @@ if __name__ == '__main__':
         # Find the closest system state
         sys_state = 'unknown'
         if opts.events_file != 'None':
-            ii = nm.where(events_ctimes - baseband_logfiles_ctimes[ind] < 0)[0]
+            ii = np.where(events_ctimes - baseband_logfiles_ctimes[ind] < 0)[0]
             if len(ii) != 0:
                 sys_state = events[ii][-1]
         
         # Find the closest config_fpga log file
-        ii = nm.where(config_logfiles_ctimes - baseband_logfiles_ctimes[ind] < 0)[0]
+        ii = np.where(config_logfiles_ctimes - baseband_logfiles_ctimes[ind] < 0)[0]
         if len(ii) == 0:
             config_logfile = None
         else:
