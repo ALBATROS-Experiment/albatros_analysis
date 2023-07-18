@@ -1,4 +1,4 @@
-import sys, os, re, time, datetime
+import sys, os, re, datetime
 from optparse import OptionParser
 import numpy as nm
 
