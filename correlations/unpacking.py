@@ -2,7 +2,6 @@ import numpy
 import ctypes
 import time
 import os
-import sys
 
 mylib=ctypes.cdll.LoadLibrary(os.path.realpath(__file__+r"/..")+"/lib_unpacking.so")
 unpack_4bit_float_c = mylib.unpack_4bit_float

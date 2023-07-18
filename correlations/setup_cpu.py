@@ -1,5 +1,4 @@
 import os
-import sys
 
 #builds into the same directory as the setup file
 path = os.path.realpath(__file__+r"/..")
