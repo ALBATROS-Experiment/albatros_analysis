@@ -6,7 +6,7 @@ if os.environ.get('DISPLAY','') == '':
 
 
 import numpy as nm
-import scio, pylab, datetime, time
+import scio, pylab
 import SNAPfiletools as sft
 from optparse import OptionParser
 

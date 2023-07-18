@@ -1,12 +1,8 @@
 import albatrostools
-import matplotlib
-#matplotlib.use("Agg")
 import os, sys, datetime, pylab
 import numpy as np
 import SNAPfiletools as sft
 from optparse import OptionParser
-import time
-import shutil
 
 from multiprocessing import Pool, get_context
 import pfb_helper as pfb

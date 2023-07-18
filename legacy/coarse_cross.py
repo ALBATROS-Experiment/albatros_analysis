@@ -5,7 +5,6 @@ import os, sys, datetime, pylab
 import numpy as nm
 import SNAPfiletools as sft
 from optparse import OptionParser
-import time
 import shutil
 
 #============================================================

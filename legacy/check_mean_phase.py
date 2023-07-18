@@ -3,7 +3,6 @@ import albatrostools
 import glob
 import time
 from matplotlib import pyplot as plt
-import read_4bit
 from importlib import reload
 import scio
 

@@ -1,6 +1,6 @@
 import numpy as nm
 import SNAPfiletools as sft
-import scio, pylab, datetime, time, os
+import pylab
 
 #============================================================
 
