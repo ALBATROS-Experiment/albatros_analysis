@@ -35,7 +35,7 @@ if __name__ == '__main__':
         
     outfile = 'lwa_overnight_auto.png'
     pylab.savefig(outfile)
-    print 'Wrote', outfile
+    print(f'Wrote {outfile}')
     pylab.close()
 
     pylab.figure(figsize=(16,8))
@@ -50,6 +50,6 @@ if __name__ == '__main__':
         
     outfile = 'lwa_overnight_cross.png'
     pylab.savefig(outfile)
-    print 'Wrote', outfile
+    print(f'Wrote {outfile}')
     pylab.close()
     
