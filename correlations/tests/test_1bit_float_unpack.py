@@ -50,8 +50,14 @@ def packed_1bit(real_im_1bit_pol0, real_im_1bit_pol1):
     return packed
 
 def test_float_unpack(packed_1bit,expected_complex_1bit):
-    pol0,pol1 = unpk.unpack_1bit(packed_1bit,8,True)
+    pol0,pol1 = unpk.unpack_1bit(packed_1bit,8,2,6) #chan 2 to chan 5 (4 channels)
     truepol0,truepol1 = expected_complex_1bit
+    truepol0=truepol0[:,2:6]
+    truepol1=truepol1[:,2:6]
+    # print("packed",packed_1bit)
+    # print("pol0",pol0)
+    # print("truth", truepol0)
+    # print(pol0-truepol0)
     assert np.all(pol0==truepol0)
     assert np.all(pol1==truepol1)
 

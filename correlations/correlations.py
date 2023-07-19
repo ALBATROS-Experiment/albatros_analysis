@@ -24,6 +24,15 @@ avg_xcorr_4bit_2ant_c = mylib.avg_xcorr_4bit_2ant
 mylib.avg_xcorr_1bit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32]
 avg_xcorr_1bit_c = mylib.avg_xcorr_1bit
 
+mylib.avg_xcorr_1bit_vanvleck.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, \
+    ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32]
+avg_xcorr_1bit_vanvleck_c = mylib.avg_xcorr_1bit_vanvleck
+
+mylib.avg_xcorr_1bit_vanvleck_2ant.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,ctypes.c_void_p,\
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int]
+avg_xcorr_1bit_vanvleck_2ant_c = mylib.avg_xcorr_1bit_vanvleck_2ant
+
+
 def autocorr_4bit(pol):
 
     data = pol.copy()
@@ -125,6 +134,61 @@ def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     t2=time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
     return xcorr/nrows
+
+def avg_xcorr_1bit_vanvleck(data0, data1, specnums, nchannels):
+
+    #nchannels = num of channels contained in packed pol0/pol1 data
+    assert(data0.shape[0]==data1.shape[0])
+    assert(data0.shape[1]==data1.shape[1])
+    nrows= len(specnums)
+    print("Input shape is", nrows)
+    # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
+    R0 = np.empty(nchannels,dtype='float32',order='c')
+    R1 = np.empty(nchannels,dtype='float32',order='c')
+    IM0 = np.empty(nchannels,dtype='float32',order='c')
+    IM1 = np.empty(nchannels,dtype='float32',order='c')
+    if(nrows==0):
+        R0[:]=np.nan
+        R1[:]=np.nan
+        IM0[:]=np.nan
+        IM1[:]=np.nan
+        return [R0,R1,IM0,IM1]
+    t1=time.time()
+    avg_xcorr_1bit_vanvleck_c(data0.ctypes.data,data1.ctypes.data, R0.ctypes.data, R1.ctypes.data, IM0.ctypes.data, IM1.ctypes.data,\
+        nchannels, nrows, data0.shape[1])
+    t2=time.time()
+    print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+    return [R0/nrows, R1/nrows, IM0/nrows, IM1/nrows]
+
+def avg_xcorr_1bit_vanvleck_2ant(data0, data1, nchannels, specnum0, specnum1, idxstart0, idxstart1):
+
+    #nchannels = num of channels contained in packed pol0/pol1 data
+    assert(data0.shape[0]==data1.shape[0])
+    assert(data0.shape[1]==data1.shape[1])
+    print("Input shapes are", len(specnum0), len(specnum1))
+    # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
+    R0 = np.empty(nchannels,dtype='float32',order='c')
+    R1 = np.empty(nchannels,dtype='float32',order='c')
+    IM0 = np.empty(nchannels,dtype='float32',order='c')
+    IM1 = np.empty(nchannels,dtype='float32',order='c')
+    t1=time.time()
+    if(len(specnum0)==0 or len(specnum1)==0):
+        R0[:]=np.nan
+        R1[:]=np.nan
+        IM0[:]=np.nan
+        IM1[:]=np.nan
+        return [R0,R1,IM0,IM1]
+    rowcount= avg_xcorr_1bit_vanvleck_2ant_c(data0.ctypes.data,data1.ctypes.data, R0.ctypes.data, R1.ctypes.data, IM0.ctypes.data, IM1.ctypes.data,\
+        specnum0.ctypes.data, specnum1.ctypes.data, idxstart0, idxstart1, len(specnum0), len(specnum1), data0.shape[1], nchannels)
+    if(rowcount==0):
+        R0[:]=np.nan
+        R1[:]=np.nan
+        IM0[:]=np.nan
+        IM1[:]=np.nan
+        return [R0,R1,IM0,IM1]
+    t2=time.time()
+    print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+    return [R0/rowcount, R1/rowcount, IM0/rowcount, IM1/rowcount]
 
 
 

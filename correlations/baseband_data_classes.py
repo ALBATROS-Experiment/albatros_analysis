@@ -8,9 +8,6 @@ import os
 from . import unpacking as unpk
 
 #keeping track of number of times specnum overflows in a given long-averaging run (e.g. several days)
-_OVERFLOW_DICT={}
-_OVERFLOW_CNTR=0
-_CORRECT_OVERFLOW=True
 
 @nb.njit(parallel=True)
 def fill_arr(myarr,specnum, spec_per_packet):
@@ -20,8 +17,7 @@ def fill_arr(myarr,specnum, spec_per_packet):
             myarr[i*spec_per_packet+j] = specnum[i]+j
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1):
-        global _OVERFLOW_CNTR, _OVERFLOW_DICT, _CORRECT_OVERFLOW
+    def __init__(self, file_name, readlen=-1,fixoverflow=True):
         with open(file_name, "rb") as file_data: #,encoding='ascii')
             header_bytes = struct.unpack(">Q", file_data.read(8))[0]
                 #setting all the header values
@@ -67,27 +63,24 @@ class Baseband:
                 data = numpy.fromfile(file_data, count=self.read_packets, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(self.bytes_per_packet-4))])
                 t2 = time.time()
                 print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
-                
-                self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
-                self.spec_num[:]+=(_OVERFLOW_CNTR*2**32) #correct for past overflows in this run of averaging
-                #check for specnum overflow in current file
-                where_zero = np.where(np.diff(self.spec_num)<0)[0]
-                if(len(where_zero)==1 and _CORRECT_OVERFLOW):
-                    if(file_name not in _OVERFLOW_DICT.keys()):
-                        _OVERFLOW_CNTR+=1
-                        _OVERFLOW_DICT[file_name]=1
-                    self.spec_num[where_zero[0]+1:] += (_OVERFLOW_CNTR*2**32)
-                elif(len(where_zero)>1):
-                    raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
                 self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
-                self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
-                fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
-                # self.spec_idx = self.spec_idx - self.spec_idx[0]
+                self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
+                #check for specnum overflow in current file
+                self.where_zero = np.where(np.diff(self.spec_num)<0)[0]
+                if(fixoverflow):
+                    if(len(self.where_zero)==1):
+                        self.spec_num[self.where_zero[0]+1:] += (2**32)
+                        self._set_specidx()
+                    elif(len(where_zero)>1):
+                        raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
 
-                specdiff=numpy.diff(self.spec_num)
-                idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
-                self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
-                self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
+    def _set_specidx(self):
+        self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
+        fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
+        specdiff=numpy.diff(self.spec_num)
+        idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
+        self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
+        self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
 
     def print_header(self):
         print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
@@ -108,7 +101,7 @@ def get_header(file_name,verbose=True):
     return obj.__dict__
 
 class BasebandFloat(Baseband):
-    def __init__(self, file_name,readlen=-1,chanstart=0, chanend=None):
+    def __init__(self, file_name, readlen=-1, fixoverflow=True, chanstart=0, chanend=None):
         super().__init__(file_name, readlen)
         self.chanstart = chanstart
         if(chanend==None):
@@ -119,13 +112,13 @@ class BasebandFloat(Baseband):
         if self.bit_mode == 4:
             self.pol0, self.pol1 = unpk.unpack_4bit(self.raw_data, self.length_channels, 0, len(self.spec_idx), self.chanstart, self.chanend)
         elif self.bit_mode == 1:
-            self.pol0, self.pol1 = unpk.unpack_1bit(self.raw_data, self.length_channels, True)
+            self.pol0, self.pol1 = unpk.unpack_1bit(self.raw_data, self.length_channels, self.chanstart, self.chanend)
         else:
             print("Unknown bit depth")
 
 class BasebandPacked(Baseband):
     #turn spec_selection to true and enter the range of spectra you want to save only part of the file
-    def __init__(self, file_name, readlen=-1,rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
+    def __init__(self, file_name, readlen=-1,fixoverflow=True, rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
         super().__init__(file_name,readlen)
 
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
@@ -159,6 +152,8 @@ class BasebandFileIterator():
     def __init__(self, file_paths, fileidx, idxstart, acclen, nchunks=None, chanstart=0, chanend=None):
         #you need to pass nchunks if you are passing the iterator to zip(). without nchunks, iteration won't stop
         print("ACCLEN RECEIVED IS", acclen)
+        self._OVERFLOW_DICT = {}
+        self._OVERFLOW_CTR = 0
         self.acclen=acclen
         self.file_paths = file_paths
         self.fileidx=fileidx
@@ -175,6 +170,19 @@ class BasebandFileIterator():
             if(self.obj.chanstart%2>0):
                 raise ValueError("ERROR: Start channel index must be even.")
             self.ncols = numpy.ceil((self.obj.chanend-self.obj.chanstart)/4).astype(int)
+    
+    def _read_packed(self, file_name, readlen=-1, fixoverflow=True, rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
+        temp_obj = BasebandPacked(file_paths[fileidx],fixoverflow=False,chanstart=chanstart,chanend=chanend, unpack=False)
+        temp_obj.spec_num[:]+=(self._OVERFLOW_CNTR*2**32) #correct for past overflows in this run of averaging
+        if(len(temp_obj.where_zero)==1):
+            if(file_name not in self._OVERFLOW_DICT.keys()):
+                self._OVERFLOW_DICT[file_name]=1
+                self._OVERFLOW_CTR += 1
+                temp_obj.spec_num[temp_obj.where_zero[0]+1:] += (2**32)
+            elif(len(where_zero)>1):
+                raise ValueError(f"Why are there two -ve diffs in specnum? Investigate {file_name}")
+        temp_obj._set_specidx()
+        return temp_obj
     
     def __iter__(self):
         return self
