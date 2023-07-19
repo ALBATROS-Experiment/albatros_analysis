@@ -10,6 +10,19 @@ from . import unpacking as unpk
 
 @nb.njit(parallel=True)
 def fill_arr(myarr, specnum, spec_per_packet):
+    """Generate a time-continuous array of spectrum numbers by filling
+    up missing spectrum numbers. Can be used to make any array time continuous
+    if given corresponding spectrum numbers
+
+    Parameters
+    ----------
+    myarr : ndarray
+        Bigger array that will hold all time-continuous values. Filled in-place.
+    specnum : ndarray
+        Smaller array that holds only the extant spectrum numbers
+    spec_per_packet : int
+        Spectra per packet
+    """
     n = len(specnum)
     for i in nb.prange(n):
         for j in nb.prange(spec_per_packet):
@@ -17,6 +30,8 @@ def fill_arr(myarr, specnum, spec_per_packet):
 
 
 class Baseband:
+    """Base class for loading a baseband file into memory."""
+
     def __init__(self, file_name, readlen=-1):
         with open(file_name, "rb") as file_data:  # ,encoding='ascii')
             header_bytes = struct.unpack(">Q", file_data.read(8))[0]
