@@ -204,28 +204,43 @@ void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, in
   }
 }
 
-void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int nchan)
+void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int chanstart, int chanend, int nchan)
 {
-  uint64_t nn=nspec*nchan/2; //length of the read raw data in bytes. nn is total bytes
   #pragma omp parallel for
-  for (uint64_t i = 0; i<nn; i++) {
-    float r0c0=(data[i]>>7)&1;
-    float i0c0=(data[i]>>6)&1;
-    float r1c0=(data[i]>>5)&1;
-    float i1c0=(data[i]>>4)&1;
-    float r0c1=(data[i]>>3)&1;
-    float i0c1=(data[i]>>2)&1;
-    float r1c1=(data[i]>>1)&1;
-    float i1c1=(data[i]>>0)&1;
+	for(int i=0;i<2*nspec*(chanend-chanstart);i++) //complex array
+	{
+		pol0[i]=0;
+		pol1[i]=0;
+	}
+  int bytes_per_spec=nchan/2;
+  // #pragma omp parallel for
+  for (int i = 0; i<nspec; i++) 
+  {
+    for (int j =0; j<(chanend-chanstart)/2; j++) // number of bytes to read for each spectra.
+    {
+      int dataidx = i*bytes_per_spec+chanstart/2+j;
+      float r0c0=(data[dataidx]>>7)&1;
+      float i0c0=(data[dataidx]>>6)&1;
+      float r1c0=(data[dataidx]>>5)&1;
+      float i1c0=(data[dataidx]>>4)&1;
+      float r0c1=(data[dataidx]>>3)&1;
+      float i0c1=(data[dataidx]>>2)&1;
+      float r1c1=(data[dataidx]>>1)&1;
+      float i1c1=(data[dataidx]>>0)&1;
+      // printf("Reading current byte %d %f %f %f %f %f %f %f %f %f\n",data[dataidx], r0c0,i0c0,r1c0,i1c0,r0c1,i0c1,r1c1,i1c1);
 
-    pol0[4*i]   = 2*r0c0-1;
-    pol0[4*i+1] = 2*i0c0-1;
-    pol1[4*i]   = 2*r1c0-1;
-    pol1[4*i+1] = 2*i1c0-1;
-    pol0[4*i+2] = 2*r0c1-1;
-    pol0[4*i+3] = 2*i0c1-1;
-    pol1[4*i+2] = 2*r1c1-1;
-    pol1[4*i+3] = 2*i1c1-1;
+      int polidx = i*(chanend-chanstart)*2 + 4*j; // for each spectra-byte read, skip by 4 since each byte has two channels = 4 x int32 numbers.
+      // printf("Filling current polidx %d \n", polidx);
+      pol0[polidx]   = 2*r0c0-1;
+      pol0[polidx+1] = 2*i0c0-1;
+      pol0[polidx+2] = 2*r0c1-1;
+      pol0[polidx+3] = 2*i0c1-1;
+      pol1[polidx]   = 2*r1c0-1;
+      pol1[polidx+1] = 2*i1c0-1;
+      pol1[polidx+2] = 2*r1c1-1;
+      pol1[polidx+3] = 2*i1c1-1;
+    }
+    
   }
 }
 

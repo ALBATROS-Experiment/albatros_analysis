@@ -8,7 +8,7 @@ mylib=ctypes.cdll.LoadLibrary(os.path.realpath(__file__+r"/..")+"/lib_unpacking.
 unpack_4bit_float_c = mylib.unpack_4bit_float
 unpack_4bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 unpack_1bit_float_c = mylib.unpack_1bit_float
-unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+unpack_1bit_float_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int,ctypes.c_int,ctypes.c_int, ctypes.c_int]
 sortpols_c = mylib.sortpols
 sortpols_c.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_short, ctypes.c_int, ctypes.c_int]
 hist_4bit_c = mylib.hist_4bit
@@ -47,17 +47,17 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart,chanend):
     print("Took " + str(t2 - t1) + " to unpack")
     return pol0, pol1
 
-def unpack_1bit(data, length_channels, isfloat):
-    if isfloat:
-        nspec = 2*data.shape[0]*data.shape[1]//length_channels
-        pol0 = numpy.zeros([nspec,length_channels],dtype='complex64')
-        pol1 = numpy.zeros([nspec,length_channels],dtype='complex64')
-        t1 = time.time()
-        unpack_1bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,length_channels)
-        t2 = time.time()
-        print("Took " + str(t2 - t1) + " to unpack")
-    else:
-        print("not float")
+def unpack_1bit(data, length_channels, chanstart, chanend):
+
+    nspec = 2*data.shape[0]*data.shape[1]//length_channels
+    ncols = chanend-chanstart
+    print("print shape of my pols",nspec,ncols)
+    pol0 = numpy.empty([nspec,ncols],dtype='complex64')
+    pol1 = numpy.empty([nspec,ncols],dtype='complex64')
+    t1 = time.time()
+    unpack_1bit_float_c(data.ctypes.data,pol0.ctypes.data,pol1.ctypes.data,nspec,chanstart,chanend,length_channels)
+    t2 = time.time()
+    print("Took " + str(t2 - t1) + " to unpack")
     return pol0, pol1
 
 

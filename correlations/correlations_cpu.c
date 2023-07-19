@@ -189,7 +189,7 @@ int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t
 {
     int rownums0[nrows0], rownums1[nrows1], row_count=0, i=0,j=0;
     uint8_t imask=15;
-      uint8_t rmask=255-15;
+    uint8_t rmask=255-15;
     //+2.1bil to -2.4bil, should be enough, and compatible with float32
     int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
 
@@ -432,3 +432,213 @@ void avg_xcorr_1bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nchan, 
     }
 }
 
+void avg_xcorr_1bit_vanvleck(uint8_t * data0, uint8_t * data1, float * R0, float * R1, float * IM0, float * IM1, 
+    int nchan, const uint32_t nrows, const uint32_t ncol)
+{
+    printf("entered corr func\n");
+    //+2.1bil to -2.4bil, should be enough, and compatible with float32
+    for(int i=0; i<nchan; i++)
+    {
+        R0[i]=0; R1[i]=0; IM0[i]=0; IM1[i]=0;
+    }
+    printf("nrows is %d\n", nrows);
+    #pragma omp parallel
+    {
+        // printf("INSIDE BLOCK\n");
+        //init
+        int32_t sum_R0_pvt[nchan], sum_R1_pvt[nchan], sum_IM0_pvt[nchan], sum_IM1_pvt[nchan];
+
+        for(int i=0;i<nchan;i++)
+        {
+            sum_R0_pvt[i]=0;
+            sum_R1_pvt[i]=0;
+            sum_IM0_pvt[i]=0;
+            sum_IM1_pvt[i]=0;
+        }
+
+        // printf("About to enter OUTER FOR\n");
+        // printf("nspec is %d\n", nspec);
+        #pragma omp for nowait
+        for(int i=0; i<nrows; i++)
+        {
+            // printf("HELL\n");
+            // fflush(stdout);
+            int8_t c0r0,c0i0,c1r0,c1i0,c2r0,c2i0,c3r0,c3i0,c0r1,c0i1,c1r1,c1i1,c2r1,c2i1,c3r1,c3i1;
+            int idx, colidx;
+            // printf("enter outer for\n");
+            for(int j=0; j<ncol; j++)
+            {
+                idx = i*ncol + j;
+                c0r0 = (data0[idx]>>7)&1;
+                c0i0 = (data0[idx]>>6)&1;
+                c1r0 = (data0[idx]>>5)&1;
+                c1i0 = (data0[idx]>>4)&1;
+                c2r0 = (data0[idx]>>3)&1;
+                c2i0 = (data0[idx]>>2)&1;
+                c3r0 = (data0[idx]>>1)&1;
+                c3i0 = (data0[idx])&1;
+
+                c0r1 = (data1[idx]>>7)&1;  
+                c0i1 = (data1[idx]>>6)&1;
+                c1r1 = (data1[idx]>>5)&1;
+                c1i1 = (data1[idx]>>4)&1;
+                c2r1 = (data1[idx]>>3)&1;
+                c2i1 = (data1[idx]>>2)&1;
+                c3r1 = (data1[idx]>>1)&1;
+                c3i1 = (data1[idx])&1;		
+                colidx = 4*j;
+                sum_R0_pvt[colidx] = sum_R0_pvt[colidx] - 2*(c0r0^c0r1) + 1;
+                sum_R1_pvt[colidx] = sum_R1_pvt[colidx] - 2*(c0i0^c0i1) + 1;
+                sum_IM0_pvt[colidx] = sum_IM0_pvt[colidx] -2*(c0r0^c0i1) + 1;
+                sum_IM1_pvt[colidx] = sum_IM1_pvt[colidx] -2*(c0r1^c0i0) + 1;
+
+                sum_R0_pvt[colidx+1] = sum_R0_pvt[colidx+1] - 2*(c1r0^c1r1) + 1;
+                sum_R1_pvt[colidx+1] = sum_R1_pvt[colidx+1] - 2*(c1i0^c1i1) + 1;
+                sum_IM0_pvt[colidx+1] = sum_IM0_pvt[colidx+1] -2*(c1r0^c1i1) + 1;
+                sum_IM1_pvt[colidx+1] = sum_IM1_pvt[colidx+1] -2*(c1r1^c1i0) + 1;
+
+                sum_R0_pvt[colidx+2] = sum_R0_pvt[colidx+2] - 2*(c2r0^c2r1) + 1;
+                sum_R1_pvt[colidx+2] = sum_R1_pvt[colidx+2] - 2*(c2i0^c2i1) + 1;
+                sum_IM0_pvt[colidx+2] = sum_IM0_pvt[colidx+2] -2*(c2r0^c2i1) + 1;
+                sum_IM1_pvt[colidx+2] = sum_IM1_pvt[colidx+2] -2*(c2r1^c2i0) + 1;
+
+                sum_R0_pvt[colidx+3] = sum_R0_pvt[colidx+3] - 2*(c3r0^c3r1) + 1;
+                sum_R1_pvt[colidx+3] = sum_R1_pvt[colidx+3] - 2*(c3i0^c3i1) + 1;
+                sum_IM0_pvt[colidx+3] = sum_IM0_pvt[colidx+3] -2*(c3r0^c3i1) + 1;
+                sum_IM1_pvt[colidx+3] = sum_IM1_pvt[colidx+3] -2*(c3r1^c3i0) + 1;
+
+            }
+
+        }
+        #pragma omp critical
+        {
+            for(int k=0; k<nchan; k++)
+            {
+                R0[k] = R0[k] + sum_R0_pvt[k];
+                R1[k] = R1[k] + sum_R1_pvt[k];
+                IM0[k] = IM0[k] + sum_IM0_pvt[k];
+                IM1[k] = IM1[k] + sum_IM1_pvt[k];
+            }
+        }
+    }
+}
+
+
+int avg_xcorr_1bit_vanvleck_2ant(uint8_t * data0, uint8_t * data1, float * R0, float * R1, float * IM0, float * IM1, 
+    int64_t* specnum0, int64_t* specnum1, const int64_t idxstart0, const int64_t idxstart1, const uint32_t nrows0, const uint32_t nrows1, const uint32_t ncol, const int nchan)
+{
+    int rownums0[nrows0], rownums1[nrows1], row_count=0, i=0,j=0;
+    uint8_t imask=15;
+    uint8_t rmask=255-15;
+
+    // printf("\n***Variables passed****\n");
+    // printf("idx: %d %d %d %d\n", idxstart0, idxstart1, nrows0, nrows1);
+    // printf("From C: %d %d",specnum0[0],specnum1[0]);
+    // printf("ncol: %d\n", ncol);
+
+    while((i<nrows0)&&(j<nrows1))
+    {
+        
+        if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
+        {
+            rownums0[row_count]=i;
+            rownums1[row_count]=j;
+            row_count=row_count+1;
+            i=i+1;
+            j=j+1;
+        }
+        else if((specnum0[i]-idxstart0)>(specnum1[j]-idxstart1)) {j=j+1;}
+        else {i=i+1;}
+    }
+    // printf("FROM C: rownums selected are\n\n");
+    // for(int i =0;i<row_count;i++)
+    // {
+    // 	printf("%d    %d\n", rownums0[i], rownums1[i]);
+    // }
+    // printf("row count is: %d\n", row_count);
+
+
+    for(int i=0; i<nchan; i++)
+    {
+        R0[i]=0; R1[i]=0; IM0[i]=0; IM1[i]=0;
+    }
+
+    #pragma omp parallel
+    {
+        int32_t sum_R0_pvt[nchan], sum_R1_pvt[nchan], sum_IM0_pvt[nchan], sum_IM1_pvt[nchan];
+        //init
+        //+2.1bil to -2.4bil, should be enough, and compatible with float32
+        for(int i=0;i<nchan;i++)
+        {
+            sum_R0_pvt[i]=0;
+            sum_R1_pvt[i]=0;
+            sum_IM0_pvt[i]=0;
+            sum_IM1_pvt[i]=0;
+        }
+
+        #pragma omp for nowait
+        for(int i=0; i<row_count; i++)
+        {
+            // printf("HELL\n");
+            // fflush(stdout);
+            int8_t c0r0,c0i0,c1r0,c1i0,c2r0,c2i0,c3r0,c3i0,c0r1,c0i1,c1r1,c1i1,c2r1,c2i1,c3r1,c3i1;
+            int idx0, idx1, colidx;
+            // printf("enter outer for\n");
+            for(int j=0; j<ncol; j++)
+            {
+                idx0 = rownums0[i]*ncol + j;
+                idx1 = rownums1[i]*ncol + j;
+                c0r0 = (data0[idx0]>>7)&1;
+                c0i0 = (data0[idx0]>>6)&1;
+                c1r0 = (data0[idx0]>>5)&1;
+                c1i0 = (data0[idx0]>>4)&1;
+                c2r0 = (data0[idx0]>>3)&1;
+                c2i0 = (data0[idx0]>>2)&1;
+                c3r0 = (data0[idx0]>>1)&1;
+                c3i0 = (data0[idx0])&1;
+
+                c0r1 = (data1[idx1]>>7)&1;  
+                c0i1 = (data1[idx1]>>6)&1;
+                c1r1 = (data1[idx1]>>5)&1;
+                c1i1 = (data1[idx1]>>4)&1;
+                c2r1 = (data1[idx1]>>3)&1;
+                c2i1 = (data1[idx1]>>2)&1;
+                c3r1 = (data1[idx1]>>1)&1;
+                c3i1 = (data1[idx1])&1;		
+                colidx = 4*j;
+                sum_R0_pvt[colidx] = sum_R0_pvt[colidx] - 2*(c0r0^c0r1) + 1;
+                sum_R1_pvt[colidx] = sum_R1_pvt[colidx] - 2*(c0i0^c0i1) + 1;
+                sum_IM0_pvt[colidx] = sum_IM0_pvt[colidx] -2*(c0r0^c0i1) + 1;
+                sum_IM1_pvt[colidx] = sum_IM1_pvt[colidx] -2*(c0r1^c0i0) + 1;
+
+                sum_R0_pvt[colidx+1] = sum_R0_pvt[colidx+1] - 2*(c1r0^c1r1) + 1;
+                sum_R1_pvt[colidx+1] = sum_R1_pvt[colidx+1] - 2*(c1i0^c1i1) + 1;
+                sum_IM0_pvt[colidx+1] = sum_IM0_pvt[colidx+1] -2*(c1r0^c1i1) + 1;
+                sum_IM1_pvt[colidx+1] = sum_IM1_pvt[colidx+1] -2*(c1r1^c1i0) + 1;
+
+                sum_R0_pvt[colidx+2] = sum_R0_pvt[colidx+2] - 2*(c2r0^c2r1) + 1;
+                sum_R1_pvt[colidx+2] = sum_R1_pvt[colidx+2] - 2*(c2i0^c2i1) + 1;
+                sum_IM0_pvt[colidx+2] = sum_IM0_pvt[colidx+2] -2*(c2r0^c2i1) + 1;
+                sum_IM1_pvt[colidx+2] = sum_IM1_pvt[colidx+2] -2*(c2r1^c2i0) + 1;
+
+                sum_R0_pvt[colidx+3] = sum_R0_pvt[colidx+3] - 2*(c3r0^c3r1) + 1;
+                sum_R1_pvt[colidx+3] = sum_R1_pvt[colidx+3] - 2*(c3i0^c3i1) + 1;
+                sum_IM0_pvt[colidx+3] = sum_IM0_pvt[colidx+3] -2*(c3r0^c3i1) + 1;
+                sum_IM1_pvt[colidx+3] = sum_IM1_pvt[colidx+3] -2*(c3r1^c3i0) + 1;
+
+            }
+
+        }
+        #pragma omp critical
+        {
+            for(int k=0; k<nchan; k++)
+            {
+                R0[k] = R0[k] + sum_R0_pvt[k];
+                R1[k] = R1[k] + sum_R1_pvt[k];
+                IM0[k] = IM0[k] + sum_IM0_pvt[k];
+                IM1[k] = IM1[k] + sum_IM1_pvt[k];
+            }
+        }
+    }
+    return row_count;
+}
