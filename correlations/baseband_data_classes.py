@@ -5,7 +5,7 @@ import numba as nb
 import os
 
 # import unpacking as unpk
-from . import unpacking as unpk
+import unpacking as unpk
 
 
 @nb.njit(parallel=True)
