@@ -56,7 +56,7 @@ if(__name__=='__main__'):
 	locs=np.arange(0,len(obj.channels))
 	labels=[str(x) for x in obj.channels]
 	# osamp=len(obj.channels)//64
-	osamp=int(obj.length_channels//32)
+	osamp=np.max(int(obj.length_channels//32),1)
 	print("OSAMP IS ", osamp, locs[::osamp])
 	plt.xticks(locs[::osamp],labels[::osamp],rotation=-50)
 	# print(locs,labels)
