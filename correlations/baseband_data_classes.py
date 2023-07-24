@@ -5,8 +5,10 @@ import numba as nb
 import numpy as np
 import os
 
-# import unpacking as unpk
-from . import unpacking as unpk
+if __name__=="__main__":
+    import unpacking as unpk            # If loaded as top level script
+else:
+    from . import unpacking as unpk     # If loaded as a module
 
 # keeping track of number of times specnum overflows in a given long-averaging run (e.g. several days)
 

@@ -3,7 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os
-from utils import scio
+from scio import scio # previously: from utils import scio
+                      # The name of the package containing scio module 
+                      # & class is actually called pbio
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
