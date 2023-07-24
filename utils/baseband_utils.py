@@ -85,8 +85,8 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minut
         print("SETTING VMIN AND VMAX")
         vmin = 10**vmin
         vmax = 10**vmax
-        vmin2=vmin
-        vmax2=vmax
+        vmin2=vmin # Why do we make copies of these?
+        vmax2=vmax # Why do we make copies of these?
     pol01_mag = np.abs(pol01)
     if(logplot):
         print("IN LOGPLOT")

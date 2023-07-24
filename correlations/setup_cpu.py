@@ -30,7 +30,7 @@ But with the appropriate paths for your versions of llvm and libomp.
 
 
 import os
-from sys import platform
+from sys import platform # to detect whether using darwin or win/linux os
 
 # builds into the same directory as the setup file
 path = os.path.realpath(__file__ + r"/..")
