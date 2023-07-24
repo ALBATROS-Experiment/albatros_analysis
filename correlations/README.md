@@ -1,8 +1,7 @@
 
 
 
-
-### Dependency tree plots
+### Dependency tree
 
 ```mermaid
 graph LR
@@ -18,11 +17,12 @@ graph LR
   --> py_unpk([unpacking.py])
   --> py_base([baseband_data_classes.py])
 
-  style py_corr fill:#cef,stroke:#333;
-  style py_setup fill:#cef,stroke:#333;
-  style py_base fill:#cef,stroke:#333;
-  style py_unpk fill:#cef,stroke:#333;
-  style c_unpack fill:#aea,stroke:#333;
-  style so_corr fill:#fcd,stroke:#333;
-  style so_unpk fill:#fcd,stroke:#333;
+  style py_corr fill:#cef,stroke:#333,color:#000;
+  style py_setup fill:#cef,stroke:#333,color:#000;
+  style py_base fill:#cef,stroke:#333,color:#000;
+  style py_unpk fill:#cef,stroke:#333,color:#000;
+  style c_unpack fill:#aea,stroke:#333,color:#000;
+  style so_corr fill:#fcd,stroke:#333,color:#000;
+  style so_unpk fill:#fcd,stroke:#333,color:#000;
 ```
+
