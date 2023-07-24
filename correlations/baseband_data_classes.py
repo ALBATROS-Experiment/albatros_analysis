@@ -73,7 +73,7 @@ class Baseband:
                         self._set_specidx()
                     elif(len(self.where_zero)>1):
                         raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
-
+                self._set_specidx()
     def _set_specidx(self):
         self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
         fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
