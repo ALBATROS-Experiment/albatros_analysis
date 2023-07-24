@@ -1,6 +1,5 @@
 import numpy as np
 # from correlations_temp import baseband_data_classes as bdc
-import glob
 import time
 from correlations import baseband_data_classes as bdc
 from correlations import correlations as cr
@@ -83,53 +82,3 @@ if __name__=="__main__":
 
 
         
-
-                
-                
-            
-                
-                
-            
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
