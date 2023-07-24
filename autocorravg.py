@@ -1,14 +1,23 @@
 import numpy as np
-
-# from correlations_temp import baseband_data_classes as bdc
 import time
 from correlations import baseband_data_classes as bdc
 from correlations import correlations as cr
 from utils import baseband_utils as butils
 import argparse
 
+# TODO: not sure about types going into and out of get_avg_fast
+# best guess out is tuple[ndarray x 3, list]
 
-def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):
+def get_avg_fast(
+            path: str, 
+            init_t, 
+            end_t, 
+            acclen, 
+            nchunks, 
+            chanstart=0, 
+            chanend=None
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
+    """TODO: what does this function do?"""
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ", idxstart, "in filenum: ", fileidx)
     print(files[fileidx])

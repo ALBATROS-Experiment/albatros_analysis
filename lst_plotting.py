@@ -1,17 +1,20 @@
+# What is this plotting?
+# Is this ever going to be imported by any other file?
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pytz
 from datetime import datetime
 
 
-def get_localtime_from_UTC(tstamp, mytz):
+def get_localtime_from_UTC(tstamp: str, mytz) -> datetime:
+    """Converts UTC string to local-time datetime object"""
     return datetime.fromtimestamp(int(tstamp), tz=pytz.utc).astimezone(tz=mytz)
 
 
-def get_vmin_vmax(data_arr, log=True):
-    """
-    Automatically gets vmin and vmax for colorbar
-    """
+def get_vmin_vmax(data_arr: np.ndarray, log: bool = True) -> tuple[float, float]:
+    """Finds min & max values (vmin,vmax) for colorbar"""
     # print("shape of passed array", data_arr.shape, data_arr.dtype)
     xx = data_arr.copy()
     med = np.percentile(xx, 50)
@@ -77,6 +80,6 @@ plt.subplot(313)
 plt.title("bin count")
 plt.plot(np.arange(0, nbins), counts)
 
-output_path = f"/home/s/sievers/mohanagr/lst_{nbins}.jpg"
+output_path = f"/home/s/sievers/mohanagr/lst_{nbins}.jpg"  # hard-coded niagara path
 plt.savefig(output_path)
 print(output_path)

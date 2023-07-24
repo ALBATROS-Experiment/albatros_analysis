@@ -6,11 +6,11 @@ if os.environ.get("DISPLAY", "") == "":
     mpl.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
-import datetime, time, re
-from scio import scio
+from scio import scio # module scio with class called scio, packeged as pbio, make sure `pip import pbio` not `scio`
 import SNAPfiletools as sft
 import argparse
-from datetime import datetime
+import time, re
+from datetime import datetime 
 import matplotlib.dates as mdates
 from multiprocessing import Pool
 from functools import partial
@@ -26,7 +26,7 @@ def get_localtime_from_UTC(tstamp, mytz):
 
 
 # ============================================================
-def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz):
+def get_data_arrs(data_dir: str, ctime_start: str, ctime_stop: str, chunk_time, blocklen, mytz):
     """
     Given the path to a Big data directory (i.e. directory contains the directories
     labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -39,6 +39,13 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
 
     ctime_start, ctime_stop: str
         desired start and stop time in ctime
+
+    chunk_time: ??
+    
+    blocklen: (probably int)
+    
+    mytz: (what kind of object is this? probably pytz.tzfile)
+        Timezone (of the dish at collection?)
 
     Returns:
     --------
