@@ -1,16 +1,15 @@
-import os, sys
+import os
 import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
 from matplotlib import pyplot as plt
 import numpy as np
-import datetime, time, re
+import datetime, time
 from scio import scio
 import SNAPfiletools as sft
 import argparse
 from datetime import datetime
-import matplotlib.dates as mdates
 from multiprocessing import Pool
 from functools import partial
 import pytz

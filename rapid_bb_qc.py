@@ -1,5 +1,4 @@
 import numpy as np
-import time
 from correlations import baseband_data_classes as bdc
 from correlations import correlations as cr
 import argparse

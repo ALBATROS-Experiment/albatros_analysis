@@ -1,4 +1,3 @@
-from asyncio import as_completed
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse

@@ -1,6 +1,6 @@
 import numpy as np
 #from acoustics.cepstrum import complex_cepstrum
-import os, sys, argparse
+import os, argparse
 from  scio import scio
 import matplotlib.pyplot as plt
 
@@ -10,7 +10,6 @@ from astropy.convolution import convolve
 from scipy.interpolate import interp1d
 import scipy.signal as signal
 from scipy.integrate import quad
-import scipy.fft as fft
 
 from palettable.cartocolors.qualitative import Safe_10
 
