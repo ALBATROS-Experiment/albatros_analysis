@@ -71,7 +71,7 @@ class Baseband:
                     if(len(self.where_zero)==1):
                         self.spec_num[self.where_zero[0]+1:] += (2**32)
                         self._set_specidx()
-                    elif(len(where_zero)>1):
+                    elif(len(self.where_zero)>1):
                         raise ValueError("Why are there two -ve diffs in specnum? Investigate this file")
 
     def _set_specidx(self):
@@ -172,14 +172,14 @@ class BasebandFileIterator():
             self.ncols = numpy.ceil((self.obj.chanend-self.obj.chanstart)/4).astype(int)
     
     def _read_packed(self, file_name, readlen=-1, fixoverflow=True, rowstart=None, rowend=None, chanstart=0, chanend=None, unpack=True):
-        temp_obj = BasebandPacked(file_paths[fileidx],fixoverflow=False,chanstart=chanstart,chanend=chanend, unpack=False)
+        temp_obj = BasebandPacked(file_name,fixoverflow=False,chanstart=chanstart,chanend=chanend, unpack=False)
         temp_obj.spec_num[:]+=(self._OVERFLOW_CNTR*2**32) #correct for past overflows in this run of averaging
         if(len(temp_obj.where_zero)==1):
             if(file_name not in self._OVERFLOW_DICT.keys()):
                 self._OVERFLOW_DICT[file_name]=1
                 self._OVERFLOW_CTR += 1
                 temp_obj.spec_num[temp_obj.where_zero[0]+1:] += (2**32)
-            elif(len(where_zero)>1):
+            elif(len(temp_obj.where_zero)>1):
                 raise ValueError(f"Why are there two -ve diffs in specnum? Investigate {file_name}")
         temp_obj._set_specidx()
         return temp_obj
