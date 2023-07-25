@@ -3,6 +3,9 @@ import numpy as np
 import os
 import time
 
+
+"""What does this mylib stuff do?"""
+
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_correlations_cpu.so"
 )
