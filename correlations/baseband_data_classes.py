@@ -33,9 +33,7 @@ class Baseband:
             self.channels = numpy.frombuffer(
                 file_data.read(self.header_bytes - 88),
                 ">%dQ" % (int((header_bytes - 8 * 10) / 8)),
-            )[
-                0
-            ]  # this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
+            )[0]  # this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
             self.gps_week = struct.unpack(">Q", file_data.read(8))[0]
             self.gps_timestamp = struct.unpack(">Q", file_data.read(8))[0]
             self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
