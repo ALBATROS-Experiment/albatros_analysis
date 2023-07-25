@@ -5,6 +5,13 @@ This branch (`master`) currently has functionality for dealing with direct data.
 If you're interested in old code/notes, you can find them under the "legacy" directory.
 
 Everything is python3. I generally do `module load python/3.8.5 gcc/9.4.0` on Niagara for a hassle-free experience.
+
+To use the Virtual environment:
+- Load python 3.8.5 `module load python/3.8.5`
+- Make sure it's loaded correctly by running `which python` and `python --version`. Also check pip with `which pip`.
+- Create your environment called in the env folder `python -m venv env`
+- Activate the environment `source env/bin/activate`
+- Install all the packages `pip install -r requirements_py385.txt`
 -----------------------------------------------------------------
 
 There are two types of  data:
