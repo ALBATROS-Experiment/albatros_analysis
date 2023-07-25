@@ -8,16 +8,43 @@ import argparse
 # TODO: not sure about types going into and out of get_avg_fast
 # best guess out is tuple[ndarray x 3, list]
 
+
 def get_avg_fast(
-            path: str, 
-            init_t, 
-            end_t, 
-            acclen, 
-            nchunks, 
-            chanstart=0, 
-            chanend=None
-        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
-    """TODO: what does this function do?"""
+    path: str,
+    init_t: int,
+    end_t: int,
+    acclen: int,
+    nchunks: int,
+    chanstart=0,
+    chanend=None,
+):
+    """Time-averages power in each channel.
+    
+    TODO: what does this function do? make sure above is correct.
+
+    Parameters
+    ----------
+    path: str
+        Path to baseband data.
+    init_t: int
+        The start time of ... (in what units/format)
+    end_t: int
+        The end tine of ... (in what units/format)
+    acclen: int
+        Accumulation length for averaging (in what units?).
+    chanstart: int
+        The index of the lowest frequency channel in selection.
+        Defaults to 0.
+    chanend: int
+        Index of the highest frequency channel in selection. Defaults
+        to None -> up to highest freq channel.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, list?]
+        What?
+    """
+
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ", idxstart, "in filenum: ", fileidx)
     print(files[fileidx])

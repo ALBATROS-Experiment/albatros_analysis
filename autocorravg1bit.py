@@ -8,7 +8,43 @@ from utils import baseband_utils as butils
 import argparse
 
 
-def get_avg_fast_1bit(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None):
+def get_avg_fast_1bit(
+    path: str, 
+    init_t: int, 
+    end_t: int, 
+    acclen: int, 
+    nchunks: int, 
+    chanstart=0, 
+    chanend=None
+):
+    """Time-averages power in each channel.
+    
+    TODO: what does this function do? make sure above is correct.
+
+    Parameters
+    ----------
+    path: str
+        Path to baseband data.
+    init_t: int
+        The start time of ... (in what units/format)
+    end_t: int
+        The end tine of ... (in what units/format)
+    acclen: int
+        Accumulation length for averaging (in what units?).
+    chanstart: int
+        The index of the lowest frequency channel in selection.
+        Defaults to 0.
+    chanend: int
+        Index of the highest frequency channel in selection. Defaults
+        to None -> up to highest freq channel.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, list?]
+        What?
+    """
+
+
     idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
     print("Starting at: ", idxstart, "in filenum: ", fileidx)
     print(files[fileidx])
