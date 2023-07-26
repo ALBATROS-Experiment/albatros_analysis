@@ -15,6 +15,17 @@ else:
 
 @nb.njit(parallel=True)
 def fill_arr(myarr, specnum, spec_per_packet):
+    """Fill array with ??
+    
+    Parameters
+    ----------
+    myarr: np.ndarray 
+        1d array to fill with data, length is len(specnum) * spec_per_packet
+    specnum: array-like
+        ?? 
+    spec_per_packet: int
+        Length of ?? 
+    """
     n = len(specnum)
     for i in nb.prange(n):
         for j in nb.prange(spec_per_packet):
@@ -23,10 +34,59 @@ def fill_arr(myarr, specnum, spec_per_packet):
 
 class Baseband:
     def __init__(self, file_name, readlen=-1, fixoverflow=True):
+        """Create instance of Baseband. 
+        
+        TODO: Explain what the Baseband class is and what it does??
+        
+        Parameters
+        ----------
+        file_name: str
+            Path to baseband binary file to be read. 
+        readlen: int or float
+            The number of packets to read. 
+            If it is an integer >=1, specifies # of packets to read. 
+            If it is a float in (0,1), reads fraction of total packets.
+            Defaults to -1, in which case all packets are read. 
+        fixoverflow: bool
+            Defaults to True. ??
+            
+        Returns 
+        -------
+        self: Baseband
+        """
         with open(file_name, "rb") as file_data:  # ,encoding='ascii')
+            # Declarations [steve: I think it would be nice to have a 
+            # comment explaining what each of the attributes are/do, a
+            # good place for this is declarations. @Mohan, is this 
+            # necessary or too verbose?]
+            # Header
+            self.header_bytes       = None # Header data (??)
+            self.bytes_per_packet   = None # Number (int)
+            self.length_channels    = None # Len or num of channels? (int)
+            self.spectra_per_packet = None # Number of what per packet??
+            self.bit_mode           = None # (int), four bits or one bit (is this 0,1 or 2 or 1,2 or 4??)
+            self.have_trimble       = None # (bool??)
+            # Data & packet info
+            self.channels           = None # Is this the data??
+            self.length_channels    = None # ??
+            self.read_packets       = None # (int or float) 
+            self.raw_data           = None # (np.ndarray)
+            self.spec_num           = None # (np.ndarray)
+            self.where_zero         = None # (np.ndarray)
+            self.missing_num        = None # ?? [not initialized in __init__]
+            self.missing_loc        = None # ?? [not initialized in __init__]
+            # GPS
+            self.gps_week           = None # ??
+            self.gps_timestamp      = None # What's the format/units??
+            self.gps_latitude       = None # What's the format/units??
+            self.gps_longitude      = None # What's the format/units??
+            self.gps_elevation      = None # What's the format/units??
+            self.specnum_overflow   = None # ?? 
+            # TODO: are the above all of the attributes in this class??
+            
             header_bytes = struct.unpack(">Q", file_data.read(8))[0]
             # setting all the header values
-            self.header_bytes = 8 + header_bytes
+            self.header_bytes = 8 + header_bytes # Why 8+ ??
             self.bytes_per_packet = struct.unpack(">Q", file_data.read(8))[0]
             self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
             self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
@@ -97,6 +157,7 @@ class Baseband:
                             "Why are there two -ve diffs in specnum? Investigate this file"
                         )
                 self._set_specidx()
+        return 
 
     def _set_specidx(self):
         self.spec_idx = numpy.zeros(
@@ -109,8 +170,15 @@ class Baseband:
             self.spec_num[idx] + self.spectra_per_packet - self.spec_num[0]
         ).astype("int64")
         self.missing_num = (specdiff[idx] - self.spectra_per_packet).astype("int64")
+        return 
+
+    def __str__(self):
+        """Calls print_headers()"""
+        self.print_header()
+        return 
 
     def print_header(self):
+        """Formats and prints a string displaying header info."""
         print(
             "Header Bytes = "
             + str(self.header_bytes)
@@ -142,8 +210,21 @@ class Baseband:
             + str(self.gps_elevation)
             + "."
         )
+        return 
 
     def get_hist(self, mode=-1):
+        """Get
+        
+        Parameters
+        ----------
+        mode: int
+            mode=0 for pol0, 1 for po1, -1 for both.
+        
+        Returns
+        -------
+        histvals: ??
+            ??
+        """
         # mode = 0 for pol0, 1 for pol1, -1 for both
         rowstart = 0
         rowend = len(self.spec_idx)
@@ -153,6 +234,23 @@ class Baseband:
 
 
 def get_header(file_name, verbose=True):
+    """Get header dictionary from (attributes of) baseband file. 
+    
+    Loads the data at <file_name> by instantiating a Baseband object, 
+    returns the object's attributes (self.__dict__), incl header info.
+    
+    Parameters
+    ----------
+    file_name: str
+        Path to baseband data file. 
+    verbose: bool
+        Defaults to True, in which case header data is printed.
+    
+    Returns
+    -------
+    dict
+        Baseband dictionary containing header information. 
+    """
     obj = Baseband(file_name, readlen=0)
     if verbose:
         obj.print_header()
@@ -163,7 +261,28 @@ class BasebandFloat(Baseband):
     def __init__(
         self, file_name, readlen=-1, fixoverflow=True, chanstart=0, chanend=None
     ):
-        super().__init__(file_name, readlen)
+        """Create instance of BasebandFloat.
+        
+        A child of the Baseband class. BasebandFloat... TODO: describe??
+        
+        Parameters
+        ----------
+        file_name: str
+            Path to baseband binary file to be read. 
+        readlen: int or float
+            The number of packets to read. 
+            If it is an integer >=1, specifies # of packets to read. 
+            If it is a float in (0,1), reads fraction of total packets.
+            Defaults to -1, in which case all packets are read. 
+        fixoverflow: bool
+            Defaults to True. ?? *warning: not passed to super*
+        chanstart: int
+            Index of channel at which to start selection. Default is 0.
+        chanend: int or None
+            Index of channel at which to end selection. Default is None
+            in which case select up to highest frequency channel. 
+        """
+        super().__init__(file_name, readlen) # why not pass fixoverflow too??
         self.chanstart = chanstart
         if chanend == None:
             self.chanend = self.length_channels
@@ -185,6 +304,7 @@ class BasebandFloat(Baseband):
             )
         else:
             print("Unknown bit depth")
+        return 
 
 
 class BasebandPacked(Baseband):
@@ -193,14 +313,36 @@ class BasebandPacked(Baseband):
         self,
         file_name,
         readlen=-1,
-        fixoverflow=True,
+        fixoverflow=True, 
         rowstart=None,
         rowend=None,
         chanstart=0,
         chanend=None,
         unpack=True,
     ):
-        super().__init__(file_name, readlen)
+        """Create instance of BasebandPacked.
+        
+        A child of the Baseband class. BasebandPacked... ??
+        
+        Parameters
+        ----------
+        file_name: str
+            Path to baseband binary file to be read. 
+        readlen: int or float
+            The number of packets to read. 
+            If it is an integer >=1, specifies # of packets to read. 
+            If it is a float in (0,1), reads fraction of total packets.
+            Defaults to -1, in which case all packets are read. 
+        fixoverflow: bool
+            Defaults to True. ?? *Depricated*
+        chanstart: int
+            Index of channel at which to start selection. Default is 0.
+        chanend: int or None
+            Index of channel at which to end selection. Default is None
+            in which case select up to highest frequency channel. 
+        """
+
+        super().__init__(file_name, readlen) # why not pass fixoverflow too??
 
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
         self.chanstart = chanstart
@@ -230,11 +372,31 @@ class BasebandPacked(Baseband):
 
 
 def get_rows_from_specnum(stidx, endidx, spec_arr):
+    """??
+    
+    ??
+    
+    Parameters
+    ----------
+    stidx: int
+        Start index of... ??
+    endidx: int
+        End index of... ??
+    spec_arr: np.ndarray
+        ??
+    
+    Returns
+    -------
+    l: int??
+        Left...?? 
+    r: int??
+        Right...??    
+    """
     # follows numpy convention
     # endidx is assumed not included
     # print("utils get_rows received:",stidx,endidx,spec_arr)
-    l = numpy.searchsorted(spec_arr, stidx, side="left")
-    r = numpy.searchsorted(spec_arr, endidx, side="left")
+    l = np.searchsorted(spec_arr, stidx, side="left")
+    r = np.searchsorted(spec_arr, endidx, side="left")
     return l, r
 
 
@@ -249,7 +411,30 @@ class BasebandFileIterator:
         chanstart=0,
         chanend=None,
     ):
-        # you need to pass nchunks if you are passing the iterator to zip(). without nchunks, iteration won't stop
+        """Create instance of BasebandFileIterator.
+        
+        ??
+        
+        Parameters
+        ----------
+        file_paths: list of str
+            Paths to baseband binary files to be read. 
+        fileidx: int
+            ??
+        idxstart: int
+            ??
+        acclen: int
+            ??
+        nchunks: int
+            Defaults to None. You need to pass nchunks if you are 
+            passing the iterator to zip(). Without nchunks, iteration
+            won't stop. 
+        chanstart: int
+            Index of channel at which to start selection. Default is 0.
+        chanend: int or None
+            Index of channel at which to end selection. Default is None
+            in which case select up to highest frequency channel. 
+        """
         print("ACCLEN RECEIVED IS", acclen)
         self._OVERFLOW_DICT = {}
         self._OVERFLOW_CTR = 0
