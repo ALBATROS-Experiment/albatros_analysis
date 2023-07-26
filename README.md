@@ -6,15 +6,16 @@ If you're interested in old code/notes, you can find them under the "legacy" dir
 
 Everything is python3. I generally do `module load python/3.8.5 gcc/9.4.0` on Niagara for a hassle-free experience.
 
-To use the Virtual environment:
+To use the Virtual environment on niagara:
+- ssh into niagara `ssh <username>@niagara.computecanada.ca` (make sure to configure your ssh key access first by logging into your compute-canada account)
 - Load python 3.8.5 `module load python/3.8.5`
 - Make sure it's loaded correctly by running `which python` and `python --version`. Also check pip with `which pip`.
 - Create your environment called in the env folder `python -m venv env`
 - Activate the environment `source env/bin/activate`
 - Install all the packages `pip install -r requirements_py385.txt`
------------------------------------------------------------------
 
-There are two types of  data:
+
+## There are two types of  data:
 
 1) Directly computed auto- and cross spectra from two inputs of a SNAP box.  These data products exist in directories named "data_auto_cross"
    The data are chunked in regular hour-long intervals. The number of rows in a direct data file depends on the accumulation length (acclen). The default acclen has been 393216 for quite some time, and corresponds to 6.44 s. Thus, there are roughly 560 rows (may vary by +/- 1 sometimes) in the direct files.
@@ -33,9 +34,8 @@ There are two types of  data:
 
 2) Baseband data: details to follow
 
------------------------------------------------------------------
 
-Code that's included here:
+## Code that's included here:
 
 * plot_overnight_new.py : Plot directly computed auto- and
   cross-spectra for a given interval of time (in UTC). The code will automatically find all directories within that time period, concatenate them, average them as per your input, and plot them. Very useful if you want to visualize several hours/days/months of data in a single summary plot. Supports `--help`.
@@ -52,6 +52,13 @@ cross-spectra for a particular direct spectra folder (10-digit) for quick visual
 * utc_ls.py : Poorly written script for converting ctimes into
   human-readable timestamps.  The globbing is fragile and sometimes
   needs coaxing in order to work.
+
+
+## Build the docs
+
+To Build the docs, first make sure that you have pdoc3 installed (not pdoc) with `pip uninstall pdoc && pip install pdoc`. Then, enter `pdoc --html ./` from the project's root directory. 
+
+
 
 
 
