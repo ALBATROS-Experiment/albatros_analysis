@@ -2,15 +2,43 @@ import time, datetime, os, re
 import numpy as np
 from scio import scio
 
-#============================================================
+
 def read_field_many_fast(dirs,tag,dtype='float64',return_missing=False):
+    """Reads one baseline from multiple data dumps. 
+    
+    *Warning* Do both this function and read_pol_fast have different use 
+    cases? The only difference I can see is that this one also has option 
+    to return missing files, and is implemented slightly differently 
+    (does not use scio [pbio]). 
+    
+    Parameters
+    ----------
+    dirs: list
+        List of paths to baseline data files. 
+    tag: str
+        Identifies which polarization baseline. E.g. 'pol00'
+    dtype: str
+        Specifies numpy primitive data-type. 
+    return_missing: bool
+        If True, returns list of paths where data is missing as second 
+        return parameter. Defaults to False. 
+    
+    
+    Returns
+    -------
+    np.ndarray or tuple[np.ndarray, list]
+        A numpy array containing all xcorr/autocorr baseline data 
+        requested. If none was found, returns None. If return_missing 
+        is True, returns a list of filepaths that point to non-existant
+        data. 
+    """
     ndir=len(dirs)
     all_dat=[None]*ndir
     missing=[]
     ndat=0
     for i in range(ndir):
         try:
-            fname=dirs[i]+'/'+tag
+            fname=dirs[i]+'/'+tag # todo: change to os.path.join(dirs[i], tag)
             all_dat[i]=np.fromfile(fname,dtype=dtype)
             ndat=ndat+len(all_dat[i])
         except:
@@ -34,19 +62,38 @@ def read_field_many_fast(dirs,tag,dtype='float64',return_missing=False):
         else:
             return None
     
-#============================================================
+
 def read_pol_fast(dirs,tag):
+    """Reads one baseline from multiple data dumps.
+    
+    A baseline is identified by tag, the data is identified by dirs. 
+    Relevant data are read and returned as a 2d numpy array. 
+    
+    Parameters
+    ----------
+    dirs: list of str
+        List of paths to baseline data files. 
+    tag: str
+        Identifies which polarization baseline. E.g. 'pol00'
+        
+    Returns
+    -------
+    big_dat: np.ndarray with shape (ndat, nchan)
+        A 2-d numpy array that stores all relevant data. 
+    """
     ndir=len(dirs)
     fnames=[None]*ndir
     for i in range(ndir):
-        fnames[i]=dirs[i]+'/'+tag
+        fnames[i]=dirs[i]+'/'+tag 
+    # Once we have tests, above 4 lines can be condensed into: 
+    # fnames = [os.path.join(d,tag) for d in dirs]
     t0=time.time()
-    all_dat=scio.read_files(fnames)
+    all_dat=scio.read_files(fnames) # all data files
     t1=time.time()
     print('read files in ',t1-t0)
     ndat=0
     for dat in all_dat:
-        if not(dat is None):
+        if not(dat is None): # if dat is not None
             ndat=ndat+dat.shape[0]
             nchan=dat.shape[1]
 
@@ -59,17 +106,23 @@ def read_pol_fast(dirs,tag):
                 big_dat[ii:(ii+nn),:]=dat
                 ii=ii+nn
     else:
-        print('no files found in read_pol_fast.')
+        print('No files found in read_pol_fast.')
         big_dat=None
     return big_dat
     
-#============================================================
+
 def ctime2timestamp(ctimes):
     """Given a (list of) ctime, convert to human friendly format.
 
-    - ctime = ctime(s) in desired text format
+    Parameters
+    ----------
+    ctime: int or float or list of int/float
+        (List of) ctime(s).
 
-    Returns the time stamps (or list of time stamps) in human friendly format.
+    Returns 
+    -------
+    list
+        The time stamps (or list of time stamps) in human friendly format.
     """
 
     if isinstance(ctimes, (int, float)):
@@ -77,16 +130,25 @@ def ctime2timestamp(ctimes):
     else:
         return [ str(datetime.datetime.utcfromtimestamp(c)) for c in ctimes ]
 
-#============================================================
+
 def timestamp2ctime(date_strings, time_format='%Y%m%d_%H%M%S'):
-    """Given a string time stamp (or list of time stamps) in human-frendly
+    """Converts list of date strings into ctime format.
+    
+    Given a string time stamp (or list of time stamps) in human-frendly
     format, with default being YYYYMMSS_HHMMSS, convert to datetime
     object and calculate ctime.
 
-    - date_strings = time stamp(s) in desired text format
-    - time_format = formatting string for datetime
+    Parameters
+    ----------
+    date_strings: str or list of str
+        Time stamp(s) in desired text format
+    time_format: str or list of str
+        Formatting string for datetime
 
-    Returns the time stamps (or list of time stamps) in ctime.
+    Returns
+    -------
+    list 
+        The time stamps (or list of time stamps) in ctime.
      """
 
     t0 = datetime.datetime(1970, 1, 1)
@@ -96,9 +158,11 @@ def timestamp2ctime(date_strings, time_format='%Y%m%d_%H%M%S'):
     else:
         return [ int((datetime.datetime.strptime(d, time_format) - t0).total_seconds()) for d in date_strings ]
 
-#============================================================
+
 def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
-    """Given a start and stop ctime, retrieve list of corresponding files.
+    """Gets a list of filenames within specified time-rage. 
+    
+    Given a start and stop ctime, retrieve list of corresponding files.
     This function assumes that the parent directory has the directory
     structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
     fine time stamp>.
@@ -114,7 +178,10 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     fraglen: int 
         number of digits in coarse time fragments
     
-    Returns list of files in specified time range.
+    Returns 
+    -------
+    list of str
+        List of files in specified time range.
     """
 
     times_coarse = os.listdir(dir_parent)
@@ -144,7 +211,7 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     return fnames
 
 
-#============================================================    
+  
 def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file='time_gps_start.raw', fraglen=5):
     """Given a parent directory containing all SNAP data (eg. data_auto_cross), 
     and start and stop timestamp in human-friendly format (default being
@@ -192,7 +259,17 @@ def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file='time_gps_
 
 
 def callocdir(dir_name):
-    if os.path.exists(dir_name) == False:
+    """Allocate and initialize a directory. (think calloc/malloc in C)
+    
+    Make sure a directory specified exists and is empty. If it doesn't
+    exist, create it; if it's not empty, empty it.
+    
+    Parameters
+    ----------
+    dir_name: str
+        The path to the directory we want to allocate. 
+    """
+    if os.path.exists(dir_name) == False: # == False -> is False
         os.mkdir(dir_name)
     else: #empty it before writing into it (who knows wtf is in it)
         for  file_name in os.listdir(dir_name):
@@ -205,22 +282,75 @@ def callocdir(dir_name):
     return
 
 def mallocdir(dir_name):
+    """Allocate a directory without initializing it. (think calloc/malloc)
+    
+    If a directory doesn't exist, create it; otherwise, leave it as it is. 
+    
+    Parameters
+    ----------
+    dir_name: str
+        The path to the directory we want to allocate. 
+    """
     if os.path.exists(dir_name) == False:
         os.mkdir(dir_name)
     return
 
 def readin_computed(fname):
+    """Read binary file into numpy array. 
+    
+    *Warning*, this may be depricated (with 
+    functionality contained within `read_pol_fast` subroutine)
+    
+    Thin wrapper for np.load().
+    
+    Parameters
+    ----------
+    fname: str
+        Path to binary file. 
+
+    Returns
+    -------
+    np.ndarray
+        The binary array at fname. 
+    """
     with open(fname, 'rb') as f:
         out = np.load(f)
     return out
 
+
 def readin_append(dir_names, base_file_path, file_name, function):
+    """Read multiple files fast. 
+    
+    *Warning* This may be a duplicate of `read_field_many_fast`. 
+    
+    Looks through multiple specified sub-directories of base_file_path 
+    for leaves (files) with one specific name. Applies function to each
+    file. E.g. This method can be used to load multiple data from one 
+    multiple files containing the same baseline (xcorr/autocorr) into 
+    an array.
+    
+    Parameters
+    ----------
+    dir_names: list of str
+        List of relative directory names. 
+    base_file_path: str
+        Path to the base file in which we search for sub-directories 
+        'dir_names'. 
+    file_name: str
+        Name of the leaf node (file). A similar variable is refered to as 
+        'tag' above. 
+    function: callable
+        Applied to filepath. Takes path-string and returns numpy array. 
+    
+    Returns
+    -------
+    data: np.ndarray
+        Most likely this will be used to read 
+    """
     for index, dir_name in enumerate(dir_names):
         file_path = os.path.join(base_file_path, dir_name, file_name)
-        # print(file_path)
         if index ==0:
             data = function(file_path)
-            # print("initiate")
         else:
             data = np.append(data,function(file_path), axis = 0)
             # print("append so shape is now")
