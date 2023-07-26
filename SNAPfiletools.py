@@ -167,14 +167,14 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
     fine time stamp>.
 
-    Paramaters:
+    Paramaters
     -----------
-    time_start, time_stop: int 
-        start/stop times in ctime 
-    
+    time_start: int 
+        start time in ctime 
+    time_stop: int 
+        stop time in ctime
     dir_parent: str
         parent directory, e.g. /path/to/data_100MHz
-    
     fraglen: int 
         number of digits in coarse time fragments
     
