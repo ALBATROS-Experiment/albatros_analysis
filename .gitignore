@@ -11,4 +11,5 @@ plot_one_file_scaled.py
 .DS_Store
 devenv/
 env/
+html/pdoc/
 

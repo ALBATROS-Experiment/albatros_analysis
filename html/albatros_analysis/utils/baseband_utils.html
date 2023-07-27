@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>albatros_analysis.utils.baseband_utils API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>albatros_analysis.utils.baseband_utils</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import numpy as np
+import os, glob
+from matplotlib import pyplot as plt
+
+def get_init_info(init_t, end_t, parent_dir):
+    &#39;&#39;&#39;
+    Returns the index of file in a folder and 
+    the index of the spectra in that file corresponding to init_timestamp
+    &#39;&#39;&#39;
+    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex. 
+    # This may be faster, and I don&#39;t care about storing a few 100 more strings than I need to.
+    print(&#34;HELLO&#34;)
+    frag1 = str(int(init_t/100000))
+    frag2 = str(int(end_t/100000))
+    print(frag1,frag2)
+    path = os.path.join(parent_dir,frag1)
+    files = glob.glob(path+&#39;/*&#39;)
+    if(frag1!=frag2):
+        path = os.path.join(parent_dir,frag2)
+        files.append(glob.glob(path+&#39;/*&#39;))
+    files.sort()
+    speclen=4096 # length of each spectra
+    fs=250e6
+    dt_spec = speclen/fs # time taken to read one spectra
+
+    # find which file to read first 
+    filetstamps = [int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files]
+    filetstamps.sort()
+    filetstamps = np.asarray(filetstamps)
+
+    # ------ SKIP -------#
+    # make sure the sorted order of tstamps is same as of files. so that indices we&#39;ll find below correspond to correct files
+    # np.unique(filetstamps - np.asarray([int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files])) should return [0]
+
+    # we&#39;re looking for a file that has the start timestamp closest to what we want
+    fileidx = np.where(filetstamps&lt;=init_t)[0][-1]
+    #assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
+
+    # once we have a file, we seek to required position in time
+    idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
+    # check that starting index indeed corresponds to init_t
+    print(&#34;Fileidx:&#34;, fileidx)
+    print(&#34;CHECK&#34;,init_t,idxstart*dt_spec + filetstamps[fileidx])
+    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx])
+    
+    return idxstart, fileidx, files
+
+def get_plot_lims(pol,acclen):
+
+    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
+    # Pivot to using mean if acclen too small.
+
+    # if(acclen&gt;250000):
+    #     med = np.mean(pol)
+    #     xx=np.ravel(pol).copy()
+    #     u=np.percentile(xx,99)
+    #     b=np.percentile(xx,1)
+    #     xx_clean=xx[(xx&lt;=u)&amp;(xx&gt;=b)] # remove some outliers for better plotting
+    #     stddev = np.std(xx_clean)
+    # else:
+    #     med = np.mean(pol)
+    #     stddev = np.std(pol)
+    med = np.ma.mean(pol)
+    stddev = np.ma.std(pol)
+    vmin= med - 2*stddev
+    vmax = med + 2*stddev
+    print(&#34;med and plot lims&#34;,med,vmin,vmax)
+    return med,vmin,vmax
+
+def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minutes=False,logplot=True):
+
+    freq = channels*125/2048 #MHz
+    pol00_med = np.ma.median(pol00, axis=0)
+    pol11_med = np.ma.median(pol11, axis=0)
+    pol00_mean = np.ma.mean(pol00, axis=0)
+    pol11_mean = np.ma.mean(pol11, axis=0)
+    pol00_max = np.ma.max(pol00, axis=0)
+    pol11_max = np.ma.max(pol11, axis=0)
+    pol00_min = np.ma.min(pol00, axis=0)
+    pol11_min = np.ma.min(pol11, axis=0)
+    if (vmin is None) and (vmax is None):
+        med,vmin,vmax=get_plot_lims(pol00,acclen)
+        med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+    else:
+        print(&#34;SETTING VMIN AND VMAX&#34;)
+        vmin = 10**vmin
+        vmax = 10**vmax
+        vmin2=vmin
+        vmax2=vmax
+    pol01_mag = np.abs(pol01)
+    if(logplot):
+        print(&#34;IN LOGPLOT&#34;)
+        pol00 = np.log10(pol00)
+        pol11 = np.log10(pol11)
+        pol00_med = np.log10(pol00_med)
+        pol11_med = np.log10(pol11_med)
+        pol00_mean = np.log10(pol00_mean)
+        pol11_mean = np.log10(pol11_mean)
+        pol00_max = np.log10(pol00_max)
+        pol11_max = np.log10(pol11_max)
+        pol00_min = np.log10(pol00_min)
+        pol11_min = np.log10(pol11_min)
+        vmin = np.log10(vmin)
+        vmax = np.log10(vmax)
+        vmin2 = np.log10(vmin2)
+        vmax2 = np.log10(vmax2)
+        pol01_mag = np.log10(pol01_mag)
+
+    plt.figure(figsize=(18,10), dpi=200)
+    t_acclen = acclen*2048/125e6 #seconds
+    t_end = pol01.shape[0]*t_acclen
+    tag=&#39;Seconds&#39;
+    if(minutes):
+        t_end = t_end/60
+        tag=&#39;Minutes&#39;
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+    plt.suptitle(f&#34;{tag} since {time_start}&#34;)
+    plt.subplot(2,3,1)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol00&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    cb00 = plt.colorbar()
+    cb00.ax.plot([0, 1], [7.0]*2, &#39;w&#39;)
+
+    plt.subplot(2,3,4)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol11&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    plt.colorbar()
+
+    plt.subplot(2,3,2)
+    plt.title(&#39;Basic stats for frequency bins&#39;)
+    plt.plot(freq, pol00_max, &#39;r-&#39;, label=&#39;Max&#39;)
+    plt.plot(freq, pol00_min, &#39;b-&#39;, label=&#39;Min&#39;)
+    plt.plot(freq, pol00_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
+    plt.plot(freq, pol00_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(&#39;pol00&#39;)
+
+    plt.subplot(2,3,5)
+    plt.plot(freq, pol11_max, &#39;r-&#39;, label=&#39;Max&#39;)
+    plt.plot(freq, pol11_min, &#39;b-&#39;, label=&#39;Min&#39;)
+    plt.plot(freq, pol11_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
+    plt.plot(freq, pol11_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(&#39;pol11&#39;)
+    plt.legend(loc=&#39;lower right&#39;, fontsize=&#39;small&#39;)
+
+    plt.subplot(2,3,3)
+    plt.imshow(pol01_mag, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol01 magnitude&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    plt.colorbar()
+
+    plt.subplot(2,3,6)
+    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect=&#39;auto&#39;, extent=myext, cmap=&#39;RdBu&#39;)
+    plt.ylabel(tag)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.title(&#39;pol01 phase&#39;)
+    plt.colorbar()
+    plt.savefig(opath)
+
+def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False):
+    fig,ax=plt.subplots(1,2)
+    fig.set_size_inches(10,4)
+    t_acclen = acclen*2048/125e6 #seconds
+    t_end = pol01.shape[0]*t_acclen
+    tag=&#39;Seconds&#39;
+    if(minutes):
+        t_end = t_end/60
+        tag=&#39;Minutes&#39;
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+
+    plt.suptitle(f&#39;{tag} since {time_start}&#39;)
+    img1=ax[0].imshow(np.real(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
+    ax[0].set_title(&#39;pol01 real part&#39;)
+    img2=ax[1].imshow(np.imag(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
+    ax[1].set_title(&#39;pol01 imag part&#39;)
+    plt.colorbar(img1,ax=ax[0])
+    plt.colorbar(img2,ax=ax[1])
+    plt.savefig(opath)
+    </code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="albatros_analysis.utils.baseband_utils.get_init_info"><code class="name flex">
+<span>def <span class="ident">get_init_info</span></span>(<span>init_t, end_t, parent_dir)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the index of file in a folder and
+the index of the spectra in that file corresponding to init_timestamp</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_init_info(init_t, end_t, parent_dir):
+    &#39;&#39;&#39;
+    Returns the index of file in a folder and 
+    the index of the spectra in that file corresponding to init_timestamp
+    &#39;&#39;&#39;
+    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex. 
+    # This may be faster, and I don&#39;t care about storing a few 100 more strings than I need to.
+    print(&#34;HELLO&#34;)
+    frag1 = str(int(init_t/100000))
+    frag2 = str(int(end_t/100000))
+    print(frag1,frag2)
+    path = os.path.join(parent_dir,frag1)
+    files = glob.glob(path+&#39;/*&#39;)
+    if(frag1!=frag2):
+        path = os.path.join(parent_dir,frag2)
+        files.append(glob.glob(path+&#39;/*&#39;))
+    files.sort()
+    speclen=4096 # length of each spectra
+    fs=250e6
+    dt_spec = speclen/fs # time taken to read one spectra
+
+    # find which file to read first 
+    filetstamps = [int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files]
+    filetstamps.sort()
+    filetstamps = np.asarray(filetstamps)
+
+    # ------ SKIP -------#
+    # make sure the sorted order of tstamps is same as of files. so that indices we&#39;ll find below correspond to correct files
+    # np.unique(filetstamps - np.asarray([int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files])) should return [0]
+
+    # we&#39;re looking for a file that has the start timestamp closest to what we want
+    fileidx = np.where(filetstamps&lt;=init_t)[0][-1]
+    #assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
+
+    # once we have a file, we seek to required position in time
+    idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
+    # check that starting index indeed corresponds to init_t
+    print(&#34;Fileidx:&#34;, fileidx)
+    print(&#34;CHECK&#34;,init_t,idxstart*dt_spec + filetstamps[fileidx])
+    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx])
+    
+    return idxstart, fileidx, files</code></pre>
+</details>
+</dd>
+<dt id="albatros_analysis.utils.baseband_utils.get_plot_lims"><code class="name flex">
+<span>def <span class="ident">get_plot_lims</span></span>(<span>pol, acclen)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_plot_lims(pol,acclen):
+
+    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
+    # Pivot to using mean if acclen too small.
+
+    # if(acclen&gt;250000):
+    #     med = np.mean(pol)
+    #     xx=np.ravel(pol).copy()
+    #     u=np.percentile(xx,99)
+    #     b=np.percentile(xx,1)
+    #     xx_clean=xx[(xx&lt;=u)&amp;(xx&gt;=b)] # remove some outliers for better plotting
+    #     stddev = np.std(xx_clean)
+    # else:
+    #     med = np.mean(pol)
+    #     stddev = np.std(pol)
+    med = np.ma.mean(pol)
+    stddev = np.ma.std(pol)
+    vmin= med - 2*stddev
+    vmax = med + 2*stddev
+    print(&#34;med and plot lims&#34;,med,vmin,vmax)
+    return med,vmin,vmax</code></pre>
+</details>
+</dd>
+<dt id="albatros_analysis.utils.baseband_utils.plot_1bit"><code class="name flex">
+<span>def <span class="ident">plot_1bit</span></span>(<span>pol01, channels, acclen, time_start, opath, minutes=False, logplot=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False):
+    fig,ax=plt.subplots(1,2)
+    fig.set_size_inches(10,4)
+    t_acclen = acclen*2048/125e6 #seconds
+    t_end = pol01.shape[0]*t_acclen
+    tag=&#39;Seconds&#39;
+    if(minutes):
+        t_end = t_end/60
+        tag=&#39;Minutes&#39;
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+
+    plt.suptitle(f&#39;{tag} since {time_start}&#39;)
+    img1=ax[0].imshow(np.real(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
+    ax[0].set_title(&#39;pol01 real part&#39;)
+    img2=ax[1].imshow(np.imag(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
+    ax[1].set_title(&#39;pol01 imag part&#39;)
+    plt.colorbar(img1,ax=ax[0])
+    plt.colorbar(img2,ax=ax[1])
+    plt.savefig(opath)</code></pre>
+</details>
+</dd>
+<dt id="albatros_analysis.utils.baseband_utils.plot_4bit"><code class="name flex">
+<span>def <span class="ident">plot_4bit</span></span>(<span>pol00, pol11, pol01, channels, acclen, time_start, vmin, vmax, opath, minutes=False, logplot=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minutes=False,logplot=True):
+
+    freq = channels*125/2048 #MHz
+    pol00_med = np.ma.median(pol00, axis=0)
+    pol11_med = np.ma.median(pol11, axis=0)
+    pol00_mean = np.ma.mean(pol00, axis=0)
+    pol11_mean = np.ma.mean(pol11, axis=0)
+    pol00_max = np.ma.max(pol00, axis=0)
+    pol11_max = np.ma.max(pol11, axis=0)
+    pol00_min = np.ma.min(pol00, axis=0)
+    pol11_min = np.ma.min(pol11, axis=0)
+    if (vmin is None) and (vmax is None):
+        med,vmin,vmax=get_plot_lims(pol00,acclen)
+        med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+    else:
+        print(&#34;SETTING VMIN AND VMAX&#34;)
+        vmin = 10**vmin
+        vmax = 10**vmax
+        vmin2=vmin
+        vmax2=vmax
+    pol01_mag = np.abs(pol01)
+    if(logplot):
+        print(&#34;IN LOGPLOT&#34;)
+        pol00 = np.log10(pol00)
+        pol11 = np.log10(pol11)
+        pol00_med = np.log10(pol00_med)
+        pol11_med = np.log10(pol11_med)
+        pol00_mean = np.log10(pol00_mean)
+        pol11_mean = np.log10(pol11_mean)
+        pol00_max = np.log10(pol00_max)
+        pol11_max = np.log10(pol11_max)
+        pol00_min = np.log10(pol00_min)
+        pol11_min = np.log10(pol11_min)
+        vmin = np.log10(vmin)
+        vmax = np.log10(vmax)
+        vmin2 = np.log10(vmin2)
+        vmax2 = np.log10(vmax2)
+        pol01_mag = np.log10(pol01_mag)
+
+    plt.figure(figsize=(18,10), dpi=200)
+    t_acclen = acclen*2048/125e6 #seconds
+    t_end = pol01.shape[0]*t_acclen
+    tag=&#39;Seconds&#39;
+    if(minutes):
+        t_end = t_end/60
+        tag=&#39;Minutes&#39;
+    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+    plt.suptitle(f&#34;{tag} since {time_start}&#34;)
+    plt.subplot(2,3,1)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol00&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    cb00 = plt.colorbar()
+    cb00.ax.plot([0, 1], [7.0]*2, &#39;w&#39;)
+
+    plt.subplot(2,3,4)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol11&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    plt.colorbar()
+
+    plt.subplot(2,3,2)
+    plt.title(&#39;Basic stats for frequency bins&#39;)
+    plt.plot(freq, pol00_max, &#39;r-&#39;, label=&#39;Max&#39;)
+    plt.plot(freq, pol00_min, &#39;b-&#39;, label=&#39;Min&#39;)
+    plt.plot(freq, pol00_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
+    plt.plot(freq, pol00_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(&#39;pol00&#39;)
+
+    plt.subplot(2,3,5)
+    plt.plot(freq, pol11_max, &#39;r-&#39;, label=&#39;Max&#39;)
+    plt.plot(freq, pol11_min, &#39;b-&#39;, label=&#39;Min&#39;)
+    plt.plot(freq, pol11_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
+    plt.plot(freq, pol11_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(&#39;pol11&#39;)
+    plt.legend(loc=&#39;lower right&#39;, fontsize=&#39;small&#39;)
+
+    plt.subplot(2,3,3)
+    plt.imshow(pol01_mag, aspect=&#39;auto&#39;, extent=myext)
+    plt.title(&#39;pol01 magnitude&#39;)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.ylabel(tag)
+    plt.colorbar()
+
+    plt.subplot(2,3,6)
+    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect=&#39;auto&#39;, extent=myext, cmap=&#39;RdBu&#39;)
+    plt.ylabel(tag)
+    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.title(&#39;pol01 phase&#39;)
+    plt.colorbar()
+    plt.savefig(opath)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="albatros_analysis.utils" href="index.html">albatros_analysis.utils</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="albatros_analysis.utils.baseband_utils.get_init_info" href="#albatros_analysis.utils.baseband_utils.get_init_info">get_init_info</a></code></li>
+<li><code><a title="albatros_analysis.utils.baseband_utils.get_plot_lims" href="#albatros_analysis.utils.baseband_utils.get_plot_lims">get_plot_lims</a></code></li>
+<li><code><a title="albatros_analysis.utils.baseband_utils.plot_1bit" href="#albatros_analysis.utils.baseband_utils.plot_1bit">plot_1bit</a></code></li>
+<li><code><a title="albatros_analysis.utils.baseband_utils.plot_4bit" href="#albatros_analysis.utils.baseband_utils.plot_4bit">plot_4bit</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
