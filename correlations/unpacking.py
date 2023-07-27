@@ -2,7 +2,6 @@ import numpy
 import ctypes
 import time
 import os
-import sys
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_unpacking.so"
@@ -64,9 +63,32 @@ hist_1bit_c.argtypes = [
 
 
 def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
+    """Gets list of values ready for plotting in histogram. 
+    
+    Parameters
+    ----------
+    data: ??
+        ?? What shape??
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    length_channels: ??
+        ??
+    bit_depth: int
+        Either 1 or 4
+    mode: int 
+        mode=0 for pol0, 1 for pol1, -1 for both.
+    
+    Returns
+    -------
+    histvals: array-like
+        Binned frequency-of-occurence for each quantization level.
+    """
     nbins = 2**bit_depth - 1
     histvals = numpy.empty((nbins + 1, length_channels), dtype="uint64", order="c")
-
+    assert bit_depth in (1,4), f"bit_depth set to {bit_depth}, only takes values 1 or 4"
+    assert mode in (0,1,-1), f"mode set to {mode}, only takes values 0,1,-1"
     if bit_depth == 4:
         t1 = time.time()
         hist_4bit_c(
@@ -97,6 +119,32 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
 
 
 def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
+    """Unpacks 4-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    """
     # nspec = no. of spectra = no. of rows
     nrows = rowend - rowstart
     ncols = chanend - chanstart
@@ -120,6 +168,29 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
 
 
 def unpack_1bit(data, length_channels, chanstart, chanend):
+    """Unpacks 1-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    """
+
     nspec = 2 * data.shape[0] * data.shape[1] // length_channels
     ncols = chanend - chanstart
     print("print shape of my pols", nspec, ncols)
@@ -141,6 +212,34 @@ def unpack_1bit(data, length_channels, chanstart, chanend):
 
 
 def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chanend):
+    """??
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ??
+        ??
+    bit_mode: ?? 
+        ??
+    rowstart: ?? 
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    """
     # For packed data we don't need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
     # number of rows should be nspec because we want to iterate over spectra while corr averaging in python
 

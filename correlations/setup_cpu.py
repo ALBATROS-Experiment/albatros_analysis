@@ -1,4 +1,4 @@
-mac_error_message="""
+mac_error_message = """
 You may need to install llvm. Try the following:
 `brew install llvm`
 `brew install libomp`
@@ -28,9 +28,8 @@ But with the appropriate paths for your versions of llvm and libomp.
 """
 
 
-
 import os
-from sys import platform # to detect whether using darwin or win/linux os
+from sys import platform  # detect whether using darwin or win/linux os
 
 # builds into the same directory as the setup file
 path = os.path.realpath(__file__ + r"/..")
@@ -40,11 +39,13 @@ print(f"file path {path}")
 def build():
     if os.path.exists(path + "/unpacking.c"):
         path_so = os.path.join(path, "lib_unpacking.so")
-        path_c  = os.path.join(path, "unpacking.c")
-        if platform=="darwin":
+        path_c = os.path.join(path, "unpacking.c")
+        if platform == "darwin":
             # Mac OSx & ARM
             try:
-                os.system(f'gcc -shared -o "{path_so}" -fPIC -Xpreprocessor -fopenmp "{path_c}" -lomp')
+                os.system(
+                    f'gcc -shared -o "{path_so}" -fPIC -Xpreprocessor -fopenmp "{path_c}" -lomp'
+                )
             except:
                 raise Exception(mac_error_message)
         else:
@@ -53,12 +54,14 @@ def build():
     else:
         print(f"Cannot find the file unpacking.c in the directory {path}")
 
-    if os.path.exists(os.path.join(path,"correlations_cpu.c")):
+    if os.path.exists(os.path.join(path, "correlations_cpu.c")):
         path_so = os.path.join(path, "lib_correlations_cpu.so")
-        path_c  = os.path.join(path, "correlations_cpu.c")
-        if platform=="darwin":
+        path_c = os.path.join(path, "correlations_cpu.c")
+        if platform == "darwin":
             try:
-                os.system(f'gcc -shared -o "{path_so}" -fPIC -Xpreprocessor -fopenmp "{path_c}" -lomp')
+                os.system(
+                    f'gcc -shared -o "{path_so}" -fPIC -Xpreprocessor -fopenmp "{path_c}" -lomp'
+                )
             except:
                 raise Exception(mac_error_message)
         else:
@@ -70,8 +73,3 @@ def build():
 
 if __name__ == "__main__":
     build()
-
-
-
-
-
