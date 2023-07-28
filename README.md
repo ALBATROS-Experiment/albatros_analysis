@@ -2,20 +2,31 @@ This README reflects the latest state of the code-base written by Mohan.
 
 This branch (`master`) currently has functionality for dealing with direct data. At the moment all baseband functionality resides in branch `newcode`. I will merge that soon. For a detailed how-to about both direct and baseband data codes, refer to the PDF in "docs" directory.
 
-If you're interested in old code/notes, you can find them under the "legacy" directory.
+If you're interested in old code/notes, you can find them under the "legacy" directory (may be hidden in ".legacy").
 
-Everything is python3. I generally do `module load python/3.8.5 gcc/9.4.0` on Niagara for a hassle-free experience.
+## Setup
 
-To use the Virtual environment on niagara:
+*On Niagara only:* Load modules python 3.8.5 and gcc 9.4.0 with `module load python/3.8.5 gcc/9.4.0`. Note that it is only necessary to load python 3.8.5 if you have not already setup your virtual environment. 
+
+To setup a virtual environment on Niagara:
 - ssh into niagara `ssh <username>@niagara.computecanada.ca` (make sure to configure your ssh key access first by logging into your compute-canada account)
+- If you haven't already, clone the gh repository `git clone https://github.com/ALBATROS-Experiment/albatros_analysis.git`
+- cd into it `cd albatros_analysis`
 - Load python 3.8.5 `module load python/3.8.5`
 - Make sure it's loaded correctly by running `which python` and `python --version`. Also check pip with `which pip`.
-- Create your environment called in the env folder `python -m venv env`
+- Create your environment in the /env folder `python -m venv env`
 - Activate the environment `source env/bin/activate`
 - Install all the packages `pip install -r requirements_py385.txt`
 
+Before running analysis code, you must **build c-libraries** that get called by python correlation scripts. To do this run `python ./correlations/setup_cpu.py`. Before running tests, you must also build the mars2019 testing c-lib (see tests section below for further instruction). 
 
-## There are two types of  data:
+For everyday use in niagara, the flow should go something like this
+- `source env/bin/activate`
+- `module load gcc/9.4.0`
+
+## Data Types
+
+There are two types of data:
 
 1) Directly computed auto- and cross spectra from two inputs of a SNAP box.  These data products exist in directories named "data_auto_cross"
    The data are chunked in regular hour-long intervals. The number of rows in a direct data file depends on the accumulation length (acclen). The default acclen has been 393216 for quite some time, and corresponds to 6.44 s. Thus, there are roughly 560 rows (may vary by +/- 1 sometimes) in the direct files.
@@ -53,10 +64,15 @@ cross-spectra for a particular direct spectra folder (10-digit) for quick visual
   human-readable timestamps.  The globbing is fragile and sometimes
   needs coaxing in order to work.
 
+## Tests
+
+Before running tests, make sure to build dynamically linked c library used in testing. 
+
+To run tests execute `pytest -rP correaltions/tests` from the project root directory.
 
 ## Build the docs
 
-To Build the docs, first make sure that you have pdoc3 installed (not pdoc) with `pip uninstall pdoc && pip install pdoc`. Then, enter `pdoc --html ./` from the project's root directory. 
+Then, enter `pdoc --html ./` from the project's root directory. To overwrite current documentation already in /html, append the `--force` flag. Pdoc3 should already be installed if you are using a virtual environment (which is advisable), but in case you need to troubleshoort: first make sure that you have pdoc3 installed (not pdoc, which is no longer maintained) with `pip uninstall pdoc && pip install pdoc`. 
 
 
 
