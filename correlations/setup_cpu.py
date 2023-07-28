@@ -32,12 +32,12 @@ import os
 from sys import platform  # detect whether using darwin or win/linux os
 
 # builds into the same directory as the setup file
-path = os.path.realpath(__file__ + r"/..")
+path = os.path.dirname(__file__)
 print(f"file path {path}")
 
 
 def build():
-    if os.path.exists(path + "/unpacking.c"):
+    if os.path.exists(os.path.join(path, "unpacking.c")):
         path_so = os.path.join(path, "lib_unpacking.so")
         path_c = os.path.join(path, "unpacking.c")
         if platform == "darwin":
