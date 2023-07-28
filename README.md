@@ -24,6 +24,8 @@ For everyday use in niagara, the flow should go something like this
 - `source env/bin/activate`
 - `module load gcc/9.4.0`
 
+To use a compute node `debugjob --clean 1` will give you access for 1 hour. 
+
 ## Data Types
 
 There are two types of data:
