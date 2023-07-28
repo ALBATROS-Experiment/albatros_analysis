@@ -2,7 +2,9 @@ import numpy as np
 import sys
 import os
 
-sys.path.insert(0, "/home/mohan/Projects/albatros_analysis/")
+#sys.path.insert(0, "/home/mohan/Projects/albatros_analysis/")
+project_root_path = os.path.join(os.path.dirname(__file__), "..", "..") # warning breaks if not in albatros_analysis/correlations/test/ (or two levels deep)
+sys.path.insert(0, project_root_path)
 
 print(sys.path)
 
