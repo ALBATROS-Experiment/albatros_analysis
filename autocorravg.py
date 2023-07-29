@@ -1,9 +1,15 @@
 import numpy as np
 import time
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-from utils import baseband_utils as butils
 import argparse
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    from utils import baseband_utils as butils
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+    from .utils import baseband_utils as butils
 
 # TODO: not sure about types going into and out of get_avg_fast
 # best guess out is tuple[ndarray x 3, list]

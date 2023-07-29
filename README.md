@@ -5,7 +5,7 @@ This README reflects the latest state of the code base written by Mohan.
 
 This branch (`master`) currently has functionality for dealing with direct data. At the moment, all baseband functionality resides in branch `newcode`. I will merge that soon. For a detailed how-to about both direct and baseband data codes, refer to the PDF in the "docs" directory.
 
-If you're interested in old code/notes, you can find them under the "legacy" directory (may be hidden in ".legacy").
+If you're interested in old code/notes, you can find them under the hidden ".legacy" directory.
 
 ## Large File Storage (LFS)
 

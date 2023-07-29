@@ -1,11 +1,10 @@
-from correlations import baseband_data_classes as bdc
-import numpy as np
-import argparse
-from matplotlib import pyplot as plt
-import os
-from palettable.colorbrewer.sequential import GnBu_9 as mycmap
-
 if __name__ == "__main__":
+    import numpy as np
+    import argparse
+    from matplotlib import pyplot as plt
+    import os
+    from palettable.colorbrewer.sequential import GnBu_9 as mycmap
+    from correlations import baseband_data_classes as bdc
     "Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
     parser = argparse.ArgumentParser()
     parser.add_argument(

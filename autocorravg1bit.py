@@ -2,10 +2,17 @@ import numpy as np
 
 # from correlations_temp import baseband_data_classes as bdc
 import time
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-from utils import baseband_utils as butils
 import argparse
+
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    from utils import baseband_utils as butils
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+    from .utils import baseband_utils as butils
 
 
 def get_avg_fast_1bit(

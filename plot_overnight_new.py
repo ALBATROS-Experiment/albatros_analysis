@@ -7,7 +7,6 @@ if os.environ.get("DISPLAY", "") == "":
 from matplotlib import pyplot as plt
 import numpy as np
 from scio import scio # module scio with class called scio, packeged as pbio, make sure `pip import pbio` not `scio`
-import SNAPfiletools as sft
 import argparse
 import time, re
 from datetime import datetime 
@@ -15,6 +14,11 @@ import matplotlib.dates as mdates
 from multiprocessing import Pool
 from functools import partial
 import pytz
+
+if __name__=="__main__":
+    import SNAPfiletools as sft
+else:
+    import albatros_analysis.SNAPfiletools as sft
 
 
 def get_ts_from_name(f):
@@ -433,8 +437,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     print("Wrote " + outfile)
 
 
-# ============================================================
-def main():
+if __name__=="__main__":
     parser = argparse.ArgumentParser()
     # parser.set_usage('python plot_overnight_data.py <data directory> <start time as YYYYMMDD_HHMMSS or ctime> <stop time as YYYYMMDD_HHMMSS or ctime> [options]')
     # parser.set_description(__doc__)
@@ -624,5 +627,3 @@ def main():
         full_plot([pol00, pol11, pol01, tstart, tend], mytz, chunk_time)
 
 
-if __name__ == "__main__":
-    main()
