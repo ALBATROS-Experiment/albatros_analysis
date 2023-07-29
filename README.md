@@ -1,19 +1,24 @@
-*Before you clone this repository read the LFS section*
+*Before you clone this repository, read the LFS section*
 
 
-This README reflects the latest state of the code-base written by Mohan.
+This README reflects the latest state of the code base written by Mohan.
 
-This branch (`master`) currently has functionality for dealing with direct data. At the moment all baseband functionality resides in branch `newcode`. I will merge that soon. For a detailed how-to about both direct and baseband data codes, refer to the PDF in "docs" directory.
+This branch (`master`) currently has functionality for dealing with direct data. At the moment, all baseband functionality resides in branch `newcode`. I will merge that soon. For a detailed how-to about both direct and baseband data codes, refer to the PDF in the "docs" directory.
 
 If you're interested in old code/notes, you can find them under the "legacy" directory (may be hidden in ".legacy").
 
 ## Large File Storage (LFS)
 
-This repository uses github LFS. To control how the large files are dealt with you need `git-lfs`. 
+This repository uses GitHub LFS. To control how the large files are dealt with, you need `git-lfs`. 
 
 Once the binary is installed and included in your path, you need to configure it with `git lfs install --skip-smudge`. 
 
-We *strongly reccomend* passing the `--skip-smudge` flag, otherwise you will experiance unnecessary delays on the order of minutes (depending on your specs & dload speeds) when switching between branches. The `--skip-smudge` flag configures LFS to *not* download large files when cloning and swiching branches. Large data files (~500 Mb) are only used for testing code. If you want to download them you can do so individually with `git lfs pull --include="<filename>"`.
+We *strongly recommend* passing the `--skip-smudge` flag, otherwise you will experience unnecessary delays on the order of minutes (depending on your specs & download speeds) when switching between branches. The `--skip-smudge` flag configures LFS to *not* download large files when cloning and switching branches. Large data files (~500 Mb) are only used for testing code. 
+
+If & when you want to download large, you can do so individually with `git lfs pull --include="<filename>"`.
+
+<img width="716" alt="Screenshot 2023-07-28 at 10 07 50 PM" src="https://github.com/ALBATROS-Experiment/albatros_analysis/assets/21654151/315066f5-3d17-43af-91ef-260941c8864c">
+
 
 Resources:
 - [https://sabicalija.github.io/git-lfs-intro/](https://sabicalija.github.io/git-lfs-intro/)
@@ -31,8 +36,8 @@ If you do not have root access, here's what I did to get it working:
 - Download correct binary tarball from [pkgs.org](https://pkgs.org) (the one fore CENTOS 7) with `wget https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/g/git-lfs-2.10.0-2.el7.x86_64.rpm -O git-lfs-2.10.0-2.el7.x86_64.rpm`
 - Turn it into a cpio file with  `rpm2cpio git-lfs-2.10.0-2.el7.x86_64.rpm git-lfs-2.10.0-2.el7.x86_64.cpio`
 - Extract cpio with `cpio -idv < git-lfs-2.10.0-2.el7.x86_64.cpio`
-- Copy binary (in /bin subdirectory of extracted folder) to where you think is a sensible install location e.g. `cp bin/git-lfs ~/local/bin`
-- Make sure that install location is permenantly in your path by adding this line to your .bashrc `export PATH="~/local/bin:$PATH"`
+- Copy binary (in bin/ subdirectory of the extracted folder) to where you think is a sensible install location, e.g. `cp bin/git-lfs ~/local/bin`
+- Make sure that the install location is permanently in your path by adding this line to your .bashrc `export PATH="~/local/bin:$PATH"`
 Resources:
 - [https://unix.stackexchange.com/questions/61283/yum-install-in-user-home-for-non-admins](https://unix.stackexchange.com/questions/61283/yum-install-in-user-home-for-non-admins)
 - [https://rhel.pkgs.org/7/epel-x86_64/git-lfs-2.10.0-2.el7.x86_64.rpm.html](https://rhel.pkgs.org/7/epel-x86_64/git-lfs-2.10.0-2.el7.x86_64.rpm.html)
@@ -41,12 +46,12 @@ Resources:
 
 ## Setup
 
-**(1)** Python environment. **(2)** Gnu compiler collection (gcc). **(3)** Build c-libs.
+**(1)** Python environment. **(2)** Gnu compiler collection (GCC). **(3)** Build c-libs.
 
-*On Niagara only:* Load modules python 3.8.5 and gcc 9.4.0 with `module load python/3.8.5 gcc/9.4.0`. Note that it is only necessary to load python 3.8.5 if you have not already setup your virtual environment. 
+*On Niagara only:* Load modules python 3.8.5 and gcc 9.4.0 with `module load python/3.8.5 gcc/9.4.0`. Note that it is only necessary to load Python 3.8.5 if you have not already set up your virtual environment. 
 
-To setup a virtual environment on Niagara:
-- ssh into niagara `ssh <username>@niagara.computecanada.ca` (make sure to configure your ssh key access first by logging into your compute-canada account)
+To set up a virtual environment in Niagara:
+- ssh into Niagara `ssh <username>@niagara.computecanada.ca` (make sure to configure your ssh key access first by logging into your compute-canada account)
 - If you haven't already, clone the gh repository `git clone https://github.com/ALBATROS-Experiment/albatros_analysis.git`
 - cd into it `cd albatros_analysis`
 - Load python 3.8.5 `module load python/3.8.5`
@@ -55,9 +60,9 @@ To setup a virtual environment on Niagara:
 - Activate the environment `source env/bin/activate`
 - Install all the packages `pip install -r requirements_py385.txt`
 
-Before running analysis code, you must **build c-libraries** that get called by python correlation scripts. To do this run `python ./correlations/setup_cpu.py`. Before running tests, you must also build the mars2019 testing c-lib (see tests section below for further instruction). 
+Before running analysis code, you must **build c-libraries** that get called by Python correlation scripts. To do this, run `python ./correlations/setup_cpu.py`. (Before running tests, you must also build the mars2019 testing c-lib; see the "tests" section below for further instructions.) 
 
-For everyday use in niagara, the flow should go something like this
+For everyday use in Niagara, the flow should go something like this
 - `source env/bin/activate`
 - `module load gcc/9.4.0`
 
@@ -106,9 +111,10 @@ cross-spectra for a particular direct spectra folder (10-digit) for quick visual
 
 ## Tests
 
-Before running tests, make sure to build dynamically linked c library used in testing. 
+Before running tests, make sure to build the dynamically linked c-library used in testing `python correlations/tests/mars2019/build_albatrostools.py`
 
 To run tests execute `pytest -rP correaltions/tests` from the project root directory. If they do not pass it may be because you haven't fetched the data files used in the tests. 
+
 
 ## Build the docs
 
@@ -116,8 +122,6 @@ Then, enter `pdoc --html ./` from the project's root directory.
 
 To overwrite current documentation already in /html, append the `--force` flag. 
 
-Pdoc3 should already be installed if you are using a virtual environment (which is advisable), but in case you need to troubleshoort: first make sure that you have pdoc3 installed (not pdoc, which is no longer maintained) with `pip uninstall pdoc && pip install pdoc`. 
-
-
+Pdoc3 should already be installed if you are using the provided virtual environment, but in case you need to troubleshoot: make sure that you have pdoc3 installed (not pdoc, which is no longer maintained) with `pip uninstall pdoc && pip install pdoc`. 
 
 
