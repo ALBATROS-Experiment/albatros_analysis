@@ -1,6 +1,5 @@
 *Before you clone this repository, read the LFS section*
 
-
 This README reflects the latest state of the code base written by Mohan.
 
 This branch (`master`) currently has functionality for dealing with direct data. At the moment, all baseband functionality resides in branch `newcode`. I will merge that soon. For a detailed how-to about both direct and baseband data codes, refer to the PDF in the "docs" directory.
@@ -124,17 +123,17 @@ Resources:
 Navigate to the project root's parent directory to build. This is the script I use:
 
 ```sh
+
 #!/opt/homebrew/bin/bash
 
 # [Steve] This is what I use to build the docs. 
 # Place this file in the parent to the project root and run it from there with bash. 
 
 # uncomment for dev, builds and serves the docs
-#pdoc --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis;
+pdoc --docformat="numpy" --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis;
 
 # uncomment for prod, builds docs and output to html
-pdoc --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis -o albatros_analysis_docs;
-For Dev:
+#pdoc --docformat="numpy" --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis -o albatros_analysis/docs;
 ```
 
 Reffer to the [pdoc api](https://pdoc.dev/docs/pdoc.html).

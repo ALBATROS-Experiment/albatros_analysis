@@ -537,7 +537,7 @@
                     <div class="attr variable">
             <span class="name">mylib</span>        =
 <input id="mylib-view-value" class="view-value-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-            <label class="view-value-button pdoc-button" for="mylib-view-value"></label><span class="default_value">&lt;CDLL &#39;/Users/steve/Documents/cosmology/code/albatros_analysis/correlations/lib_correlations_cpu.so&#39;, handle 89e4b930&gt;</span>
+            <label class="view-value-button pdoc-button" for="mylib-view-value"></label><span class="default_value">&lt;CDLL &#39;/Users/steve/Documents/cosmology/code/albatros_analysis/correlations/lib_correlations_cpu.so&#39;, handle 8df5f930&gt;</span>
 
         
     </div>
@@ -679,15 +679,19 @@
 
             <div class="docstring"><p>Compute autocorrelations of 4bit data.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>pol: np.ndarray
-    Raw pol baseband data. </p>
+<ul>
+<li><strong>pol</strong> (np.ndarray):
+Raw pol baseband data.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>corr: np.ndarray
-    Autocorrelation of pol with itsself.</p>
+<ul>
+<li><strong>corr</strong> (np.ndarray):
+Autocorrelation of pol with itsself.</li>
+</ul>
 </div>
 
 
@@ -746,17 +750,21 @@
 
             <div class="docstring"><p>Compute time-average of autocorrelation for each channel. (??)</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>data: np.ndarray
-    ??
-specnums: ??
-    ??</p>
+<ul>
+<li><strong>data</strong> (np.ndarray):
+??</li>
+<li><strong>specnums</strong> (??):
+??</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>corr: np.ndarray
-    Time-averaged autocorrelations.</p>
+<ul>
+<li><strong>corr</strong> (np.ndarray):
+Time-averaged autocorrelations.</li>
+</ul>
 </div>
 
 
@@ -806,17 +814,21 @@ specnums: ??
 
             <div class="docstring"><p>Compute cross-correlation for 4-bit data. </p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>data0: np.ndarray
-    2d baseband array. 
-data1: np.ndarray
-    2d baseband array. </p>
+<ul>
+<li><strong>data0</strong> (np.ndarray):
+2d baseband array.</li>
+<li><strong>data1</strong> (np.ndarray):
+2d baseband array.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>xcorr: np.ndarray
-    Cross correlation of data0, data1.</p>
+<ul>
+<li><strong>xcorr</strong> (np.ndarray):
+Cross correlation of data0, data1.</li>
+</ul>
 </div>
 
 
@@ -869,19 +881,23 @@ data1: np.ndarray
 
             <div class="docstring"><p>Compute time-averaged cross-correlation.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>data0: np.ndarray
-    2d baseband array. 
-data1: np.ndarray
-    2d baseband array. 
-specnums: np.ndarray
-    ??</p>
+<ul>
+<li><strong>data0</strong> (np.ndarray):
+2d baseband array.</li>
+<li><strong>data1</strong> (np.ndarray):
+2d baseband array.</li>
+<li><strong>specnums</strong> (np.ndarray):
+??</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>corr: np.ndarray
-    1d array, time averaged cross correlation in each channel.</p>
+<ul>
+<li><strong>corr</strong> (np.ndarray):
+1d array, time averaged cross correlation in each channel.</li>
+</ul>
 </div>
 
 
@@ -958,25 +974,29 @@ specnums: np.ndarray
 
 <p>??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>data0: np.ndarray
-    2d baseband data for antenna #0.
-data1: np.ndarray
-    2d baseband data for antenna #1
-specnum0: ??
-    ??
-specnum1: ??
-    ??
-start_idx0: int
-    ??
-start_idx1: int
-    ??</p>
+<ul>
+<li><strong>data0</strong> (np.ndarray):
+2d baseband data for antenna #0.</li>
+<li><strong>data1</strong> (np.ndarray):
+2d baseband data for antenna #1</li>
+<li><strong>specnum0</strong> (??):
+??</li>
+<li><strong>specnum1</strong> (??):
+??</li>
+<li><strong>start_idx0</strong> (int):
+??</li>
+<li><strong>start_idx1</strong> (int):
+??</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>xcorr: np.ndarray
-    ??</p>
+<ul>
+<li><strong>xcorr</strong> (np.ndarray):
+??</li>
+</ul>
 </div>
 
 

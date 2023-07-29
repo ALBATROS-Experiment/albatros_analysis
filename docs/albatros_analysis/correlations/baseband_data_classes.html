@@ -815,14 +815,16 @@
 
             <div class="docstring"><p>Fill array with ??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>myarr: np.ndarray 
-    1d array to fill with data, length is len(specnum) * spec_per_packet
-specnum: array-like
-    ?? 
-spec_per_packet: int
-    Length of ??</p>
+<ul>
+<li><strong>myarr</strong> (np.ndarray):
+1d array to fill with data, length is len(specnum) * spec_per_packet</li>
+<li><strong>specnum</strong> (array-like):
+??</li>
+<li><strong>spec_per_packet</strong> (int):
+Length of ??</li>
+</ul>
 </div>
 
 
@@ -1180,19 +1182,21 @@ spec_per_packet: int
 
 <p>TODO: Explain what the Baseband class is and what it does??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>file_name: str
-    Path to baseband binary file to be read. 
-readlen: int or float
-    The number of packets to read. 
-    If it is an integer &gt;=1, specifies # of packets to read. 
-    If it is a float in (0,1), reads fraction of total packets.
-    Defaults to -1, in which case all packets are read. 
-fixoverflow: bool
-    Defaults to True. ??</p>
+<ul>
+<li><strong>file_name</strong> (str):
+Path to baseband binary file to be read.</li>
+<li><strong>readlen</strong> (int or float):
+The number of packets to read. 
+If it is an integer &gt;=1, specifies # of packets to read. 
+If it is a float in (0,1), reads fraction of total packets.
+Defaults to -1, in which case all packets are read.</li>
+<li><strong>fixoverflow</strong> (bool):
+Defaults to True. ??</li>
+</ul>
 
-<h2 id="returns">Returns </h2>
+<h6 id="returns">Returns</h6>
 
 <p>self: Baseband</p>
 </div>
@@ -1287,15 +1291,19 @@ fixoverflow: bool
 
             <div class="docstring"><p>Get</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>mode: int
-    mode=0 for pol0, 1 for po1, -1 for both.</p>
+<ul>
+<li><strong>mode</strong> (int):
+mode=0 for pol0, 1 for po1, -1 for both.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>histvals: ??
-    ??</p>
+<ul>
+<li><strong>histvals</strong> (??):
+??</li>
+</ul>
 </div>
 
 
@@ -1342,17 +1350,20 @@ fixoverflow: bool
 <p>Loads the data at <file_name> by instantiating a Baseband object, 
 returns the object's attributes (self.__dict__), incl header info.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>file_name: str
-    Path to baseband data file. 
-verbose: bool
-    Defaults to True, in which case header data is printed.</p>
+<ul>
+<li><strong>file_name</strong> (str):
+Path to baseband data file.</li>
+<li><strong>verbose</strong> (bool):
+Defaults to True, in which case header data is printed.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>dict
-    Baseband dictionary containing header information.</p>
+<ul>
+<li><strong>dict</strong>: Baseband dictionary containing header information.</li>
+</ul>
 </div>
 
 
@@ -1485,22 +1496,24 @@ verbose: bool
 
 <p>A child of the Baseband class. BasebandFloat... TODO: describe??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>file_name: str
-    Path to baseband binary file to be read. 
-readlen: int or float
-    The number of packets to read. 
-    If it is an integer &gt;=1, specifies # of packets to read. 
-    If it is a float in (0,1), reads fraction of total packets.
-    Defaults to -1, in which case all packets are read. 
-fixoverflow: bool
-    Defaults to True. ?? <em>warning: not passed to super</em>
-chanstart: int
-    Index of channel at which to start selection. Default is 0.
-chanend: int or None
-    Index of channel at which to end selection. Default is None
-    in which case select up to highest frequency channel.</p>
+<ul>
+<li><strong>file_name</strong> (str):
+Path to baseband binary file to be read.</li>
+<li><strong>readlen</strong> (int or float):
+The number of packets to read. 
+If it is an integer &gt;=1, specifies # of packets to read. 
+If it is a float in (0,1), reads fraction of total packets.
+Defaults to -1, in which case all packets are read.</li>
+<li><strong>fixoverflow</strong> (bool):
+Defaults to True. ?? <em>warning: not passed to super</em></li>
+<li><strong>chanstart</strong> (int):
+Index of channel at which to start selection. Default is 0.</li>
+<li><strong>chanend</strong> (int or None):
+Index of channel at which to end selection. Default is None
+in which case select up to highest frequency channel.</li>
+</ul>
 </div>
 
 
@@ -1669,22 +1682,24 @@ chanend: int or None
 
 <p>A child of the Baseband class. BasebandPacked... ??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>file_name: str
-    Path to baseband binary file to be read. 
-readlen: int or float
-    The number of packets to read. 
-    If it is an integer &gt;=1, specifies # of packets to read. 
-    If it is a float in (0,1), reads fraction of total packets.
-    Defaults to -1, in which case all packets are read. 
-fixoverflow: bool
-    Defaults to True. ?? <em>Depricated</em>
-chanstart: int
-    Index of channel at which to start selection. Default is 0.
-chanend: int or None
-    Index of channel at which to end selection. Default is None
-    in which case select up to highest frequency channel.</p>
+<ul>
+<li><strong>file_name</strong> (str):
+Path to baseband binary file to be read.</li>
+<li><strong>readlen</strong> (int or float):
+The number of packets to read. 
+If it is an integer &gt;=1, specifies # of packets to read. 
+If it is a float in (0,1), reads fraction of total packets.
+Defaults to -1, in which case all packets are read.</li>
+<li><strong>fixoverflow</strong> (bool):
+Defaults to True. ?? <em>Depricated</em></li>
+<li><strong>chanstart</strong> (int):
+Index of channel at which to start selection. Default is 0.</li>
+<li><strong>chanend</strong> (int or None):
+Index of channel at which to end selection. Default is None
+in which case select up to highest frequency channel.</li>
+</ul>
 </div>
 
 
@@ -1756,21 +1771,25 @@ chanend: int or None
 
 <p>??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>stidx: int
-    Start index of... ??
-endidx: int
-    End index of... ??
-spec_arr: np.ndarray
-    ??</p>
+<ul>
+<li><strong>stidx</strong> (int):
+Start index of... ??</li>
+<li><strong>endidx</strong> (int):
+End index of... ??</li>
+<li><strong>spec_arr</strong> (np.ndarray):
+??</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>l: int??
-    Left...?? 
-r: int??
-    Right...??</p>
+<ul>
+<li><strong>l</strong> (int??):
+Left...??</li>
+<li><strong>r</strong> (int??):
+Right...??</li>
+</ul>
 </div>
 
 
@@ -2077,25 +2096,27 @@ r: int??
 
 <p>??</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>file_paths: list of str
-    Paths to baseband binary files to be read. 
-fileidx: int
-    ??
-idxstart: int
-    ??
-acclen: int
-    ??
-nchunks: int
-    Defaults to None. You need to pass nchunks if you are 
-    passing the iterator to zip(). Without nchunks, iteration
-    won't stop. 
-chanstart: int
-    Index of channel at which to start selection. Default is 0.
-chanend: int or None
-    Index of channel at which to end selection. Default is None
-    in which case select up to highest frequency channel.</p>
+<ul>
+<li><strong>file_paths</strong> (list of str):
+Paths to baseband binary files to be read.</li>
+<li><strong>fileidx</strong> (int):
+??</li>
+<li><strong>idxstart</strong> (int):
+??</li>
+<li><strong>acclen</strong> (int):
+??</li>
+<li><strong>nchunks</strong> (int):
+Defaults to None. You need to pass nchunks if you are 
+passing the iterator to zip(). Without nchunks, iteration
+won't stop.</li>
+<li><strong>chanstart</strong> (int):
+Index of channel at which to start selection. Default is 0.</li>
+<li><strong>chanend</strong> (int or None):
+Index of channel at which to end selection. Default is None
+in which case select up to highest frequency channel.</li>
+</ul>
 </div>
 
 

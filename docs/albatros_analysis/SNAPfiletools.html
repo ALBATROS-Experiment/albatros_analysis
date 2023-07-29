@@ -562,25 +562,28 @@ cases? The only difference I can see is that this one also has option
 to return missing files, and is implemented slightly differently 
 (does not use scio [pbio]). </p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>dirs: list
-    List of paths to baseline data files. 
-tag: str
-    Identifies which polarization baseline. E.g. 'pol00'
-dtype: str
-    Specifies numpy primitive data-type. 
-return_missing: bool
-    If True, returns list of paths where data is missing as second 
-    return parameter. Defaults to False. </p>
+<ul>
+<li><strong>dirs</strong> (list):
+List of paths to baseline data files.</li>
+<li><strong>tag</strong> (str):
+Identifies which polarization baseline. E.g. 'pol00'</li>
+<li><strong>dtype</strong> (str):
+Specifies numpy primitive data-type.</li>
+<li><strong>return_missing</strong> (bool):
+If True, returns list of paths where data is missing as second 
+return parameter. Defaults to False.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>np.ndarray or tuple[np.ndarray, list]
-    A numpy array containing all xcorr/autocorr baseline data 
-    requested. If none was found, returns None. If return_missing 
-    is True, returns a list of filepaths that point to non-existant
-    data.</p>
+<ul>
+<li><strong>np.ndarray or tuple[np.ndarray, list]</strong>: A numpy array containing all xcorr/autocorr baseline data 
+requested. If none was found, returns None. If return_missing 
+is True, returns a list of filepaths that point to non-existant
+data.</li>
+</ul>
 </div>
 
 
@@ -650,17 +653,21 @@ return_missing: bool
 <p>A baseline is identified by tag, the data is identified by dirs. 
 Relevant data are read and returned as a 2d numpy array. </p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>dirs: list of str
-    List of paths to baseline data files. 
-tag: str
-    Identifies which polarization baseline. E.g. 'pol00'</p>
+<ul>
+<li><strong>dirs</strong> (list of str):
+List of paths to baseline data files.</li>
+<li><strong>tag</strong> (str):
+Identifies which polarization baseline. E.g. 'pol00'</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>big_dat: np.ndarray with shape (ndat, nchan)
-    A 2-d numpy array that stores all relevant data.</p>
+<ul>
+<li><strong>big_dat</strong> (np.ndarray with shape (ndat, nchan)):
+A 2-d numpy array that stores all relevant data.</li>
+</ul>
 </div>
 
 
@@ -699,12 +706,14 @@ tag: str
 
             <div class="docstring"><p>Given a (list of) ctime, convert to human friendly format.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>ctime: int or float or list of int/float
-    (List of) ctime(s).</p>
+<ul>
+<li><strong>ctime</strong> (int or float or list of int/float):
+(List of) ctime(s).</li>
+</ul>
 
-<h2 id="returns">Returns </h2>
+<h6 id="returns">Returns</h6>
 
 <p>list
     The time stamps (or list of time stamps) in human friendly format.</p>
@@ -758,17 +767,20 @@ tag: str
 format, with default being YYYYMMSS_HHMMSS, convert to datetime
 object and calculate ctime.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>date_strings: str or list of str
-    Time stamp(s) in desired text format
-time_format: str or list of str
-    Formatting string for datetime</p>
+<ul>
+<li><strong>date_strings</strong> (str or list of str):
+Time stamp(s) in desired text format</li>
+<li><strong>time_format</strong> (str or list of str):
+Formatting string for datetime</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>list 
-    The time stamps (or list of time stamps) in ctime.</p>
+<ul>
+<li><strong>list</strong>: The time stamps (or list of time stamps) in ctime.</li>
+</ul>
 </div>
 
 
@@ -844,7 +856,7 @@ This function assumes that the parent directory has the directory
 structure <dir_parent>/&lt;5-digit coarse time fragment>/&lt;10-digit
 fine time stamp>.</p>
 
-<h2 id="paramaters">Paramaters</h2>
+<h6 id="paramaters">Paramaters</h6>
 
 <p>time_start: int 
     start time in ctime 
@@ -855,7 +867,7 @@ dir_parent: str
 fraglen: int 
     number of digits in coarse time fragments</p>
 
-<h2 id="returns">Returns </h2>
+<h6 id="returns">Returns</h6>
 
 <p>list of str
     List of files in specified time range.</p>
@@ -978,10 +990,12 @@ auto, ..., cross_r, cross_i, ...</p>
 <p>Make sure a directory specified exists and is empty. If it doesn't
 exist, create it; if it's not empty, empty it.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>dir_name: str
-    The path to the directory we want to allocate.</p>
+<ul>
+<li><strong>dir_name</strong> (str):
+The path to the directory we want to allocate.</li>
+</ul>
 </div>
 
 
@@ -1017,10 +1031,12 @@ exist, create it; if it's not empty, empty it.</p>
 
 <p>If a directory doesn't exist, create it; otherwise, leave it as it is. </p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>dir_name: str
-    The path to the directory we want to allocate.</p>
+<ul>
+<li><strong>dir_name</strong> (str):
+The path to the directory we want to allocate.</li>
+</ul>
 </div>
 
 
@@ -1067,15 +1083,18 @@ functionality contained within <code><a href="#read_pol_fast">read_pol_fast</a><
 
 <p>Thin wrapper for np.load().</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>fname: str
-    Path to binary file. </p>
+<ul>
+<li><strong>fname</strong> (str):
+Path to binary file.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>np.ndarray
-    The binary array at fname.</p>
+<ul>
+<li><strong>np.ndarray</strong>: The binary array at fname.</li>
+</ul>
 </div>
 
 
@@ -1143,23 +1162,27 @@ file. E.g. This method can be used to load multiple data from one
 multiple files containing the same baseline (xcorr/autocorr) into 
 an array.</p>
 
-<h2 id="parameters">Parameters</h2>
+<h6 id="parameters">Parameters</h6>
 
-<p>dir_names: list of str
-    List of relative directory names. 
-base_file_path: str
-    Path to the base file in which we search for sub-directories 
-    'dir_names'. 
-file_name: str
-    Name of the leaf node (file). A similar variable is refered to as 
-    'tag' above. 
-function: callable
-    Applied to filepath. Takes path-string and returns numpy array. </p>
+<ul>
+<li><strong>dir_names</strong> (list of str):
+List of relative directory names.</li>
+<li><strong>base_file_path</strong> (str):
+Path to the base file in which we search for sub-directories 
+'dir_names'.</li>
+<li><strong>file_name</strong> (str):
+Name of the leaf node (file). A similar variable is refered to as 
+'tag' above.</li>
+<li><strong>function</strong> (callable):
+Applied to filepath. Takes path-string and returns numpy array.</li>
+</ul>
 
-<h2 id="returns">Returns</h2>
+<h6 id="returns">Returns</h6>
 
-<p>data: np.ndarray
-    Most likely this will be used to read</p>
+<ul>
+<li><strong>data</strong> (np.ndarray):
+Most likely this will be used to read</li>
+</ul>
 </div>
 
 

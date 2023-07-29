@@ -21,11 +21,12 @@ def get_init_info(init_t, end_t, parent_dir):
     Returns
     -------
     idxstart: int
-        ??
+        The index of the starting row of interest to us within a 
+        baseband data file. 
     fileidx: int
-        ??
+        The index of the file in the sorted directory. 
     files: list of str
-        List of path strings to all files in 'parent_dir'.  
+        Sorted list of path strings to all files in 'parent_dir'.  
     """
     # create a big list of files from 5 digit subdirs. we might not need all of them, but I don't want to write regex.
     # This may be faster, and I don't care about storing a few 100 more strings than I need to.
@@ -40,8 +41,8 @@ def get_init_info(init_t, end_t, parent_dir):
         files.append(glob.glob(path + "/*"))
     files.sort()
     speclen = 4096  # length of each spectra
-    fs = 250e6
-    dt_spec = speclen / fs  # time taken to read one spectra
+    fs = 250e6      # Hz
+    dt_spec = speclen / fs  # time taken to read one spectra (frame)
 
     # find which file to read first
     filetstamps = [int(f.split(".")[0].split("/")[-1]) for f in files]
@@ -269,8 +270,8 @@ def plot_1bit(pol01, channels, acclen, time_start, opath, minutes=False, logplot
         Indices of channels of interest. 
     acclen: int
         ??
-    time_start: int or float
-        ??In what format??
+    time_start: ??
+        ??In what format; is this relative time or absolute timestamp?
     opath: str
         Ouput path. Path to image of figure to be saved. 
     minutes: bool
