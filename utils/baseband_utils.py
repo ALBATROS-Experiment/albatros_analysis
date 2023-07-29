@@ -304,3 +304,4 @@ def plot_1bit(pol01, channels, acclen, time_start, opath, minutes=False, logplot
     plt.colorbar(img1, ax=ax[0])
     plt.colorbar(img2, ax=ax[1])
     plt.savefig(opath)
+    return 
