@@ -236,11 +236,24 @@ needs coaxing in order to work.</p></li>
 
 <h2 id="build-the-docs">Build the docs</h2>
 
-<p>Then, enter <code>pdoc --html ./</code> from the project's root directory. </p>
+<p>Navigate to the project root's parent directory to build. This is the script I use:</p>
 
-<p>To overwrite current documentation already in /html, append the <code>--force</code> flag. </p>
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="ch">#!/opt/homebrew/bin/bash</span>
 
-<p>Pdoc3 should already be installed if you are using the provided virtual environment, but in case you need to troubleshoot: make sure that you have pdoc3 installed (not pdoc, which is no longer maintained) with <code>pip uninstall pdoc &amp;&amp; pip install pdoc</code>. </p>
+<span class="c1"># [Steve] This is what I use to build the docs. </span>
+<span class="c1"># Place this file in the parent to the project root and run it from there with bash. </span>
+
+<span class="c1"># uncomment for dev, builds and serves the docs</span>
+<span class="c1">#pdoc --logo=&quot;https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg&quot; --math --mermaid albatros_analysis;</span>
+
+<span class="c1"># uncomment for prod, builds docs and output to html</span>
+pdoc<span class="w"> </span>--logo<span class="o">=</span><span class="s2">&quot;https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg&quot;</span><span class="w"> </span>--math<span class="w"> </span>--mermaid<span class="w"> </span>albatros_analysis<span class="w"> </span>-o<span class="w"> </span>albatros_analysis_docs<span class="p">;</span>
+For<span class="w"> </span>Dev:
+</code></pre>
+</div>
+
+<p>Reffer to the <a href="https://pdoc.dev/docs/pdoc.html">pdoc api</a>.</p>
 </div>
 
                         <input id="mod-albatros_analysis-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">

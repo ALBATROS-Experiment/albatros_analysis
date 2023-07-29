@@ -118,10 +118,22 @@ To run tests execute `pytest -rP correaltions/tests` from the project root direc
 
 ## Build the docs
 
-Then, enter `pdoc --html ./` from the project's root directory. 
+Navigate to the project root's parent directory to build. This is the script I use:
 
-To overwrite current documentation already in /html, append the `--force` flag. 
+```sh
+#!/opt/homebrew/bin/bash
 
-Pdoc3 should already be installed if you are using the provided virtual environment, but in case you need to troubleshoot: make sure that you have pdoc3 installed (not pdoc, which is no longer maintained) with `pip uninstall pdoc && pip install pdoc`. 
+# [Steve] This is what I use to build the docs. 
+# Place this file in the parent to the project root and run it from there with bash. 
+
+# uncomment for dev, builds and serves the docs
+#pdoc --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis;
+
+# uncomment for prod, builds docs and output to html
+pdoc --logo="https://upload.wikimedia.org/wikipedia/commons/7/73/Short_tailed_Albatross1.jpg" --math --mermaid albatros_analysis -o albatros_analysis_docs;
+For Dev:
+```
+
+Reffer to the [pdoc api](https://pdoc.dev/docs/pdoc.html).
 
 

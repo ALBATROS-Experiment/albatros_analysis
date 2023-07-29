@@ -91,25 +91,32 @@
                         <div class="docstring"><h3 id="dependency-tree">Dependency tree</h3>
 
 <pre class="mermaid-pre"><div class="mermaid">graph LR
-  so_corr([lib_correlations_cpu.so])
-  --&gt; py_corr([correlations.py])
+    so_corr([lib_correlations_cpu.so])
+    --&gt; py_corr([correlations.py])
 
-  so_unpk
-  --&gt; py_setup
-  c_unpack([unpacking.c])
-  --&gt; py_setup([setup_cpu.py])
+    py_setup([setup_cpu.py])
+    --&gt; so_unpk
+    py_setup([setup_cpu.py])
+    --&gt; so_corr
 
-  so_unpk([lib_unpacking.so])
-  --&gt; py_unpk([unpacking.py])
-  --&gt; py_base([baseband_data_classes.py])
+    c_unpack([unpacking.c])
+    --&gt; so_unpk
 
-  style py_corr fill:#cef,stroke:#333,color:#000;
-  style py_setup fill:#cef,stroke:#333,color:#000;
-  style py_base fill:#cef,stroke:#333,color:#000;
-  style py_unpk fill:#cef,stroke:#333,color:#000;
-  style c_unpack fill:#aea,stroke:#333,color:#000;
-  style so_corr fill:#fcd,stroke:#333,color:#000;
-  style so_unpk fill:#fcd,stroke:#333,color:#000;
+    c_corr([correlations_cpu.c])
+    --&gt; so_corr
+
+    so_unpk([lib_unpacking.so])
+    --&gt; py_unpk([unpacking.py])
+    --&gt; py_base([baseband_data_classes.py])
+
+    style py_corr fill:#cef,stroke:#333,color:#000;
+    style py_setup fill:#cef,stroke:#333,color:#000;
+    style py_base fill:#cef,stroke:#333,color:#000;
+    style py_unpk fill:#cef,stroke:#333,color:#000;
+    style c_unpack fill:#aea,stroke:#333,color:#000;
+    style c_corr fill:#aea,stroke:#333,color:#000;
+    style so_corr fill:#fcd,stroke:#333,color:#000;
+    style so_unpk fill:#fcd,stroke:#333,color:#000;
 </div></pre>
 </div>
 
