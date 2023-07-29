@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
+from albatros_analysis.correlations import baseband_data_classes as bdc
+from albatros_analysis.correlations import correlations as cr
 import os
 
 fpath1 = os.path.join(

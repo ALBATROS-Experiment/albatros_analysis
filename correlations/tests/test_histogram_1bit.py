@@ -1,7 +1,7 @@
-from correlations import baseband_data_classes as bdc
 import numpy as np
 import numba as nb
 import os
+from albatros_analysis.correlations import baseband_data_classes as bdc
 import pytest
 
 
