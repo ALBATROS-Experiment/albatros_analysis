@@ -60,12 +60,12 @@ import os
 from sys import platform  # detect whether using darwin or win/linux os
 
 # builds into the same directory as the setup file
-path = os.path.realpath(__file__ + r&#34;/..&#34;)
+path = os.path.dirname(__file__)
 print(f&#34;file path {path}&#34;)
 
 
 def build():
-    if os.path.exists(path + &#34;/unpacking.c&#34;):
+    if os.path.exists(os.path.join(path, &#34;unpacking.c&#34;)):
         path_so = os.path.join(path, &#34;lib_unpacking.so&#34;)
         path_c = os.path.join(path, &#34;unpacking.c&#34;)
         if platform == &#34;darwin&#34;:
@@ -120,7 +120,7 @@ if __name__ == &#34;__main__&#34;:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def build():
-    if os.path.exists(path + &#34;/unpacking.c&#34;):
+    if os.path.exists(os.path.join(path, &#34;unpacking.c&#34;)):
         path_so = os.path.join(path, &#34;lib_unpacking.so&#34;)
         path_c = os.path.join(path, &#34;unpacking.c&#34;)
         if platform == &#34;darwin&#34;:

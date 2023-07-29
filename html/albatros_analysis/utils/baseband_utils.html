@@ -30,29 +30,49 @@
 import os, glob
 from matplotlib import pyplot as plt
 
+
 def get_init_info(init_t, end_t, parent_dir):
-    &#39;&#39;&#39;
-    Returns the index of file in a folder and 
+    &#34;&#34;&#34;Get relevant indices from timestamps. 
+    
+    Returns the index of file in a folder and
     the index of the spectra in that file corresponding to init_timestamp
-    &#39;&#39;&#39;
-    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex. 
+
+    Parameters
+    ----------
+    init_t: int or float
+        Start timestamp of time we are interested in. (in what units??)
+    end_t: int or float
+        End of time window we are interested in. (in what units??)
+    parent_dir: str
+        The directory we search in. 
+
+    Returns
+    -------
+    idxstart: int
+        ??
+    fileidx: int
+        ??
+    files: list of str
+        List of path strings to all files in &#39;parent_dir&#39;.  
+    &#34;&#34;&#34;
+    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex.
     # This may be faster, and I don&#39;t care about storing a few 100 more strings than I need to.
     print(&#34;HELLO&#34;)
-    frag1 = str(int(init_t/100000))
-    frag2 = str(int(end_t/100000))
-    print(frag1,frag2)
-    path = os.path.join(parent_dir,frag1)
-    files = glob.glob(path+&#39;/*&#39;)
-    if(frag1!=frag2):
-        path = os.path.join(parent_dir,frag2)
-        files.append(glob.glob(path+&#39;/*&#39;))
+    frag1 = str(int(init_t / 100000))
+    frag2 = str(int(end_t / 100000))
+    print(frag1, frag2)
+    path = os.path.join(parent_dir, frag1)
+    files = glob.glob(path + &#34;/*&#34;)
+    if frag1 != frag2:
+        path = os.path.join(parent_dir, frag2)
+        files.append(glob.glob(path + &#34;/*&#34;))
     files.sort()
-    speclen=4096 # length of each spectra
-    fs=250e6
-    dt_spec = speclen/fs # time taken to read one spectra
+    speclen = 4096  # length of each spectra
+    fs = 250e6
+    dt_spec = speclen / fs  # time taken to read one spectra
 
-    # find which file to read first 
-    filetstamps = [int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files]
+    # find which file to read first
+    filetstamps = [int(f.split(&#34;.&#34;)[0].split(&#34;/&#34;)[-1]) for f in files]
     filetstamps.sort()
     filetstamps = np.asarray(filetstamps)
 
@@ -61,21 +81,39 @@ def get_init_info(init_t, end_t, parent_dir):
     # np.unique(filetstamps - np.asarray([int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files])) should return [0]
 
     # we&#39;re looking for a file that has the start timestamp closest to what we want
-    fileidx = np.where(filetstamps&lt;=init_t)[0][-1]
-    #assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
+    fileidx = np.where(filetstamps &lt;= init_t)[0][-1]
+    # assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
 
     # once we have a file, we seek to required position in time
-    idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
+    idxstart = int((init_t - filetstamps[fileidx]) / dt_spec)
     # check that starting index indeed corresponds to init_t
     print(&#34;Fileidx:&#34;, fileidx)
-    print(&#34;CHECK&#34;,init_t,idxstart*dt_spec + filetstamps[fileidx])
-    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx])
-    
+    print(&#34;CHECK&#34;, init_t, idxstart * dt_spec + filetstamps[fileidx])
+    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx]) # What does this check?
+
     return idxstart, fileidx, files
 
-def get_plot_lims(pol,acclen):
 
-    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
+def get_plot_lims(pol, acclen):
+    &#34;&#34;&#34;Get limits for display settings for pretty plots!
+    
+    Parameters
+    ----------
+    pol: np.ndarray
+        Baseband from a baseline. (channelized data.) *Is this a 2d array??*
+    acclen: int
+        *Depricated, doesn&#39;t get used.*
+
+    Returns
+    -------
+    med: float
+        Mean power in pol.
+    vmin: float
+        Two standard deviations below mean.
+    vmax: float
+        Two standard deviations above mean. 
+    &#34;&#34;&#34;
+    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs).
     # Pivot to using mean if acclen too small.
 
     # if(acclen&gt;250000):
@@ -90,14 +128,58 @@ def get_plot_lims(pol,acclen):
     #     stddev = np.std(pol)
     med = np.ma.mean(pol)
     stddev = np.ma.std(pol)
-    vmin= med - 2*stddev
-    vmax = med + 2*stddev
-    print(&#34;med and plot lims&#34;,med,vmin,vmax)
-    return med,vmin,vmax
+    vmin = med - 2 * stddev
+    vmax = med + 2 * stddev
+    print(&#34;med and plot lims&#34;, med, vmin, vmax)
+    return med, vmin, vmax
 
-def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minutes=False,logplot=True):
 
-    freq = channels*125/2048 #MHz
+def plot_4bit(
+    pol00,
+    pol11,
+    pol01,
+    channels,
+    acclen,
+    time_start,
+    vmin,
+    vmax,
+    opath,
+    minutes=False,
+    logplot=True,
+):
+    &#34;&#34;&#34;Waterfall plotting routine for 4-bit spectrum integrated data.
+
+    Plots and saves figure. 
+    
+    Parameters
+    ----------
+    pol00: np.ndarray 
+        Channelized autocorr data from pol0. 
+    pol11: np.ndarray
+        Channelized autocorr data from pol1. 
+    pol01: np.ndarray
+        Channelized x-corr data (pol0 x pol1). 
+    channels: array like
+        Indices of channels of interest. 
+    acclen: int
+        ??
+    time_start: int or float
+        ??In what format??
+    vmin: float
+        Plotting parameter. Two standard deviations below mean. Used 
+        to set colorbar scale. 
+    vmax: float
+        Plotting parameter. Two standard deviations above mean. Used 
+        to set colorbar scale. 
+    opath: str
+        Ouput path. Path to image of figure to be saved. 
+    minutes: bool
+        Whether to display time in minutes. Defaults to False, 
+        displaying seconds. 
+    logplot: bool
+        Defaults to True. Logarithmic scale on y-axis. 
+    &#34;&#34;&#34;
+    freq = channels * 125 / 2048  # MHz
     pol00_med = np.ma.median(pol00, axis=0)
     pol11_med = np.ma.median(pol11, axis=0)
     pol00_mean = np.ma.mean(pol00, axis=0)
@@ -107,16 +189,16 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minut
     pol00_min = np.ma.min(pol00, axis=0)
     pol11_min = np.ma.min(pol11, axis=0)
     if (vmin is None) and (vmax is None):
-        med,vmin,vmax=get_plot_lims(pol00,acclen)
-        med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+        med, vmin, vmax = get_plot_lims(pol00, acclen) # use of acclen in get_plot_lims is depricated
+        med2, vmin2, vmax2 = get_plot_lims(pol11, acclen) # use of acclen in get_plot_lims is depricated
     else:
         print(&#34;SETTING VMIN AND VMAX&#34;)
         vmin = 10**vmin
         vmax = 10**vmax
-        vmin2=vmin
-        vmax2=vmax
+        vmin2 = vmin
+        vmax2 = vmax
     pol01_mag = np.abs(pol01)
-    if(logplot):
+    if logplot:
         print(&#34;IN LOGPLOT&#34;)
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
@@ -134,83 +216,123 @@ def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minut
         vmax2 = np.log10(vmax2)
         pol01_mag = np.log10(pol01_mag)
 
-    plt.figure(figsize=(18,10), dpi=200)
-    t_acclen = acclen*2048/125e6 #seconds
-    t_end = pol01.shape[0]*t_acclen
-    tag=&#39;Seconds&#39;
-    if(minutes):
-        t_end = t_end/60
-        tag=&#39;Minutes&#39;
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+    plt.figure(figsize=(18, 10), dpi=200)
+    t_acclen = acclen * 2048 / 125e6  # seconds
+    t_end = pol01.shape[0] * t_acclen
+    tag = &#34;Seconds&#34; # Warning: confusing variable name, tag is used in SNAPfiletools in very different way/meaning
+    if minutes:
+        t_end = t_end / 60
+        tag = &#34;Minutes&#34;
+    myext = np.array(
+        [np.min(channels) * 125 / 2048, np.max(channels) * 125 / 2048, t_end, 0]
+    )
     plt.suptitle(f&#34;{tag} since {time_start}&#34;)
-    plt.subplot(2,3,1)
-    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol00&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 1)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol00&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     cb00 = plt.colorbar()
-    cb00.ax.plot([0, 1], [7.0]*2, &#39;w&#39;)
+    cb00.ax.plot([0, 1], [7.0] * 2, &#34;w&#34;)
 
-    plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol11&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 4)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol11&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     plt.colorbar()
 
-    plt.subplot(2,3,2)
-    plt.title(&#39;Basic stats for frequency bins&#39;)
-    plt.plot(freq, pol00_max, &#39;r-&#39;, label=&#39;Max&#39;)
-    plt.plot(freq, pol00_min, &#39;b-&#39;, label=&#39;Min&#39;)
-    plt.plot(freq, pol00_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
-    plt.plot(freq, pol00_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.ylabel(&#39;pol00&#39;)
+    plt.subplot(2, 3, 2)
+    plt.title(&#34;Basic stats for frequency bins&#34;)
+    plt.plot(freq, pol00_max, &#34;r-&#34;, label=&#34;Max&#34;)
+    plt.plot(freq, pol00_min, &#34;b-&#34;, label=&#34;Min&#34;)
+    plt.plot(freq, pol00_mean, &#34;k-&#34;, label=&#34;Mean&#34;)
+    plt.plot(freq, pol00_med, color=&#34;#666666&#34;, linestyle=&#34;-&#34;, label=&#34;Median&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.ylabel(&#34;pol00&#34;)
 
-    plt.subplot(2,3,5)
-    plt.plot(freq, pol11_max, &#39;r-&#39;, label=&#39;Max&#39;)
-    plt.plot(freq, pol11_min, &#39;b-&#39;, label=&#39;Min&#39;)
-    plt.plot(freq, pol11_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
-    plt.plot(freq, pol11_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.ylabel(&#39;pol11&#39;)
-    plt.legend(loc=&#39;lower right&#39;, fontsize=&#39;small&#39;)
+    plt.subplot(2, 3, 5)
+    plt.plot(freq, pol11_max, &#34;r-&#34;, label=&#34;Max&#34;)
+    plt.plot(freq, pol11_min, &#34;b-&#34;, label=&#34;Min&#34;)
+    plt.plot(freq, pol11_mean, &#34;k-&#34;, label=&#34;Mean&#34;)
+    plt.plot(freq, pol11_med, color=&#34;#666666&#34;, linestyle=&#34;-&#34;, label=&#34;Median&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.ylabel(&#34;pol11&#34;)
+    plt.legend(loc=&#34;lower right&#34;, fontsize=&#34;small&#34;)
 
-    plt.subplot(2,3,3)
-    plt.imshow(pol01_mag, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol01 magnitude&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 3)
+    plt.imshow(pol01_mag, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol01 magnitude&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     plt.colorbar()
 
-    plt.subplot(2,3,6)
-    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect=&#39;auto&#39;, extent=myext, cmap=&#39;RdBu&#39;)
+    plt.subplot(2, 3, 6)
+    plt.imshow(
+        np.angle(pol01),
+        vmin=-np.pi,
+        vmax=np.pi,
+        aspect=&#34;auto&#34;,
+        extent=myext,
+        cmap=&#34;RdBu&#34;,
+    )
     plt.ylabel(tag)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.title(&#39;pol01 phase&#39;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.title(&#34;pol01 phase&#34;)
     plt.colorbar()
     plt.savefig(opath)
+    return 
 
-def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False):
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    t_acclen = acclen*2048/125e6 #seconds
-    t_end = pol01.shape[0]*t_acclen
-    tag=&#39;Seconds&#39;
-    if(minutes):
-        t_end = t_end/60
-        tag=&#39;Minutes&#39;
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
 
-    plt.suptitle(f&#39;{tag} since {time_start}&#39;)
-    img1=ax[0].imshow(np.real(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
-    ax[0].set_title(&#39;pol01 real part&#39;)
-    img2=ax[1].imshow(np.imag(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
-    ax[1].set_title(&#39;pol01 imag part&#39;)
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
+def plot_1bit(pol01, channels, acclen, time_start, opath, minutes=False, logplot=False):
+    &#34;&#34;&#34;Waterfall plotting routine for 1-bit spectrum integrated data.
+
+    Plots and saves figure. 
+    
+    Parameters
+    ----------
+    pol01: np.ndarray
+        Channelized x-corr data (pol0 x pol1). 
+    channels: array like
+        Indices of channels of interest. 
+    acclen: int
+        ??
+    time_start: int or float
+        ??In what format??
+    opath: str
+        Ouput path. Path to image of figure to be saved. 
+    minutes: bool
+        Whether to display time in minutes. Defaults to False, 
+        displaying seconds. 
+    logplot: bool
+        *Depricated.* 
+        Defaults to True. Logarithmic scale on y-axis. 
+    &#34;&#34;&#34;
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10, 4)
+    t_acclen = acclen * 2048 / 125e6  # seconds
+    t_end = pol01.shape[0] * t_acclen
+    tag = &#34;Seconds&#34;
+    if minutes:
+        t_end = t_end / 60
+        tag = &#34;Minutes&#34;
+    myext = np.array(
+        [np.min(channels) * 125 / 2048, np.max(channels) * 125 / 2048, t_end, 0]
+    )
+
+    plt.suptitle(f&#34;{tag} since {time_start}&#34;)
+    img1 = ax[0].imshow(
+        np.real(pol01), aspect=&#34;auto&#34;, vmin=-0.005, vmax=0.005, extent=myext
+    )
+    ax[0].set_title(&#34;pol01 real part&#34;)
+    img2 = ax[1].imshow(
+        np.imag(pol01), aspect=&#34;auto&#34;, vmin=-0.005, vmax=0.005, extent=myext
+    )
+    ax[1].set_title(&#34;pol01 imag part&#34;)
+    plt.colorbar(img1, ax=ax[0])
+    plt.colorbar(img2, ax=ax[1])
     plt.savefig(opath)
-    </code></pre>
+    return </code></pre>
 </details>
 </section>
 <section>
@@ -224,35 +346,73 @@ def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False
 <span>def <span class="ident">get_init_info</span></span>(<span>init_t, end_t, parent_dir)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the index of file in a folder and
-the index of the spectra in that file corresponding to init_timestamp</p></div>
+<div class="desc"><p>Get relevant indices from timestamps. </p>
+<p>Returns the index of file in a folder and
+the index of the spectra in that file corresponding to init_timestamp</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>init_t</code></strong> :&ensp;<code>int</code> or <code>float</code></dt>
+<dd>Start timestamp of time we are interested in. (in what units??)</dd>
+<dt><strong><code>end_t</code></strong> :&ensp;<code>int</code> or <code>float</code></dt>
+<dd>End of time window we are interested in. (in what units??)</dd>
+<dt><strong><code>parent_dir</code></strong> :&ensp;<code>str</code></dt>
+<dd>The directory we search in.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>idxstart</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+<dt><strong><code>fileidx</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+<dt><strong><code>files</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>List of path strings to all files in 'parent_dir'.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def get_init_info(init_t, end_t, parent_dir):
-    &#39;&#39;&#39;
-    Returns the index of file in a folder and 
+    &#34;&#34;&#34;Get relevant indices from timestamps. 
+    
+    Returns the index of file in a folder and
     the index of the spectra in that file corresponding to init_timestamp
-    &#39;&#39;&#39;
-    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex. 
+
+    Parameters
+    ----------
+    init_t: int or float
+        Start timestamp of time we are interested in. (in what units??)
+    end_t: int or float
+        End of time window we are interested in. (in what units??)
+    parent_dir: str
+        The directory we search in. 
+
+    Returns
+    -------
+    idxstart: int
+        ??
+    fileidx: int
+        ??
+    files: list of str
+        List of path strings to all files in &#39;parent_dir&#39;.  
+    &#34;&#34;&#34;
+    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don&#39;t want to write regex.
     # This may be faster, and I don&#39;t care about storing a few 100 more strings than I need to.
     print(&#34;HELLO&#34;)
-    frag1 = str(int(init_t/100000))
-    frag2 = str(int(end_t/100000))
-    print(frag1,frag2)
-    path = os.path.join(parent_dir,frag1)
-    files = glob.glob(path+&#39;/*&#39;)
-    if(frag1!=frag2):
-        path = os.path.join(parent_dir,frag2)
-        files.append(glob.glob(path+&#39;/*&#39;))
+    frag1 = str(int(init_t / 100000))
+    frag2 = str(int(end_t / 100000))
+    print(frag1, frag2)
+    path = os.path.join(parent_dir, frag1)
+    files = glob.glob(path + &#34;/*&#34;)
+    if frag1 != frag2:
+        path = os.path.join(parent_dir, frag2)
+        files.append(glob.glob(path + &#34;/*&#34;))
     files.sort()
-    speclen=4096 # length of each spectra
-    fs=250e6
-    dt_spec = speclen/fs # time taken to read one spectra
+    speclen = 4096  # length of each spectra
+    fs = 250e6
+    dt_spec = speclen / fs  # time taken to read one spectra
 
-    # find which file to read first 
-    filetstamps = [int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files]
+    # find which file to read first
+    filetstamps = [int(f.split(&#34;.&#34;)[0].split(&#34;/&#34;)[-1]) for f in files]
     filetstamps.sort()
     filetstamps = np.asarray(filetstamps)
 
@@ -261,16 +421,16 @@ the index of the spectra in that file corresponding to init_timestamp</p></div>
     # np.unique(filetstamps - np.asarray([int(f.split(&#39;.&#39;)[0].split(&#39;/&#39;)[-1]) for f in files])) should return [0]
 
     # we&#39;re looking for a file that has the start timestamp closest to what we want
-    fileidx = np.where(filetstamps&lt;=init_t)[0][-1]
-    #assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
+    fileidx = np.where(filetstamps &lt;= init_t)[0][-1]
+    # assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
 
     # once we have a file, we seek to required position in time
-    idxstart = int((init_t-filetstamps[fileidx])/dt_spec)
+    idxstart = int((init_t - filetstamps[fileidx]) / dt_spec)
     # check that starting index indeed corresponds to init_t
     print(&#34;Fileidx:&#34;, fileidx)
-    print(&#34;CHECK&#34;,init_t,idxstart*dt_spec + filetstamps[fileidx])
-    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx])
-    
+    print(&#34;CHECK&#34;, init_t, idxstart * dt_spec + filetstamps[fileidx])
+    print(&#34;CHECK&#34;, filetstamps[fileidx], files[fileidx]) # What does this check?
+
     return idxstart, fileidx, files</code></pre>
 </details>
 </dd>
@@ -278,14 +438,47 @@ the index of the spectra in that file corresponding to init_timestamp</p></div>
 <span>def <span class="ident">get_plot_lims</span></span>(<span>pol, acclen)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get limits for display settings for pretty plots!</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>pol</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Baseband from a baseline. (channelized data.) <em>Is this a 2d array??</em></dd>
+<dt><strong><code>acclen</code></strong> :&ensp;<code>int</code></dt>
+<dd><em>Depricated, doesn't get used.</em></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>med</code></strong> :&ensp;<code>float</code></dt>
+<dd>Mean power in pol.</dd>
+<dt><strong><code>vmin</code></strong> :&ensp;<code>float</code></dt>
+<dd>Two standard deviations below mean.</dd>
+<dt><strong><code>vmax</code></strong> :&ensp;<code>float</code></dt>
+<dd>Two standard deviations above mean.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_plot_lims(pol,acclen):
+<pre><code class="python">def get_plot_lims(pol, acclen):
+    &#34;&#34;&#34;Get limits for display settings for pretty plots!
+    
+    Parameters
+    ----------
+    pol: np.ndarray
+        Baseband from a baseline. (channelized data.) *Is this a 2d array??*
+    acclen: int
+        *Depricated, doesn&#39;t get used.*
 
-    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs). 
+    Returns
+    -------
+    med: float
+        Mean power in pol.
+    vmin: float
+        Two standard deviations below mean.
+    vmax: float
+        Two standard deviations above mean. 
+    &#34;&#34;&#34;
+    # numpy percentile method ignores mask and may generate garbage with 0s (missing specs).
     # Pivot to using mean if acclen too small.
 
     # if(acclen&gt;250000):
@@ -300,54 +493,176 @@ the index of the spectra in that file corresponding to init_timestamp</p></div>
     #     stddev = np.std(pol)
     med = np.ma.mean(pol)
     stddev = np.ma.std(pol)
-    vmin= med - 2*stddev
-    vmax = med + 2*stddev
-    print(&#34;med and plot lims&#34;,med,vmin,vmax)
-    return med,vmin,vmax</code></pre>
+    vmin = med - 2 * stddev
+    vmax = med + 2 * stddev
+    print(&#34;med and plot lims&#34;, med, vmin, vmax)
+    return med, vmin, vmax</code></pre>
 </details>
 </dd>
 <dt id="albatros_analysis.utils.baseband_utils.plot_1bit"><code class="name flex">
 <span>def <span class="ident">plot_1bit</span></span>(<span>pol01, channels, acclen, time_start, opath, minutes=False, logplot=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Waterfall plotting routine for 1-bit spectrum integrated data.</p>
+<p>Plots and saves figure. </p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>pol01</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Channelized x-corr data (pol0 x pol1).</dd>
+<dt><strong><code>channels</code></strong> :&ensp;<code>array like</code></dt>
+<dd>Indices of channels of interest.</dd>
+<dt><strong><code>acclen</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+<dt><strong><code>time_start</code></strong> :&ensp;<code>int</code> or <code>float</code></dt>
+<dd>??In what format??</dd>
+<dt><strong><code>opath</code></strong> :&ensp;<code>str</code></dt>
+<dd>Ouput path. Path to image of figure to be saved.</dd>
+<dt><strong><code>minutes</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Whether to display time in minutes. Defaults to False,
+displaying seconds.</dd>
+<dt><strong><code>logplot</code></strong> :&ensp;<code>bool</code></dt>
+<dd><em>Depricated.</em>
+Defaults to True. Logarithmic scale on y-axis.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_1bit(pol01,channels,acclen,time_start,opath,minutes=False,logplot=False):
-    fig,ax=plt.subplots(1,2)
-    fig.set_size_inches(10,4)
-    t_acclen = acclen*2048/125e6 #seconds
-    t_end = pol01.shape[0]*t_acclen
-    tag=&#39;Seconds&#39;
-    if(minutes):
-        t_end = t_end/60
-        tag=&#39;Minutes&#39;
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+<pre><code class="python">def plot_1bit(pol01, channels, acclen, time_start, opath, minutes=False, logplot=False):
+    &#34;&#34;&#34;Waterfall plotting routine for 1-bit spectrum integrated data.
 
-    plt.suptitle(f&#39;{tag} since {time_start}&#39;)
-    img1=ax[0].imshow(np.real(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
-    ax[0].set_title(&#39;pol01 real part&#39;)
-    img2=ax[1].imshow(np.imag(pol01),aspect=&#39;auto&#39;,vmin=-0.005,vmax=0.005, extent=myext)
-    ax[1].set_title(&#39;pol01 imag part&#39;)
-    plt.colorbar(img1,ax=ax[0])
-    plt.colorbar(img2,ax=ax[1])
-    plt.savefig(opath)</code></pre>
+    Plots and saves figure. 
+    
+    Parameters
+    ----------
+    pol01: np.ndarray
+        Channelized x-corr data (pol0 x pol1). 
+    channels: array like
+        Indices of channels of interest. 
+    acclen: int
+        ??
+    time_start: int or float
+        ??In what format??
+    opath: str
+        Ouput path. Path to image of figure to be saved. 
+    minutes: bool
+        Whether to display time in minutes. Defaults to False, 
+        displaying seconds. 
+    logplot: bool
+        *Depricated.* 
+        Defaults to True. Logarithmic scale on y-axis. 
+    &#34;&#34;&#34;
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10, 4)
+    t_acclen = acclen * 2048 / 125e6  # seconds
+    t_end = pol01.shape[0] * t_acclen
+    tag = &#34;Seconds&#34;
+    if minutes:
+        t_end = t_end / 60
+        tag = &#34;Minutes&#34;
+    myext = np.array(
+        [np.min(channels) * 125 / 2048, np.max(channels) * 125 / 2048, t_end, 0]
+    )
+
+    plt.suptitle(f&#34;{tag} since {time_start}&#34;)
+    img1 = ax[0].imshow(
+        np.real(pol01), aspect=&#34;auto&#34;, vmin=-0.005, vmax=0.005, extent=myext
+    )
+    ax[0].set_title(&#34;pol01 real part&#34;)
+    img2 = ax[1].imshow(
+        np.imag(pol01), aspect=&#34;auto&#34;, vmin=-0.005, vmax=0.005, extent=myext
+    )
+    ax[1].set_title(&#34;pol01 imag part&#34;)
+    plt.colorbar(img1, ax=ax[0])
+    plt.colorbar(img2, ax=ax[1])
+    plt.savefig(opath)
+    return </code></pre>
 </details>
 </dd>
 <dt id="albatros_analysis.utils.baseband_utils.plot_4bit"><code class="name flex">
 <span>def <span class="ident">plot_4bit</span></span>(<span>pol00, pol11, pol01, channels, acclen, time_start, vmin, vmax, opath, minutes=False, logplot=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Waterfall plotting routine for 4-bit spectrum integrated data.</p>
+<p>Plots and saves figure. </p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>pol00</code></strong> :&ensp;<code>np.ndarray </code></dt>
+<dd>Channelized autocorr data from pol0.</dd>
+<dt><strong><code>pol11</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Channelized autocorr data from pol1.</dd>
+<dt><strong><code>pol01</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Channelized x-corr data (pol0 x pol1).</dd>
+<dt><strong><code>channels</code></strong> :&ensp;<code>array like</code></dt>
+<dd>Indices of channels of interest.</dd>
+<dt><strong><code>acclen</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+<dt><strong><code>time_start</code></strong> :&ensp;<code>int</code> or <code>float</code></dt>
+<dd>??In what format??</dd>
+<dt><strong><code>vmin</code></strong> :&ensp;<code>float</code></dt>
+<dd>Plotting parameter. Two standard deviations below mean. Used
+to set colorbar scale.</dd>
+<dt><strong><code>vmax</code></strong> :&ensp;<code>float</code></dt>
+<dd>Plotting parameter. Two standard deviations above mean. Used
+to set colorbar scale.</dd>
+<dt><strong><code>opath</code></strong> :&ensp;<code>str</code></dt>
+<dd>Ouput path. Path to image of figure to be saved.</dd>
+<dt><strong><code>minutes</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Whether to display time in minutes. Defaults to False,
+displaying seconds.</dd>
+<dt><strong><code>logplot</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Defaults to True. Logarithmic scale on y-axis.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_4bit(pol00,pol11,pol01,channels,acclen,time_start,vmin,vmax,opath,minutes=False,logplot=True):
+<pre><code class="python">def plot_4bit(
+    pol00,
+    pol11,
+    pol01,
+    channels,
+    acclen,
+    time_start,
+    vmin,
+    vmax,
+    opath,
+    minutes=False,
+    logplot=True,
+):
+    &#34;&#34;&#34;Waterfall plotting routine for 4-bit spectrum integrated data.
 
-    freq = channels*125/2048 #MHz
+    Plots and saves figure. 
+    
+    Parameters
+    ----------
+    pol00: np.ndarray 
+        Channelized autocorr data from pol0. 
+    pol11: np.ndarray
+        Channelized autocorr data from pol1. 
+    pol01: np.ndarray
+        Channelized x-corr data (pol0 x pol1). 
+    channels: array like
+        Indices of channels of interest. 
+    acclen: int
+        ??
+    time_start: int or float
+        ??In what format??
+    vmin: float
+        Plotting parameter. Two standard deviations below mean. Used 
+        to set colorbar scale. 
+    vmax: float
+        Plotting parameter. Two standard deviations above mean. Used 
+        to set colorbar scale. 
+    opath: str
+        Ouput path. Path to image of figure to be saved. 
+    minutes: bool
+        Whether to display time in minutes. Defaults to False, 
+        displaying seconds. 
+    logplot: bool
+        Defaults to True. Logarithmic scale on y-axis. 
+    &#34;&#34;&#34;
+    freq = channels * 125 / 2048  # MHz
     pol00_med = np.ma.median(pol00, axis=0)
     pol11_med = np.ma.median(pol11, axis=0)
     pol00_mean = np.ma.mean(pol00, axis=0)
@@ -357,16 +672,16 @@ the index of the spectra in that file corresponding to init_timestamp</p></div>
     pol00_min = np.ma.min(pol00, axis=0)
     pol11_min = np.ma.min(pol11, axis=0)
     if (vmin is None) and (vmax is None):
-        med,vmin,vmax=get_plot_lims(pol00,acclen)
-        med2,vmin2,vmax2=get_plot_lims(pol11,acclen)
+        med, vmin, vmax = get_plot_lims(pol00, acclen) # use of acclen in get_plot_lims is depricated
+        med2, vmin2, vmax2 = get_plot_lims(pol11, acclen) # use of acclen in get_plot_lims is depricated
     else:
         print(&#34;SETTING VMIN AND VMAX&#34;)
         vmin = 10**vmin
         vmax = 10**vmax
-        vmin2=vmin
-        vmax2=vmax
+        vmin2 = vmin
+        vmax2 = vmax
     pol01_mag = np.abs(pol01)
-    if(logplot):
+    if logplot:
         print(&#34;IN LOGPLOT&#34;)
         pol00 = np.log10(pol00)
         pol11 = np.log10(pol11)
@@ -384,62 +699,72 @@ the index of the spectra in that file corresponding to init_timestamp</p></div>
         vmax2 = np.log10(vmax2)
         pol01_mag = np.log10(pol01_mag)
 
-    plt.figure(figsize=(18,10), dpi=200)
-    t_acclen = acclen*2048/125e6 #seconds
-    t_end = pol01.shape[0]*t_acclen
-    tag=&#39;Seconds&#39;
-    if(minutes):
-        t_end = t_end/60
-        tag=&#39;Minutes&#39;
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, t_end, 0])
+    plt.figure(figsize=(18, 10), dpi=200)
+    t_acclen = acclen * 2048 / 125e6  # seconds
+    t_end = pol01.shape[0] * t_acclen
+    tag = &#34;Seconds&#34; # Warning: confusing variable name, tag is used in SNAPfiletools in very different way/meaning
+    if minutes:
+        t_end = t_end / 60
+        tag = &#34;Minutes&#34;
+    myext = np.array(
+        [np.min(channels) * 125 / 2048, np.max(channels) * 125 / 2048, t_end, 0]
+    )
     plt.suptitle(f&#34;{tag} since {time_start}&#34;)
-    plt.subplot(2,3,1)
-    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol00&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 1)
+    plt.imshow(pol00, vmin=vmin, vmax=vmax, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol00&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     cb00 = plt.colorbar()
-    cb00.ax.plot([0, 1], [7.0]*2, &#39;w&#39;)
+    cb00.ax.plot([0, 1], [7.0] * 2, &#34;w&#34;)
 
-    plt.subplot(2,3,4)
-    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol11&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 4)
+    plt.imshow(pol11, vmin=vmin2, vmax=vmax2, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol11&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     plt.colorbar()
 
-    plt.subplot(2,3,2)
-    plt.title(&#39;Basic stats for frequency bins&#39;)
-    plt.plot(freq, pol00_max, &#39;r-&#39;, label=&#39;Max&#39;)
-    plt.plot(freq, pol00_min, &#39;b-&#39;, label=&#39;Min&#39;)
-    plt.plot(freq, pol00_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
-    plt.plot(freq, pol00_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.ylabel(&#39;pol00&#39;)
+    plt.subplot(2, 3, 2)
+    plt.title(&#34;Basic stats for frequency bins&#34;)
+    plt.plot(freq, pol00_max, &#34;r-&#34;, label=&#34;Max&#34;)
+    plt.plot(freq, pol00_min, &#34;b-&#34;, label=&#34;Min&#34;)
+    plt.plot(freq, pol00_mean, &#34;k-&#34;, label=&#34;Mean&#34;)
+    plt.plot(freq, pol00_med, color=&#34;#666666&#34;, linestyle=&#34;-&#34;, label=&#34;Median&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.ylabel(&#34;pol00&#34;)
 
-    plt.subplot(2,3,5)
-    plt.plot(freq, pol11_max, &#39;r-&#39;, label=&#39;Max&#39;)
-    plt.plot(freq, pol11_min, &#39;b-&#39;, label=&#39;Min&#39;)
-    plt.plot(freq, pol11_mean, &#39;k-&#39;, label=&#39;Mean&#39;)
-    plt.plot(freq, pol11_med, color=&#39;#666666&#39;, linestyle=&#39;-&#39;, label=&#39;Median&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.ylabel(&#39;pol11&#39;)
-    plt.legend(loc=&#39;lower right&#39;, fontsize=&#39;small&#39;)
+    plt.subplot(2, 3, 5)
+    plt.plot(freq, pol11_max, &#34;r-&#34;, label=&#34;Max&#34;)
+    plt.plot(freq, pol11_min, &#34;b-&#34;, label=&#34;Min&#34;)
+    plt.plot(freq, pol11_mean, &#34;k-&#34;, label=&#34;Mean&#34;)
+    plt.plot(freq, pol11_med, color=&#34;#666666&#34;, linestyle=&#34;-&#34;, label=&#34;Median&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.ylabel(&#34;pol11&#34;)
+    plt.legend(loc=&#34;lower right&#34;, fontsize=&#34;small&#34;)
 
-    plt.subplot(2,3,3)
-    plt.imshow(pol01_mag, aspect=&#39;auto&#39;, extent=myext)
-    plt.title(&#39;pol01 magnitude&#39;)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
+    plt.subplot(2, 3, 3)
+    plt.imshow(pol01_mag, aspect=&#34;auto&#34;, extent=myext)
+    plt.title(&#34;pol01 magnitude&#34;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
     plt.ylabel(tag)
     plt.colorbar()
 
-    plt.subplot(2,3,6)
-    plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect=&#39;auto&#39;, extent=myext, cmap=&#39;RdBu&#39;)
+    plt.subplot(2, 3, 6)
+    plt.imshow(
+        np.angle(pol01),
+        vmin=-np.pi,
+        vmax=np.pi,
+        aspect=&#34;auto&#34;,
+        extent=myext,
+        cmap=&#34;RdBu&#34;,
+    )
     plt.ylabel(tag)
-    plt.xlabel(&#39;Frequency (MHz)&#39;)
-    plt.title(&#39;pol01 phase&#39;)
+    plt.xlabel(&#34;Frequency (MHz)&#34;)
+    plt.title(&#34;pol01 phase&#34;)
     plt.colorbar()
-    plt.savefig(opath)</code></pre>
+    plt.savefig(opath)
+    return </code></pre>
 </details>
 </dd>
 </dl>

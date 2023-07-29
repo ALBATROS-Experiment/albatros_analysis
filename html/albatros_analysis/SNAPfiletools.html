@@ -195,14 +195,14 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
     structure &lt;dir_parent&gt;/&lt;5-digit coarse time fragment&gt;/&lt;10-digit
     fine time stamp&gt;.
 
-    Paramaters:
+    Paramaters
     -----------
-    time_start, time_stop: int 
-        start/stop times in ctime 
-    
+    time_start: int 
+        start time in ctime 
+    time_stop: int 
+        stop time in ctime
     dir_parent: str
         parent directory, e.g. /path/to/data_100MHz
-    
     fraglen: int 
         number of digits in coarse time fragments
     
@@ -272,8 +272,8 @@ def ctime2data(dir_parent, ct_start, ct_stop, pols = [0,1], time_file=&#39;time_
         poldata = read_pol_fast(fnames, tag)
         data.append(poldata)
 
-    for i in xrange(len(pols)):
-        for j in xrange(i+1, len(pols)):
+    for i in range(len(pols)):
+        for j in range(i+1, len(pols)):
             for reality in [&#39;r&#39;, &#39;i&#39;]:
                 tag = &#39;pol{}{}{}.scio&#39;.format(i,j,reality)
                 poldata = read_pol_fast(fnames, tag)
@@ -485,8 +485,8 @@ auto, &hellip;, cross_r, cross_i, &hellip;</p></div>
         poldata = read_pol_fast(fnames, tag)
         data.append(poldata)
 
-    for i in xrange(len(pols)):
-        for j in xrange(i+1, len(pols)):
+    for i in range(len(pols)):
+        for j in range(i+1, len(pols)):
             for reality in [&#39;r&#39;, &#39;i&#39;]:
                 tag = &#39;pol{}{}{}.scio&#39;.format(i,j,reality)
                 poldata = read_pol_fast(fnames, tag)
@@ -857,12 +857,14 @@ functionality contained within <code><a title="albatros_analysis.SNAPfiletools.r
 This function assumes that the parent directory has the directory
 structure <dir_parent>/&lt;5-digit coarse time fragment&gt;/&lt;10-digit
 fine time stamp&gt;.</p>
-<h2 id="paramaters">Paramaters:</h2>
-<p>time_start, time_stop: int
-start/stop times in ctime </p>
-<p>dir_parent: str
-parent directory, e.g. /path/to/data_100MHz</p>
-<p>fraglen: int
+<h2 id="paramaters">Paramaters</h2>
+<p>time_start: int
+start time in ctime
+time_stop: int
+stop time in ctime
+dir_parent: str
+parent directory, e.g. /path/to/data_100MHz
+fraglen: int
 number of digits in coarse time fragments</p>
 <h2 id="returns">Returns</h2>
 <p>list of str
@@ -879,14 +881,14 @@ List of files in specified time range.</p></div>
     structure &lt;dir_parent&gt;/&lt;5-digit coarse time fragment&gt;/&lt;10-digit
     fine time stamp&gt;.
 
-    Paramaters:
+    Paramaters
     -----------
-    time_start, time_stop: int 
-        start/stop times in ctime 
-    
+    time_start: int 
+        start time in ctime 
+    time_stop: int 
+        stop time in ctime
     dir_parent: str
         parent directory, e.g. /path/to/data_100MHz
-    
     fraglen: int 
         number of digits in coarse time fragments
     

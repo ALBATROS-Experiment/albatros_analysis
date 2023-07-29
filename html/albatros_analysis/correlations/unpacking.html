@@ -91,9 +91,32 @@ hist_1bit_c.argtypes = [
 
 
 def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
+    &#34;&#34;&#34;Gets list of values ready for plotting in histogram. 
+    
+    Parameters
+    ----------
+    data: ??
+        ?? What shape??
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    length_channels: ??
+        ??
+    bit_depth: int
+        Either 1 or 4
+    mode: int 
+        mode=0 for pol0, 1 for pol1, -1 for both.
+    
+    Returns
+    -------
+    histvals: array-like
+        Binned frequency-of-occurence for each quantization level.
+    &#34;&#34;&#34;
     nbins = 2**bit_depth - 1
     histvals = numpy.empty((nbins + 1, length_channels), dtype=&#34;uint64&#34;, order=&#34;c&#34;)
-
+    assert bit_depth in (1,4), f&#34;bit_depth set to {bit_depth}, only takes values 1 or 4&#34;
+    assert mode in (0,1,-1), f&#34;mode set to {mode}, only takes values 0,1,-1&#34;
     if bit_depth == 4:
         t1 = time.time()
         hist_4bit_c(
@@ -124,6 +147,32 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
 
 
 def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
+    &#34;&#34;&#34;Unpacks 4-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
     # nspec = no. of spectra = no. of rows
     nrows = rowend - rowstart
     ncols = chanend - chanstart
@@ -147,6 +196,29 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
 
 
 def unpack_1bit(data, length_channels, chanstart, chanend):
+    &#34;&#34;&#34;Unpacks 1-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
+
     nspec = 2 * data.shape[0] * data.shape[1] // length_channels
     ncols = chanend - chanstart
     print(&#34;print shape of my pols&#34;, nspec, ncols)
@@ -168,6 +240,34 @@ def unpack_1bit(data, length_channels, chanstart, chanend):
 
 
 def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chanend):
+    &#34;&#34;&#34;??
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ??
+        ??
+    bit_mode: ?? 
+        ??
+    rowstart: ?? 
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
     # For packed data we don&#39;t need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
     # number of rows should be nspec because we want to iterate over spectra while corr averaging in python
 
@@ -223,15 +323,58 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
 <span>def <span class="ident">hist</span></span>(<span>data, rowstart, rowend, length_channels, bit_depth, mode)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Gets list of values ready for plotting in histogram. </p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>??</code></dt>
+<dd>?? What shape??</dd>
+<dt><strong><code>rowstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>rowend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>length_channels</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>bit_depth</code></strong> :&ensp;<code>int</code></dt>
+<dd>Either 1 or 4</dd>
+<dt><strong><code>mode</code></strong> :&ensp;<code>int </code></dt>
+<dd>mode=0 for pol0, 1 for pol1, -1 for both.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>histvals</code></strong> :&ensp;<code>array-like</code></dt>
+<dd>Binned frequency-of-occurence for each quantization level.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
+    &#34;&#34;&#34;Gets list of values ready for plotting in histogram. 
+    
+    Parameters
+    ----------
+    data: ??
+        ?? What shape??
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    length_channels: ??
+        ??
+    bit_depth: int
+        Either 1 or 4
+    mode: int 
+        mode=0 for pol0, 1 for pol1, -1 for both.
+    
+    Returns
+    -------
+    histvals: array-like
+        Binned frequency-of-occurence for each quantization level.
+    &#34;&#34;&#34;
     nbins = 2**bit_depth - 1
     histvals = numpy.empty((nbins + 1, length_channels), dtype=&#34;uint64&#34;, order=&#34;c&#34;)
-
+    assert bit_depth in (1,4), f&#34;bit_depth set to {bit_depth}, only takes values 1 or 4&#34;
+    assert mode in (0,1,-1), f&#34;mode set to {mode}, only takes values 0,1,-1&#34;
     if bit_depth == 4:
         t1 = time.time()
         hist_4bit_c(
@@ -265,12 +408,65 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
 <span>def <span class="ident">sortpols</span></span>(<span>data, length_channels, bit_mode, rowstart, rowend, chanstart, chanend)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>??</p>
+<p>??</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>length_channels</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>bit_mode</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>rowstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>rowend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>pol0</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>pol1</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chanend):
+    &#34;&#34;&#34;??
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ??
+        ??
+    bit_mode: ?? 
+        ??
+    rowstart: ?? 
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
     # For packed data we don&#39;t need to unpack bytes. But re-arrange the raw data in npsec x () form and separate the two pols.
     # number of rows should be nspec because we want to iterate over spectra while corr averaging in python
 
@@ -319,12 +515,54 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
 <span>def <span class="ident">unpack_1bit</span></span>(<span>data, length_channels, chanstart, chanend)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Unpacks 1-bit data from binary dump file. (??)</p>
+<p>??</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>length_channels</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>pol0</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>pol1</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def unpack_1bit(data, length_channels, chanstart, chanend):
+    &#34;&#34;&#34;Unpacks 1-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
+
     nspec = 2 * data.shape[0] * data.shape[1] // length_channels
     ncols = chanend - chanstart
     print(&#34;print shape of my pols&#34;, nspec, ncols)
@@ -349,12 +587,61 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
 <span>def <span class="ident">unpack_4bit</span></span>(<span>data, length_channels, rowstart, rowend, chanstart, chanend)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Unpacks 4-bit data from binary dump file. (??)</p>
+<p>??</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>length_channels</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>rowstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>rowend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanstart</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>chanend</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>pol0</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>pol1</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
+    &#34;&#34;&#34;Unpacks 4-bit data from binary dump file. (??)
+    
+    ??
+    
+    Parameters
+    ----------
+    data: ??
+        ??
+    length_channels: ?? 
+        ?? 
+    rowstart: ??
+        ??
+    rowend: ??
+        ??
+    chanstart: ??
+        ??
+    chanend: ??
+        ??
+    
+    Returns
+    -------
+    pol0: ??
+        ??
+    pol1: ??
+        ??
+    &#34;&#34;&#34;
     # nspec = no. of spectra = no. of rows
     nrows = rowend - rowstart
     ncols = chanend - chanstart

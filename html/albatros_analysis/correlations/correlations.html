@@ -32,8 +32,6 @@ import os
 import time
 
 
-&#34;&#34;&#34;What does this mylib stuff do?&#34;&#34;&#34;
-
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r&#34;/..&#34;) + &#34;/lib_correlations_cpu.so&#34;
 )
@@ -128,7 +126,20 @@ mylib.avg_xcorr_1bit_vanvleck_2ant.argtypes = [
 avg_xcorr_1bit_vanvleck_2ant_c = mylib.avg_xcorr_1bit_vanvleck_2ant
 
 
+# TODO: standardise naming, here it&#39;s called &#39;pol&#39;, later it&#39;s called &#39;data&#39;
 def autocorr_4bit(pol):
+    &#34;&#34;&#34;Compute autocorrelations of 4bit data.
+    
+    Parameters
+    ----------
+    pol: np.ndarray
+        Raw pol baseband data. 
+    
+    Returns
+    -------
+    corr: np.ndarray
+        Autocorrelation of pol with itsself. 
+    &#34;&#34;&#34;
     data = pol.copy()
     print(data.shape)
     corr = np.zeros(data.shape, dtype=&#34;uint8&#34;, order=&#34;c&#34;)  # ncols = nchan for 4 bit
@@ -140,6 +151,20 @@ def autocorr_4bit(pol):
 
 
 def avg_autocorr_4bit(data, specnums):
+    &#34;&#34;&#34;Compute time-average of autocorrelation for each channel. (??)
+    
+    Parameters
+    ----------
+    data: np.ndarray
+        ??
+    specnums: ??
+        ??
+    
+    Returns
+    -------
+    corr: np.ndarray
+        Time-averaged autocorrelations.
+    &#34;&#34;&#34;
     # print(&#34;data being passed from python is&#34;, data)
     nrows = len(specnums)
     print(&#34;NROWS&#34;, nrows)
@@ -162,10 +187,24 @@ def avg_autocorr_4bit(data, specnums):
     # print(&#34;last element from python&#34;, data[-1][-1])
 
     print(f&#34;time taken for avg_corr {t2-t1:5.3f}s&#34;)
-    return corr / nrows
+    return corr / nrows # [Steve] why do we divide by nrows—shouldn&#39;t that be taken care of in avg_autocorr_4bit_c?
 
 
 def xcorr_4bit(data0, data1):
+    &#34;&#34;&#34;Compute cross-correlation for 4-bit data. 
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband array. 
+    data1: np.ndarray
+        2d baseband array. 
+    
+    Returns
+    -------
+    xcorr: np.ndarray
+        Cross correlation of data0, data1. 
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
     xcorr = np.empty(data0.shape, dtype=&#34;complex64&#34;, order=&#34;c&#34;)
@@ -183,6 +222,21 @@ def xcorr_4bit(data0, data1):
 
 
 def avg_xcorr_4bit(data0, data1, specnums):
+    &#34;&#34;&#34;Compute time-averaged cross-correlation.
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband array. 
+    data1: np.ndarray
+        2d baseband array. 
+    specnums: np.ndarray
+        ??
+    Returns
+    -------
+    corr: np.ndarray
+        1d array, time averaged cross correlation in each channel. 
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
     nrows = len(specnums)
@@ -202,6 +256,30 @@ def avg_xcorr_4bit(data0, data1, specnums):
 
 
 def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1):
+    &#34;&#34;&#34;Compute cross correlation between two antennas, for 4bit data. 
+    
+    ??
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband data for antenna #0.
+    data1: np.ndarray
+        2d baseband data for antenna #1
+    specnum0: ??
+        ??
+    specnum1: ??
+        ??
+    start_idx0: int
+        ??
+    start_idx1: int
+        ??
+    
+    Returns
+    -------
+    xcorr: np.ndarray
+        ??
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     xcorr = np.empty(data0.shape[1], dtype=&#34;complex64&#34;, order=&#34;c&#34;)
     if len(specnum0) == 0 or len(specnum1) == 0:
@@ -349,12 +427,34 @@ def avg_xcorr_1bit_vanvleck_2ant(
 <span>def <span class="ident">autocorr_4bit</span></span>(<span>pol)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute autocorrelations of 4bit data.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>pol</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Raw pol baseband data.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>corr</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Autocorrelation of pol with itsself.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def autocorr_4bit(pol):
+    &#34;&#34;&#34;Compute autocorrelations of 4bit data.
+    
+    Parameters
+    ----------
+    pol: np.ndarray
+        Raw pol baseband data. 
+    
+    Returns
+    -------
+    corr: np.ndarray
+        Autocorrelation of pol with itsself. 
+    &#34;&#34;&#34;
     data = pol.copy()
     print(data.shape)
     corr = np.zeros(data.shape, dtype=&#34;uint8&#34;, order=&#34;c&#34;)  # ncols = nchan for 4 bit
@@ -369,12 +469,38 @@ def avg_xcorr_1bit_vanvleck_2ant(
 <span>def <span class="ident">avg_autocorr_4bit</span></span>(<span>data, specnums)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute time-average of autocorrelation for each channel. (??)</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>??</dd>
+<dt><strong><code>specnums</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>corr</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Time-averaged autocorrelations.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def avg_autocorr_4bit(data, specnums):
+    &#34;&#34;&#34;Compute time-average of autocorrelation for each channel. (??)
+    
+    Parameters
+    ----------
+    data: np.ndarray
+        ??
+    specnums: ??
+        ??
+    
+    Returns
+    -------
+    corr: np.ndarray
+        Time-averaged autocorrelations.
+    &#34;&#34;&#34;
     # print(&#34;data being passed from python is&#34;, data)
     nrows = len(specnums)
     print(&#34;NROWS&#34;, nrows)
@@ -397,7 +523,7 @@ def avg_xcorr_1bit_vanvleck_2ant(
     # print(&#34;last element from python&#34;, data[-1][-1])
 
     print(f&#34;time taken for avg_corr {t2-t1:5.3f}s&#34;)
-    return corr / nrows</code></pre>
+    return corr / nrows # [Steve] why do we divide by nrows—shouldn&#39;t that be taken care of in avg_autocorr_4bit_c?</code></pre>
 </details>
 </dd>
 <dt id="albatros_analysis.correlations.correlations.avg_xcorr_1bit"><code class="name flex">
@@ -536,12 +662,41 @@ def avg_xcorr_1bit_vanvleck_2ant(
 <span>def <span class="ident">avg_xcorr_4bit</span></span>(<span>data0, data1, specnums)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute time-averaged cross-correlation.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data0</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband array.</dd>
+<dt><strong><code>data1</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband array.</dd>
+<dt><strong><code>specnums</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>corr</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>1d array, time averaged cross correlation in each channel.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def avg_xcorr_4bit(data0, data1, specnums):
+    &#34;&#34;&#34;Compute time-averaged cross-correlation.
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband array. 
+    data1: np.ndarray
+        2d baseband array. 
+    specnums: np.ndarray
+        ??
+    Returns
+    -------
+    corr: np.ndarray
+        1d array, time averaged cross correlation in each channel. 
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
     nrows = len(specnums)
@@ -564,12 +719,57 @@ def avg_xcorr_1bit_vanvleck_2ant(
 <span>def <span class="ident">avg_xcorr_4bit_2ant</span></span>(<span>data0, data1, specnum0, specnum1, start_idx0, start_idx1)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute cross correlation between two antennas, for 4bit data. </p>
+<p>??</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data0</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband data for antenna #0.</dd>
+<dt><strong><code>data1</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband data for antenna #1</dd>
+<dt><strong><code>specnum0</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>specnum1</code></strong> :&ensp;<code>??</code></dt>
+<dd>??</dd>
+<dt><strong><code>start_idx0</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+<dt><strong><code>start_idx1</code></strong> :&ensp;<code>int</code></dt>
+<dd>??</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>xcorr</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>??</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1):
+    &#34;&#34;&#34;Compute cross correlation between two antennas, for 4bit data. 
+    
+    ??
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband data for antenna #0.
+    data1: np.ndarray
+        2d baseband data for antenna #1
+    specnum0: ??
+        ??
+    specnum1: ??
+        ??
+    start_idx0: int
+        ??
+    start_idx1: int
+        ??
+    
+    Returns
+    -------
+    xcorr: np.ndarray
+        ??
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     xcorr = np.empty(data0.shape[1], dtype=&#34;complex64&#34;, order=&#34;c&#34;)
     if len(specnum0) == 0 or len(specnum1) == 0:
@@ -605,12 +805,38 @@ def avg_xcorr_1bit_vanvleck_2ant(
 <span>def <span class="ident">xcorr_4bit</span></span>(<span>data0, data1)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute cross-correlation for 4-bit data. </p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>data0</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband array.</dd>
+<dt><strong><code>data1</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>2d baseband array.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>xcorr</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Cross correlation of data0, data1.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def xcorr_4bit(data0, data1):
+    &#34;&#34;&#34;Compute cross-correlation for 4-bit data. 
+    
+    Parameters
+    ----------
+    data0: np.ndarray
+        2d baseband array. 
+    data1: np.ndarray
+        2d baseband array. 
+    
+    Returns
+    -------
+    xcorr: np.ndarray
+        Cross correlation of data0, data1. 
+    &#34;&#34;&#34;
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
     xcorr = np.empty(data0.shape, dtype=&#34;complex64&#34;, order=&#34;c&#34;)
