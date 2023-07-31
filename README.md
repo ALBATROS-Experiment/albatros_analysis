@@ -120,6 +120,8 @@ Resources:
 
 ## Build the docs
 
+Before building docs, make sure c-libs are properly compiled (`cd corrlations && python setup_cpu.py`) otherwise not all pages will build.
+
 Navigate to the project root's parent directory to build. This is the script I use:
 
 ```sh

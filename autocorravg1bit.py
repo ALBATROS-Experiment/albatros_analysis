@@ -1,3 +1,12 @@
+"""Same as **autocorravg.py** but for 1 bit baseband files. **Important distinction:** the starting index, if you specify a range of channels using `-c`, must be **even.**
+
+Example usage:
+
+`python autocorravg1bit.py ~/baseband/snap1/ 1627202094 393216 -t 1627205694 -c 24 37`
+
+`python autocorravg1bit.py ~/baseband/snap1/ 1627202094 393216 -n 560 -c 24 37`
+"""
+
 import numpy as np
 
 # from correlations_temp import baseband_data_classes as bdc
