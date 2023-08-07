@@ -1,11 +1,18 @@
-from correlations import baseband_data_classes as bdc
-import numpy as np
-import argparse
-from matplotlib import pyplot as plt
-import os
-from palettable.colorbrewer.sequential import GnBu_9 as mycmap
+"""This script allows you to histogram the whole baseband file. You can specify if you want to histogram pol0, pol1, or both (entire data) using option `-m` [mode]. (mode=0 for pol0, 1 for pol1, -1 for both. Default is -1.)
+
+Default output plot will have counts for each bit value, e.g. 0 - 15 for 4 bit data. You can shift the bins and their values to reflect the positive and negative levels using option `-r`. E.g. -7 to 7 for 4 bit data. 
+
+`python plot_hist.py ~/1627202093.raw -m -1 -o ~/outputs/ -r`
+"""
+
 
 if __name__ == "__main__":
+    import numpy as np
+    import argparse
+    from matplotlib import pyplot as plt
+    import os
+    from palettable.colorbrewer.sequential import GnBu_9 as mycmap
+    from correlations import baseband_data_classes as bdc
     "Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
     parser = argparse.ArgumentParser()
     parser.add_argument(

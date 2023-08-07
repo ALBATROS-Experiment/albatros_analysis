@@ -1,11 +1,19 @@
 import numpy as np
 # from correlations_temp import baseband_data_classes as bdc
 import time
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-from utils import baseband_utils as butils
 import argparse
-import os
+from os.path import join
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    from utils import baseband_utils as butils
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+    from .utils import baseband_utils as butils
+
+
 
 def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=0, chanend=None):
     
@@ -67,8 +75,8 @@ if __name__=="__main__":
     if(not args.chans):
         args.chans=[0,None]
 
-    path1=os.path.join(args.data_dir,'snap1')
-    path2=os.path.join(args.data_dir,'snap3')
+    path1=join(args.data_dir,'snap1')
+    path2=join(args.data_dir,'snap3')
     print(path1,path2)
     init_t = args.time_start #c#1627441379 #1627441542 #1627439234
     acclen=args.acclen
@@ -79,7 +87,7 @@ if __name__=="__main__":
     pol00,channels=get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=args.chans[0], chanend=args.chans[1])
 
     fname = f"xcorr_pol00_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{str(args.delay)}_{args.chans[0]}_{args.chans[1]}.npz"
-    fpath = os.path.join(args.outdir,fname)
+    fpath = join(args.outdir,fname)
     np.savez_compressed(fpath,datap00=pol00.data,maskp00=pol00.mask,chans=channels)
 
     from matplotlib import pyplot as plt
@@ -98,13 +106,6 @@ if __name__=="__main__":
     plt.colorbar()
 
     fname = f"xcorr_pol00_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{str(args.delay)}_{args.chans[0]}_{args.chans[1]}.png"
-    fpath = os.path.join(args.outdir,fname)
+    fpath = join(args.outdir,fname)
     plt.savefig(fpath)
     print(fpath)
-
-
-
-                
-
-
-    

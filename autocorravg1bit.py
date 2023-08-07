@@ -1,11 +1,27 @@
+"""Same as **autocorravg.py** but for 1 bit baseband files. **Important distinction:** the starting index, if you specify a range of channels using `-c`, must be **even.**
+
+Example usage:
+
+`python autocorravg1bit.py ~/baseband/snap1/ 1627202094 393216 -t 1627205694 -c 24 37`
+
+`python autocorravg1bit.py ~/baseband/snap1/ 1627202094 393216 -n 560 -c 24 37`
+"""
+
 import numpy as np
 
 # from correlations_temp import baseband_data_classes as bdc
 import time
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-from utils import baseband_utils as butils
 import argparse
+
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    from utils import baseband_utils as butils
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+    from .utils import baseband_utils as butils
 
 
 def get_avg_fast_1bit(

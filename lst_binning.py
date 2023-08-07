@@ -8,13 +8,17 @@ from matplotlib import pyplot as plt
 import numpy as np
 import datetime, time
 from scio import scio
-import SNAPfiletools as sft
 import argparse
 from datetime import datetime
 from multiprocessing import Pool
 from functools import partial
 import pytz
 import skyfield.api as sf
+
+if __name__=="__main__":
+    import SNAPfiletools as sft
+else:
+    import albatros_analysis.SNAPfiletools as sft
 
 
 def get_ts_from_name(f):
