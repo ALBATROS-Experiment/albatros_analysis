@@ -1,11 +1,11 @@
-import numpy as np
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-import argparse
-import os
-from utils import baseband_utils as butils
-
 if __name__ == "__main__":
+    import numpy as np
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    import argparse
+    import os
+    from utils import baseband_utils as butils
+
     parser = argparse.ArgumentParser()
     parser.add_argument("fpath", type=str, help="Path to baseband file")
     parser.add_argument(

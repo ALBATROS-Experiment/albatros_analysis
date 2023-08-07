@@ -1,3 +1,21 @@
+"""A script to plot direct spectra products (pol0 mag, pol1 mag, pol0xpol1 mag and phase) for any given direct data folder.
+
+Needs a directory that contains the following files:
+
+**pol00.scio.bz2 pol01i.scio.bz2 pol01r.scio.bz2 pol11.scio.bz2**
+
+Ideally, the directory name should be a timestamp (as is the convention for albatros data dumps), so that the output image has the timestamp in its name. This timestamp indicates the starting time for this direct data file. FPGA code is set to create a new file roughly every hour. Usual directory structure is something like:
+
+`~/data_auto_cross/snap1/16272/1627202093/`
+
+Use -l (ell) for logscale plots, which are more useful. -o for specifying output dir. Default output dire is ./ (dir from which code is called). Output plots indicate the localtime at telescope's location. By default, the timezone of the telescope is assumed to be US/Eastern. Timezone can be specified as shown below.
+
+`python quick_spectra.py ~/1627202093/ -o ~/outputs/ -l -tz US/Pacific`
+
+*All scripts support -h option for help.*
+"""
+
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt

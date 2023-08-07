@@ -1,11 +1,14 @@
 # usage: python missing_frac.py ~/Projects/baseband/SNAP1/16272
 
-from correlations import baseband_data_classes as bdc
-from glob import glob
 import os
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+else:
+    from .correlations import baseband_data_classes as bdc
 
 
 def get_missing_frac(fname):
@@ -17,6 +20,7 @@ def get_missing_frac(fname):
 
 
 if __name__ == "__main__":
+    from glob import glob
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "dirpath",

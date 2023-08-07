@@ -1,9 +1,49 @@
+"""The purpose of this script is to let you analyze 4 bit baseband data from a single antenna. It will compute and save pol00, pol11, and pol01 averaged over whatever acclen user specifies. [question from steve to mohan: in what units is acclen measured?]
+
+It requires a parent directory (which has 5 digit timestamp folders [question: what are those digits/ what do they represent?]) for baseband files, a starting timestamp, and an accumulation length. By default it will run for 560 chunks: that's roughly 1 hour for an accumulation length of 393216. You have the option to manually specify the number of chunks, or an end timestamp. In the latter case, the number of chunks will be calculated using (t_end - t_start)/t_acclen. Both cases are shown below. 
+
+You also have the option to control exactly what channels you'd like to examine. In order to specify the channels, use the `-c` option followed by the **indices (not channel numbers)** of starting and end channels. **The channels must be contiguous and the indices must follow numpy convention.** E.g., say you have 100 channels around 40 MHz, and 50 channels around 113 MHz (ORBCOMM), and you'd like to examine ORBCOMM, use: `-c 100 150`
+
+If you wanted to look at a single channel, you'd use something like: `-c 100 101`. This will only unpack the channel at index 100. 
+
+Example usage: 
+
+`python autocorravg.py ~/baseband/snap1/ 1627202094 393216 -t 1627205694 -c 100 150`
+
+`python autocorravg.py ~/baseband/snap1/ 1627202094 393216 -n 560 -c 100 150`
+
+**How to read .npz file tht's generated?**
+The npz file stores data and masks for pol00, pol11, and pol01, and the exact channel numbers that were used (as per the indices specified). It can be read as follows
+
+```python
+with np.load("~/pols_4bit.npz") as npz:
+    pol01 = np.ma.MaskedArray(npz['data01'],npz['maskp01'])
+    # pol00 = np.ma.MaskedArray(npz['data00'],npz['maskp00'])
+    # pol11 = np.ma.MaskedArray(npz['data11'],npz['maskp11'])
+    channels = npz['channels'].copy()
+```
+
+The format of the output file is: 
+
+`pols_4bit_{time_start}_{acclen}_{nchunks}_{chanstart}_{chanend}.npz`
+
+By default `chanstart=0` and `chanend=None`, in order to process all channels. So if a file is name "...\*0_None.png\*" it means all channels in the baseband files were included.
+"""
+
+
+
 import numpy as np
 import time
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
-from utils import baseband_utils as butils
 import argparse
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+    from utils import baseband_utils as butils
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+    from .utils import baseband_utils as butils
 
 # TODO: not sure about types going into and out of get_avg_fast
 # best guess out is tuple[ndarray x 3, list]
@@ -84,6 +124,9 @@ def get_avg_fast(
     pol11 = np.ma.masked_invalid(pol11)
     pol01 = np.ma.masked_invalid(pol01)
     return pol00, pol11, pol01, ant1.obj.channels
+
+
+
 
 
 if __name__ == "__main__":

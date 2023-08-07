@@ -1,3 +1,18 @@
+"""A script to plot direct spectra products over several hours (combining multiple files). It will generate a single plot showing what the data looks like for an entire night's (or several nights') run. It takes a start timestamp and end timestamp and automatically finds all files that lie between these timestamps. (Timestamp format `YYYYMMDD_hhmmss`)
+
+Needs a top-level directory that contains sub-directories with "short" 5 digit timestamps. (Each of these sub-dirs has sub-dirs with full 10 digit timestamps.) E.g. 
+
+`~/data_auto_cross/snap1/`
+
+In a particular direct data file, each data point (for, say, pol00) is averaged over roughly 6 seconds by the FPGA. This may be too high a resolution if you're plotting for several hourse. Use `-a` [avglen] to specify how many points to average over.
+
+`python plot_overnight_new.py ~/data_auto_cross/snap3/ 20210730_000000 20210730_070000 -o ~/outputs/ -a 50 -l`
+
+The above example calculates direct data products averaged over 5 minuts (50 points) for data collected between Jul-30 12 AM to Jul-30 7 AM. And once again, use `-l` for logscale plots. 
+
+It is the user's responsibility to make sure that a contiguous chunk of data is available between the two timestamps. If there's some discontinuity (e.g. data wasn't collected for 2 hours in the 7 hour window), it'll be obvious from the plots. In this sense, this is a useful diagnostic tool. 
+"""
+
 import os, sys
 import matplotlib as mpl
 
@@ -7,7 +22,6 @@ if os.environ.get("DISPLAY", "") == "":
 from matplotlib import pyplot as plt
 import numpy as np
 from scio import scio # module scio with class called scio, packeged as pbio, make sure `pip import pbio` not `scio`
-import SNAPfiletools as sft
 import argparse
 import time, re
 from datetime import datetime 
@@ -15,6 +29,14 @@ import matplotlib.dates as mdates
 from multiprocessing import Pool
 from functools import partial
 import pytz
+
+
+if __name__=="__main__":
+    # run as script
+    import SNAPfiletools as sft
+else:
+    # run as module (e.g. for building docs and running tests, and eventually... package?)
+    import albatros_analysis.SNAPfiletools as sft
 
 
 def get_ts_from_name(f):
@@ -433,8 +455,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     print("Wrote " + outfile)
 
 
-# ============================================================
-def main():
+if __name__=="__main__":
     parser = argparse.ArgumentParser()
     # parser.set_usage('python plot_overnight_data.py <data directory> <start time as YYYYMMDD_HHMMSS or ctime> <stop time as YYYYMMDD_HHMMSS or ctime> [options]')
     # parser.set_description(__doc__)
@@ -624,5 +645,3 @@ def main():
         full_plot([pol00, pol11, pol01, tstart, tend], mytz, chunk_time)
 
 
-if __name__ == "__main__":
-    main()

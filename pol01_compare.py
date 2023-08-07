@@ -1,3 +1,14 @@
+"""This script is meant to compare pol01 real and imaginary parts produced from baseband averaging and corresopnding direct file for quick sanity check. 
+
+For 4 bit data, it plots magnitude, phase, and real/imag residuals. For 1 bit data, it plots real/imag parts and real/imag residuals. 
+
+Accumulation length is inferred from file name, so don't mess with default file names. 
+
+Example usage:
+
+`pol01_compare.py ~/path_to_baseband_npz/pol01_1bit_1627528594_393216_560_0_None.npz ~/path_to_direct_folder/16275/1627528594/`
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse

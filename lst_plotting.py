@@ -13,7 +13,7 @@ def get_localtime_from_UTC(tstamp: str, mytz) -> datetime:
     return datetime.fromtimestamp(int(tstamp), tz=pytz.utc).astimezone(tz=mytz)
 
 
-def get_vmin_vmax(data_arr: np.ndarray, log: bool = True) -> tuple[float, float]:
+def get_vmin_vmax(data_arr: np.ndarray, log: bool = True):
     """Finds min & max values (vmin,vmax) for colorbar"""
     # print("shape of passed array", data_arr.shape, data_arr.dtype)
     xx = data_arr.copy()

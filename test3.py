@@ -1,7 +1,13 @@
-from correlations import baseband_data_classes as bdc
-from correlations import correlations as cr
 import numpy as np
 import time
+
+if __name__=="__main__":
+    from correlations import baseband_data_classes as bdc
+    from correlations import correlations as cr
+else:
+    from .correlations import baseband_data_classes as bdc
+    from .correlations import correlations as cr
+
 
 def fillarr(arr):
     x=np.array([],dtype='int64')
