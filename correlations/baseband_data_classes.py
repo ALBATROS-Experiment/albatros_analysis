@@ -149,7 +149,6 @@ class Baseband:
                 if fixoverflow:
                     if len(self.where_zero) == 1:
                         self.spec_num[self.where_zero[0] + 1 :] += 2**32
-                        self._set_specidx()
                     elif len(self.where_zero) > 1:
                         raise ValueError(
                             "Why are there two -ve diffs in specnum? Investigate this file"

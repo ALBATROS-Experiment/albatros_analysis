@@ -82,11 +82,11 @@ def write_header(file_object, chans, spec_per_packet, bytes_per_packet, bits):
     latlon.tofile(file_object)
 
 def dump_raw_data():
-    spec_per_packet=10
-    bytes_per_packet=1300
+    spec_per_packet=1
     bits=4
     chans=get_channels_from_str("452:732", bits)
     bytes_per_spectra = len(chans)
+    bytes_per_packet=bytes_per_spectra*spec_per_packet + 4
     spectra = np.ones(bytes_per_spectra,dtype="B")
     specnum=np.asarray([123456789],dtype=">I")
     packet = np.array((specnum,spectra),dtype=[('spec_num', '>I'), ('spectra', '%dB'%(len(spectra)))])
