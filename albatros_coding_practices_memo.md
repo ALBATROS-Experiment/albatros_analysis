@@ -1,5 +1,4 @@
-
-Most of these are about readability. 
+# Good coding practices memo
 
 Here's a short poem about writing python, most of the stuff applies to all code. 
 
@@ -66,10 +65,9 @@ This is a bit of a trick question. The former is easier to read but takes up muc
 
 However, in the former code snippet, a sin was committed. Can you spot it? 
 
-<detials><summary>Answer</summary>
+<details><summary><b>Answer</b></summary>
 
 We hard-coded the list of squares in `is_square`, which means the function is deceptive and relies on us not looking beyond 10. We should either rename the function to something like `is_square_below_ten`, or at the least warn the reader in a comment. 
-
 </details>
 
 ### Don't repeat yourself
