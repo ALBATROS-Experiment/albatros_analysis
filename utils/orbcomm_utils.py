@@ -1,6 +1,7 @@
 import skyfield.api as sf
 import numpy as np
 import operator
+import time
 
 
 def ctime2mjd(tt=None, type="Dublin"):
@@ -150,4 +151,4 @@ def find_pulses(x, cond="==", thresh=None):
             retval.append(
                 [boundaries[i], boundaries[i + 1]]
             )  # len of boundaries is nseg+1. boundaries i+1 will always work. since i can be max nseg
-    print(retval)
+    return retval
