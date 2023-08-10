@@ -1,7 +1,7 @@
 import numpy as np
 import os, warnings
 from matplotlib import pyplot as plt
-
+import subprocess
 
 def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     """Given a timestamp, return the file inside of which that timestamp lies.
@@ -65,7 +65,7 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
             return files[flip + 1]
         else:
             raise FileNotFoundError(
-                f"No file match for requested timestamp. Perhaps there was a data acquisition gap.
+                f"No file match for requested timestamp. Perhaps there was a data acquisition gap.\
                 Next available file is {files[flip+1]}. Use that timestamp or use force_ts = True."
             )
 
