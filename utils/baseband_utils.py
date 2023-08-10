@@ -3,6 +3,7 @@ import os, warnings
 from matplotlib import pyplot as plt
 import subprocess
 
+
 def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     """Given a timestamp, return the file inside of which that timestamp lies.
     The function works with both baseband and direct spectra files.
@@ -29,49 +30,69 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
         If there is no matching file, the user is required to start their integration
         from the next available timestamp that's helpfully suggested.
     """
-
+    if isinstance(ts, int):
+        ts = str(ts)
     if search_type == "f":
-        stamp = ts[:6]
+        stamp = str(ts)[:6]
     elif search_type == "d":
         stamp = ts[:5]
     else:
         raise RuntimeError("invalid search type passed. Can only be 'f' or 'd' ")
-
+    ts = int(ts)
     op = subprocess.run(
-        ["find", parent_dir, "-type", search_type, "-name", f"{stamp}*"],
+        [
+            "find",
+            parent_dir,
+            "-type",
+            search_type,
+            "-name",
+            f"{stamp}*",
+            "-mindepth",
+            "2",
+        ],
         capture_output=True,
     ).stdout.decode("utf-8")
     # print(op)
+    # print(op)
     files = op.split()
     files.sort()  # files need to be in the same order as the timestamps, so we can simply pick the correct file later
-    tstamps = np.asarray([int(s.split("/")[-1].split(".")[0]) for s in files])
+    tstamps = np.asarray(
+        [int(s.split("/")[-1].split(".")[0]) for s in files]
+    )  # will work with both tstamp.raw (bband) and 5digit/tstamp/ (direct)
     tstamps.sort()  # could remove this.
+    # print(tstamps)
     if search_type == "d":
         delta = 3600  # direct spectra files are time-limited files. no need to run a median.
     else:
         delta = np.median(
             np.diff(tstamps)
         )  # find the time period. assumption: usually there will be several files in an hour.
-    flip = np.where(np.diff(tstamps > ts) != 0)[0]
-    print(delta, flip)
+    # print(tstamps>ts)
+    # if len(tstamps) == 1:
+    #     flip = tstamps >= ts
+    if len(tstamps) == 1:
+        flip = 0
+    else:
+        flip = np.where(np.diff(tstamps > ts) != 0)[0][0]
+    # print(delta, flip)
     # plt.plot(tstamps>ts)
     if ts - tstamps[flip] <= delta:
         return files[flip]
     else:
         if force_ts:
+            if len(tstamps) == 1:
+                raise FileNotFoundError(
+                    f"You're using force_ts but ran out of files close to requested timestamp. Should've collected more data."
+                )
             warnings.warn(
                 f"Returning a file whose start is {tstamps[flip + 1]}, {tstamps[flip + 1] -  ts} seconds away from your requested timestamp"
             )
             return files[flip + 1]
         else:
             raise FileNotFoundError(
-                f"No file match for requested timestamp. Perhaps there was a data acquisition gap.\
-                Next available file is {files[flip+1]}. Use that timestamp or use force_ts = True."
+                f"No file match for requested timestamp. Perhaps there was a data acquisition gap. Use force_ts = True."
             )
-
-    print(
-        ts - tstamps[flip]
-    )  # should be less than equal to delta, then our tstamp lies in a file.
+    # should be less than equal to delta, then our tstamp lies in a file.
     # otherwise there's no such file with that timestamp. tell user to start from the next future timestamp
     # force_ts = True  may be?
 

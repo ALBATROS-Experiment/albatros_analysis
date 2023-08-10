@@ -2,9 +2,9 @@ import numpy as np
 import sys
 from os.path import dirname, realpath, join
 
-#sys.path.insert(0, "/home/mohan/Projects/albatros_analysis/")
+# sys.path.insert(0, "/home/mohan/Projects/albatros_analysis/")
 corr_path = dirname(realpath(__file__))  # corr path
-data_path = join(corr_path, "data")      # test data path
+data_path = join(corr_path, "data")  # test data path
 root_path = join(corr_path, "..", "..")  # project root path
 # warning: above line breaks if not in albatros_analysis/correlations/test/ (or two levels deep)
 sys.path.insert(0, root_path)

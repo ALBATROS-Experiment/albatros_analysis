@@ -70,7 +70,7 @@ def get_risen_sats(coords, t_start, dt=None, niter=560, altitude_cutoff=1):
         E.g. [["FM118","NOAA15"], ["NOAA15"]]
     """
     obs1 = sf.wgs84.latlon(*coords)
-    sats = sf.load.tle_file("./data/orbcomm_28July21.txt")
+    sats = sf.load.tle_file("/home/mohan/Projects/orbcomm/data/orbcomm_28July21.txt")
     tt = t_start
     ts = sf.load.timescale()
     if not dt:
@@ -101,7 +101,7 @@ def get_risen_sats(coords, t_start, dt=None, niter=560, altitude_cutoff=1):
     return risen_sats
 
 
-def find_pulses(x, cond="==", thresh=None):
+def find_pulses(x, cond="==", thresh=None, pulses=True):
     """Given a signal "x", find locations where the signal is ON.
     Whether or not the signal is ON is determined by the comparison condition passed.
     Comparison done is `x cond 0`.
@@ -133,22 +133,49 @@ def find_pulses(x, cond="==", thresh=None):
     print("num of segments", nseg)
     boundaries = np.hstack([0, crossings, len(arr)])
     print("boundaries", boundaries)
-    retval = []
-    if arr[0] == 0:
-        print("OFF")
-        # first segment is OFF. return every other segment
-        # most often there will be even number of crossings, odd no. of segments
-        # since data starts with OFF and ends with OFF
-        for i in range(1, nseg, 2):
-            retval.append([boundaries[i], boundaries[i + 1]])
-    #     for i in range(0,len(crossings),2): #if len crossings is even, will never reach the last element
-    #         if (crossings[i+1] - crossings[i]) > 5: # only if signal stays ON for at least 30 seconds, consider it a sat pass
-    #             retval.append([crossings[i]+1,crossings[i+1]+1])
+    pulse_boundaries = []
+    if pulses:
+        if arr[0] == 0:
+            print("OFF")
+            # first segment is OFF. return every other segment
+            # most often there will be even number of crossings, odd no. of segments
+            # since data starts with OFF and ends with OFF
+            for i in range(1, nseg, 2):
+                pulse_boundaries.append([boundaries[i], boundaries[i + 1]])
+        #     for i in range(0,len(crossings),2): #if len crossings is even, will never reach the last element
+        #         if (crossings[i+1] - crossings[i]) > 5: # only if signal stays ON for at least 30 seconds, consider it a sat pass
+        #             pulse_boundaries.append([crossings[i]+1,crossings[i+1]+1])
+        else:
+            print("ON")
+            for i in range(0, nseg, 2):
+                #         if (crossings[i+1]-crossings[i]) > 1:
+                pulse_boundaries.append(
+                    [boundaries[i], boundaries[i + 1]]
+                )  # len of boundaries is nseg+1. boundaries i+1 will always work. since i can be max nseg
+        return pulse_boundaries
     else:
-        print("ON")
-        for i in range(0, nseg, 2):
-            #         if (crossings[i+1]-crossings[i]) > 1:
-            retval.append(
-                [boundaries[i], boundaries[i + 1]]
-            )  # len of boundaries is nseg+1. boundaries i+1 will always work. since i can be max nseg
-    return retval
+        return boundaries
+
+
+def get_simul_pulses(arr, thresh=5):
+    cur = 0
+    curidx = 0
+    curlen = 0
+    pulses = []
+    for i, x in enumerate(arr):
+        #         print(i, x)
+        if x != cur:
+            if curlen > thresh and cur > 0:
+                pulses.append([[curidx, i], get_set_bits(cur, reverse=True)])
+            cur = x
+            curlen = 0
+            curidx = i
+        else:
+            curlen += 1
+    return pulses
+
+
+def get_set_bits(x, nbits=20, reverse=False):
+    if reverse:
+        return [nbits - i - 1 for i in range(0, nbits) if (x >> i) & 1]
+    return [i for i in range(0, nbits) if (x >> i) & 1]

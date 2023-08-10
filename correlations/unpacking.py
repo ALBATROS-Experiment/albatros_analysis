@@ -63,8 +63,8 @@ hist_1bit_c.argtypes = [
 
 
 def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
-    """Gets list of values ready for plotting in histogram. 
-    
+    """Gets list of values ready for plotting in histogram.
+
     Parameters
     ----------
     data: ??
@@ -77,9 +77,9 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
         ??
     bit_depth: int
         Either 1 or 4
-    mode: int 
+    mode: int
         mode=0 for pol0, 1 for pol1, -1 for both.
-    
+
     Returns
     -------
     histvals: array-like
@@ -87,8 +87,11 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
     """
     nbins = 2**bit_depth - 1
     histvals = numpy.empty((nbins + 1, length_channels), dtype="uint64", order="c")
-    assert bit_depth in (1,4), f"bit_depth set to {bit_depth}, only takes values 1 or 4"
-    assert mode in (0,1,-1), f"mode set to {mode}, only takes values 0,1,-1"
+    assert bit_depth in (
+        1,
+        4,
+    ), f"bit_depth set to {bit_depth}, only takes values 1 or 4"
+    assert mode in (0, 1, -1), f"mode set to {mode}, only takes values 0,1,-1"
     if bit_depth == 4:
         t1 = time.time()
         hist_4bit_c(
@@ -120,15 +123,15 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
 
 def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
     """Unpacks 4-bit data from binary dump file. (??)
-    
+
     ??
-    
+
     Parameters
     ----------
     data: ??
         ??
-    length_channels: ?? 
-        ?? 
+    length_channels: ??
+        ??
     rowstart: ??
         ??
     rowend: ??
@@ -137,7 +140,7 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
         ??
     chanend: ??
         ??
-    
+
     Returns
     -------
     pol0: ??
@@ -169,20 +172,20 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
 
 def unpack_1bit(data, length_channels, chanstart, chanend):
     """Unpacks 1-bit data from binary dump file. (??)
-    
+
     ??
-    
+
     Parameters
     ----------
     data: ??
         ??
-    length_channels: ?? 
-        ?? 
+    length_channels: ??
+        ??
     chanstart: ??
         ??
     chanend: ??
         ??
-    
+
     Returns
     -------
     pol0: ??
@@ -213,18 +216,18 @@ def unpack_1bit(data, length_channels, chanstart, chanend):
 
 def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chanend):
     """??
-    
+
     ??
-    
+
     Parameters
     ----------
     data: ??
         ??
     length_channels: ??
         ??
-    bit_mode: ?? 
+    bit_mode: ??
         ??
-    rowstart: ?? 
+    rowstart: ??
         ??
     rowend: ??
         ??
@@ -232,7 +235,7 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
         ??
     chanend: ??
         ??
-    
+
     Returns
     -------
     pol0: ??

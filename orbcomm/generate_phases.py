@@ -1,7 +1,7 @@
 import sys
 from os import path
 import numpy as np
-sys.path.insert(0, '/home/s/sievers/mohanagr/albatros_analysis/')
+sys.path.insert(0, '/home/mohan/Projects/albatros_analysis/')
 from utils.orbcomm_utils import get_risen_sats, find_pulses, gauss_smooth
 from matplotlib import pyplot as plt
 
@@ -19,7 +19,7 @@ def filter_single_sat(risen_sat_count):
     )  # signal is e.g. _______|-----|____|---|__ ON when only 1 sat
 
 
-def find_single_sat_transits(spectra, acctime=None):
+def find_single_sat_transits(spectra, acctime=None, snr_thresh=5):
     nspec, nchan = spectra.shape
     # convert to SNR in dB. median inside log same as median outside log since log is strictly monotonously increasing.
     # gauss smooth along time after appending zeros
@@ -36,6 +36,6 @@ def find_single_sat_transits(spectra, acctime=None):
     plt.plot(spectra[:,5])
     transits = {}
     for chan in range(0, nchan):
-        transits[chan] = find_pulses(spectra[:, chan], cond=">", thresh=5)
+        transits[chan] = find_pulses(spectra[:, chan], cond=">", thresh=snr_thresh)
     
     return transits
