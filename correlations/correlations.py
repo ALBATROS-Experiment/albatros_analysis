@@ -101,16 +101,16 @@ avg_xcorr_1bit_vanvleck_2ant_c = mylib.avg_xcorr_1bit_vanvleck_2ant
 # TODO: standardise naming, here it's called 'pol', later it's called 'data'
 def autocorr_4bit(pol):
     """Compute autocorrelations of 4bit data.
-    
+
     Parameters
     ----------
     pol: np.ndarray
-        Raw pol baseband data. 
-    
+        Raw pol baseband data.
+
     Returns
     -------
     corr: np.ndarray
-        Autocorrelation of pol with itsself. 
+        Autocorrelation of pol with itsself.
     """
     data = pol.copy()
     print(data.shape)
@@ -124,14 +124,14 @@ def autocorr_4bit(pol):
 
 def avg_autocorr_4bit(data, specnums):
     """Compute time-average of autocorrelation for each channel. (??)
-    
+
     Parameters
     ----------
     data: np.ndarray
         ??
     specnums: ??
         ??
-    
+
     Returns
     -------
     corr: np.ndarray
@@ -159,23 +159,25 @@ def avg_autocorr_4bit(data, specnums):
     # print("last element from python", data[-1][-1])
 
     print(f"time taken for avg_corr {t2-t1:5.3f}s")
-    return corr / nrows # [Steve] why do we divide by nrows—shouldn't that be taken care of in avg_autocorr_4bit_c?
+    return (
+        corr / nrows
+    )  # [Steve] why do we divide by nrows—shouldn't that be taken care of in avg_autocorr_4bit_c?
 
 
 def xcorr_4bit(data0, data1):
-    """Compute cross-correlation for 4-bit data. 
-    
+    """Compute cross-correlation for 4-bit data.
+
     Parameters
     ----------
     data0: np.ndarray
-        2d baseband array. 
+        2d baseband array.
     data1: np.ndarray
-        2d baseband array. 
-    
+        2d baseband array.
+
     Returns
     -------
     xcorr: np.ndarray
-        Cross correlation of data0, data1. 
+        Cross correlation of data0, data1.
     """
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
@@ -195,19 +197,19 @@ def xcorr_4bit(data0, data1):
 
 def avg_xcorr_4bit(data0, data1, specnums):
     """Compute time-averaged cross-correlation.
-    
+
     Parameters
     ----------
     data0: np.ndarray
-        2d baseband array. 
+        2d baseband array.
     data1: np.ndarray
-        2d baseband array. 
+        2d baseband array.
     specnums: np.ndarray
         ??
     Returns
     -------
     corr: np.ndarray
-        1d array, time averaged cross correlation in each channel. 
+        1d array, time averaged cross correlation in each channel.
     """
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
@@ -228,10 +230,10 @@ def avg_xcorr_4bit(data0, data1, specnums):
 
 
 def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1):
-    """Compute cross correlation between two antennas, for 4bit data. 
-    
+    """Compute cross correlation between two antennas, for 4bit data.
+
     ??
-    
+
     Parameters
     ----------
     data0: np.ndarray
@@ -246,7 +248,7 @@ def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1
         ??
     start_idx1: int
         ??
-    
+
     Returns
     -------
     xcorr: np.ndarray
