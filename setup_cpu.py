@@ -31,20 +31,30 @@ from os.path import join, exists, dirname, realpath
 from os import system
 from sys import platform  # detect whether using darwin or win/linux os
 from sys import path as sys_path
-# builds into the same directory as the setup file
+
 path = dirname(realpath(__file__))
 print(f"Setup file path {path}")
 
+
 def build():
-    c_paths = [join(path, p) for p in ["correlations/unpacking.c", "correlations/correlations_cpu.c"]]
-    so_paths = [join(path, p) for p in ["correlations/lib_unpacking.so", "correlations/lib_correlations_cpu.so"]]
+    c_paths = [
+        join(path, p)
+        for p in ["correlations/unpacking.c", "correlations/correlations_cpu.c"]
+    ]
+    so_paths = [
+        join(path, p)
+        for p in [
+            "correlations/lib_unpacking.so",
+            "correlations/lib_correlations_cpu.so",
+        ]
+    ]
 
     for p in c_paths:
         if not exists(p):
             print(f"Cannot find the file {p}\n Stopping build!")
             exit(1)
-    #proceed to build each path
-    for (path_c, path_so) in zip(c_paths, so_paths):
+    # proceed to build each path
+    for path_c, path_so in zip(c_paths, so_paths):
         if platform == "darwin":
             # Mac OSx & ARM
             try:
@@ -56,6 +66,7 @@ def build():
         else:
             # Linux/Windows
             system(f'gcc -shared -o "{path_so}" -fPIC -fopenmp "{path_c}"')
+
 
 if __name__ == "__main__":
     build()

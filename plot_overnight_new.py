@@ -79,6 +79,7 @@ def get_data_arrs(data_dir: str, ctime_start: str, ctime_stop: str, chunk_time, 
         2D arrays containing the data for given time interval for autospectra
         as well as cross spectra. pol00 corresponds to adc0 and pol11 to adc3
     """
+    print(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     print("\n################### READING DATA ###################")
     print(f"Files requested between timestamps {ctime_start} to {ctime_stop}")
     print(
@@ -96,6 +97,7 @@ def get_data_arrs(data_dir: str, ctime_start: str, ctime_stop: str, chunk_time, 
         sys.exit(1)
 
     # rough estimate of number of rows we'll read
+    print("Guessed rows initial = ", len(data_subdirs)) 
     nrows_guess = len(data_subdirs) * ((int(3600 / chunk_time / blocklen) + 1) + 1)
     # print("Starting with a guess of ", nrows_guess)
     print("guessed rows", nrows_guess)
