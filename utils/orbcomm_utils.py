@@ -4,6 +4,7 @@ import operator
 import time
 from matplotlib import pyplot as plt
 
+
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
     if tt is None:
@@ -20,40 +21,48 @@ def ctime2mjd(tt=None, type="Dublin"):
             "Unsupported Julian date type requested. Options are JD, MJD, Dublin"
         )
 
-def coarse_xcorr(f1,f2,chans):
-    """ Get coarse xcorr of each channel of two channelized timestreams.
+
+def coarse_xcorr(f1, f2, chans):
+    """Get coarse xcorr of each channel of two channelized timestreams.
     The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
-    
+
     Parameters
     ----------
     f1, f2 : ndarray of complex64
         First and second timestreams. Both n_spectrum x n_channel complex array.
     chans: tuple of int
         Channels (columns) of f1 and f2 that should be correlated.
-    
+
     Returns
     -------
     ndarray of complex128
         xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
     """
-    Nsmall=f1.shape[0]
+    Nsmall = f1.shape[0]
     print("Shape of passed channelized timestream =", f1.shape)
-    xcorr=np.zeros((2*Nsmall,len(chans)),dtype='complex128')
-    for i,chan in enumerate(chans):
+    xcorr = np.zeros((2 * Nsmall, len(chans)), dtype="complex128")
+    for i, chan in enumerate(chans):
         print("processing chan", chan)
-#         p0=np.zeros(2*Nsmall,dtype='complex128')
-#         p1=np.zeros(2*Nsmall,dtype='complex128')
-#         p0[:Nsmall]=f1[:Nsmall,chan].flatten()
-#         p1[:Nsmall]=f2[:Nsmall,chan].flatten()
-#         xcorr[:,i]=np.fft.ifft(np.fft.fft(p0)*np.conj(np.fft.fft(p1)))
+        #         p0=np.zeros(2*Nsmall,dtype='complex128')
+        #         p1=np.zeros(2*Nsmall,dtype='complex128')
+        #         p0[:Nsmall]=f1[:Nsmall,chan].flatten()
+        #         p1[:Nsmall]=f2[:Nsmall,chan].flatten()
+        #         xcorr[:,i]=np.fft.ifft(np.fft.fft(p0)*np.conj(np.fft.fft(p1)))
         xcorr[:, i] = np.fft.ifft(
-                        np.fft.fft(np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")]))
-                        * np.conj(
-                            np.fft.fft(np.hstack([f2[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")]))
-                        )
+            np.fft.fft(
+                np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
+            )
+            * np.conj(
+                np.fft.fft(
+                    np.hstack(
+                        [f2[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")]
                     )
+                )
+            )
+        )
     print(xcorr.shape)
     return xcorr
+
 
 def gauss_smooth(data, sigma=5):
     """Gaussian smooth an N-dim signal. The user should take care about 0-padding.
@@ -119,9 +128,9 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
 
         for sat in sats:
             # if (
-                # "[+]" not in sat.name and "NOAA" not in sat.name
+            # "[+]" not in sat.name and "NOAA" not in sat.name
             # ):  # extracting operational ORBCOMM ([+]) and NOAA from TLE file
-                # continue
+            # continue
             diff = sat - obs1
             topocentric = diff.at(t)
             alt, az, dist = topocentric.altaz()
@@ -129,8 +138,8 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
             if alt.degrees > altitude_cutoff:
                 # print(alt.degrees, az.degrees)
                 # if sat.name is None:
-                #     sat.name = 
-                visible.append(sat.model.satnum)
+                #     sat.name =
+                visible.append([sat.model.satnum, alt.degrees])
         #         if(alt_count in (1,)):
         #             print(iter,'have ',alt_count,' in beam -6 dB range', visible)
         risen_sats.append(visible)
@@ -194,17 +203,17 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
         return boundaries
 
 
-def get_simul_pulses(transits,nrows,thresh=5):
+def get_simul_pulses(transits, nrows, thresh=5):
     nchan = len(transits)
-    passes = np.zeros((nrows,nchan),dtype=bool)
-    for c in range(0,20):
+    passes = np.zeros((nrows, nchan), dtype=bool)
+    for c in range(0, 20):
         for t in transits[c]:
             if t[1] - t[0] > 10:
-                passes[t[0]:t[1],c] = 1
-    plt.imshow(passes,aspect='auto',interpolation='none')
-    x = np.arange(nchan-1,-1,-1,dtype=int).reshape(nchan,-1)
-    pwr = 2**(np.ones(nrows,dtype=int).reshape(nrows,1)@x.T)
-    rep=np.sum(passes*pwr,axis=1)
+                passes[t[0] : t[1], c] = 1
+    plt.imshow(passes, aspect="auto", interpolation="none")
+    x = np.arange(nchan - 1, -1, -1, dtype=int).reshape(nchan, -1)
+    pwr = 2 ** (np.ones(nrows, dtype=int).reshape(nrows, 1) @ x.T)
+    rep = np.sum(passes * pwr, axis=1)
     cur = 0
     curidx = 0
     curlen = 0
@@ -227,6 +236,7 @@ def get_set_bits(x, nbits=20, reverse=False):
         return [nbits - i - 1 for i in range(0, nbits) if (x >> i) & 1]
     return [i for i in range(0, nbits) if (x >> i) & 1]
 
+
 def find_sat_transits(spectra, acctime=None, snr_thresh=5):
     nspec, nchan = spectra.shape
     # convert to SNR in dB. median inside log same as median outside log since log is strictly monotonously increasing.
@@ -241,9 +251,9 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
             ]
         ),
     )[:nspec, :]
-    plt.plot(spectra[:,5])
+    plt.plot(spectra[:, 5])
     transits = {}
     for chan in range(0, nchan):
         transits[chan] = find_pulses(spectra[:, chan], cond=">", thresh=snr_thresh)
-    
+
     return transits

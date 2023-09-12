@@ -316,6 +316,7 @@ def avg_xcorr_1bit_vanvleck(data0, data1, specnums, nchannels):
     assert data0.shape[1] == data1.shape[1]
     nrows = len(specnums)
     print("Input shape is", nrows)
+
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     R0 = np.empty(nchannels, dtype="float32", order="c")
     R1 = np.empty(nchannels, dtype="float32", order="c")
