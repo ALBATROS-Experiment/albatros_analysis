@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import subprocess
 import pytz
 import datetime
+import glob
 
 
 def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
@@ -72,7 +73,7 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     # print(tstamps>ts)
     # if len(tstamps) == 1:
     #     flip = tstamps >= ts
-    tstamps = np.hstack([tstamps,tstamps[-1]+delta])
+    tstamps = np.hstack([tstamps, tstamps[-1] + delta])
     # print(tstamps  < ts)
     # xx=(tstamps < ts).astype(int)
     # print(xx)
@@ -103,14 +104,17 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     # otherwise there's no such file with that timestamp. tell user to start from the next future timestamp
     # force_ts = True  may be?
 
-def get_ctime_from_locatime(lt,tz="US/Eastern"):
+
+def get_ctime_from_locatime(lt, tz="US/Eastern"):
     tz = pytz.timezone(tz)
-    tstamp = tz.localize(datetime.datetime.strptime(lt,"%Y%m%d_%H%M%S")).timestamp()
+    tstamp = tz.localize(datetime.datetime.strptime(lt, "%Y%m%d_%H%M%S")).timestamp()
     return tstamp
+
 
 def get_localtime_from_ctime(tstamp, tz="US/Eastern"):
     tz = pytz.timezone(tz)
-    return datetime.datetime.fromtimestamp(tstamp,tz=pytz.utc).astimezone(tz)
+    return datetime.datetime.fromtimestamp(tstamp, tz=pytz.utc).astimezone(tz)
+
 
 def get_init_info(init_t, end_t, parent_dir):
     """Get relevant indices from timestamps.
