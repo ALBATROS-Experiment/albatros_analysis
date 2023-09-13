@@ -204,21 +204,22 @@ void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, in
   }
 }
 
-void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int nspec, int chanstart, int chanend, int nchan)
+void unpack_1bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int chanstart, int chanend, int nchan)
 {
+  int nrows = rowend-rowstart;
+  int bytes_per_spec=nchan/2;
   #pragma omp parallel for
-	for(int i=0;i<2*nspec*(chanend-chanstart);i++) //complex array
+	for(int i=0;i<2*nrows*(chanend-chanstart);i++) //complex array
 	{
 		pol0[i]=0;
 		pol1[i]=0;
 	}
-  int bytes_per_spec=nchan/2;
   // #pragma omp parallel for
-  for (int i = 0; i<nspec; i++) 
+  for (int i = 0; i<nrows; i++) 
   {
     for (int j =0; j<(chanend-chanstart)/2; j++) // number of bytes to read for each spectra.
     {
-      int dataidx = i*bytes_per_spec+chanstart/2+j;
+      int dataidx = (i+rowstart)*bytes_per_spec+chanstart/2+j;
       float r0c0=(data[dataidx]>>7)&1;
       float i0c0=(data[dataidx]>>6)&1;
       float r1c0=(data[dataidx]>>5)&1;

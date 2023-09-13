@@ -260,7 +260,15 @@ def get_header(file_name, verbose=True):
 
 class BasebandFloat(Baseband):
     def __init__(
-        self, file_name, readlen=-1, fixoverflow=True, chanstart=0, chanend=None
+        self,
+        file_name,
+        readlen=-1,
+        fixoverflow=True,
+        rowstart=None,
+        rowend=None,
+        chanstart=0,
+        chanend=None,
+        unpack=True,
     ):
         """Create instance of BasebandFloat.
 
@@ -289,23 +297,34 @@ class BasebandFloat(Baseband):
             self.chanend = self.length_channels
         else:
             self.chanend = chanend
+        if unpack:
+            if rowstart and rowend:
+                self.pol0, self.pol1 = self._unpack(rowstart, rowend)
+            else:
+                self.pol0, self.pol1 = self._unpack(0, len(self.spec_idx))
+        return
 
+    def _unpack(self, rowstart, rowend):
+        # There should NOT be an option to modify channels you're working with in a private function.
+        # If you want different set of channels, create a new object
         if self.bit_mode == 4:
-            self.pol0, self.pol1 = unpk.unpack_4bit(
+            return unpk.unpack_4bit(
                 self.raw_data,
                 self.length_channels,
-                0,
-                len(self.spec_idx),
+                rowstart,
+                rowend,
                 self.chanstart,
                 self.chanend,
             )
         elif self.bit_mode == 1:
-            self.pol0, self.pol1 = unpk.unpack_1bit(
-                self.raw_data, self.length_channels, self.chanstart, self.chanend
+            return unpk.unpack_1bit(
+                self.raw_data,
+                self.length_channels,
+                rowstart,
+                rowend,
+                self.chanstart,
+                self.chanend,
             )
-        else:
-            print("Unknown bit depth")
-        return
 
 
 class BasebandPacked(Baseband):
@@ -411,6 +430,7 @@ class BasebandFileIterator:
         nchunks=None,
         chanstart=0,
         chanend=None,
+        type="packed",
     ):
         """Create instance of BasebandFileIterator.
 
@@ -446,7 +466,14 @@ class BasebandFileIterator:
         self.chunksread = 0
         self.chanstart = chanstart
         self.chanend = chanend
-        self.obj = BasebandPacked(
+        self.type = type
+        if type == "float":
+            self.load = BasebandFloat
+            self.dtype = "complex64"
+        elif type == "packed":
+            self.load = BasebandPacked
+            self.dtype = "uint8"
+        self.obj = self.load(
             file_paths[fileidx], chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.spec_num_start = (
@@ -458,16 +485,16 @@ class BasebandFileIterator:
             "obj start at",
             self.obj.spec_num[0],
         )
-        if self.obj.bit_mode == 4:
-            self.ncols = (
-                self.obj.chanend - self.obj.chanstart
-            )  # gotta be careful with this for 1 bit and 2 bit. for 4 bits, ncols = nchans
-        elif self.obj.bit_mode == 1:
+        if self.obj.bit_mode == 1 and self.type == "packed":
             if self.obj.chanstart % 2 > 0:
                 raise ValueError("ERROR: Start channel index must be even.")
             self.ncols = numpy.ceil((self.obj.chanend - self.obj.chanstart) / 4).astype(
                 int
             )
+        else:
+            self.ncols = (
+                self.obj.chanend - self.obj.chanstart
+            )  # for 4 bits ncols = nchans regardless of packed or float, only dtype changes. For 1 bit, we want one col for each chan if float.
 
     def _read_packed(
         self,
@@ -515,9 +542,9 @@ class BasebandFileIterator:
         if self.nchunks and self.chunksread == self.nchunks:
             raise StopIteration
         pol0 = numpy.zeros(
-            (self.acclen, self.ncols), dtype="uint8", order="c"
+            (self.acclen, self.ncols), dtype=self.dtype, order="c"
         )  # for now take all channels. will modify to accept chanstart, chanend
-        pol1 = numpy.zeros((self.acclen, self.ncols), dtype="uint8", order="c")
+        pol1 = numpy.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
         specnums = numpy.array(
             [], dtype="int64"
         )  # len of this array will control everything in corr, neeeeed the len.
@@ -562,7 +589,7 @@ class BasebandFileIterator:
                     self.spec_num_start += l
                     # print("Reading new file")
                     self.fileidx += 1
-                    self.obj = BasebandPacked(
+                    self.obj = self.load(
                         self.file_paths[self.fileidx],
                         chanstart=self.chanstart,
                         chanend=self.chanend,
