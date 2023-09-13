@@ -3,6 +3,7 @@ import numpy as np
 import operator
 import time
 from matplotlib import pyplot as plt
+import numba as nb
 
 
 def ctime2mjd(tt=None, type="Dublin"):
@@ -20,6 +21,13 @@ def ctime2mjd(tt=None, type="Dublin"):
         raise ValueError(
             "Unsupported Julian date type requested. Options are JD, MJD, Dublin"
         )
+
+
+@nb.njit(parallel=True)
+def make_continuous(newpol, pol, spec_idx):
+    n = pol.shape[0]
+    for i in nb.prange(n):
+        newpol[spec_idx[i], :] = pol[i, :]
 
 
 def coarse_xcorr(f1, f2, chans):
@@ -203,13 +211,16 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
         return boundaries
 
 
-def get_simul_pulses(transits, nrows, thresh=5):
+def get_simul_pulses(transits, nrows, mask=None, thresh=5):
     nchan = len(transits)
     passes = np.zeros((nrows, nchan), dtype=bool)
     for c in range(0, 20):
         for t in transits[c]:
             if t[1] - t[0] > 10:
                 passes[t[0] : t[1], c] = 1
+    if mask is not None:
+        assert len(mask) == nrows
+        passes[:] = passes * mask
     plt.imshow(passes, aspect="auto", interpolation="none")
     x = np.arange(nchan - 1, -1, -1, dtype=int).reshape(nchan, -1)
     pwr = 2 ** (np.ones(nrows, dtype=int).reshape(nrows, 1) @ x.T)
@@ -251,7 +262,6 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
             ]
         ),
     )[:nspec, :]
-    plt.plot(spectra[:, 5])
     transits = {}
     for chan in range(0, nchan):
         transits[chan] = find_pulses(spectra[:, chan], cond=">", thresh=snr_thresh)

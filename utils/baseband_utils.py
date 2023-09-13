@@ -5,9 +5,10 @@ import subprocess
 import pytz
 import datetime
 import glob
+import re
 
 
-def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
+def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=393216):
     """Given a timestamp, return the file inside of which that timestamp lies.
     The function works with both baseband and direct spectra files.
 
@@ -15,7 +16,7 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     ----------
     ts : int or str
         The timestamp you're interested in. (ctime)
-    parent_dir : str
+    dir_parent : str
         The directory which contains 5 digit folders.
     search_type : 'd' or 'f'
         'd' (directory) if you are using this function for direct spectra, 'f' (file) for baseband.
@@ -33,19 +34,19 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
         If there is no matching file, the user is required to start their integration
         from the next available timestamp that's helpfully suggested.
     """
-    if isinstance(ts, int):
+    if isinstance(ts, int) or isinstance(ts, float):
         ts = str(ts)
     if search_type == "f":
-        stamp = str(ts)[:6]
+        stamp = ts[:6]
     elif search_type == "d":
         stamp = ts[:5]
     else:
         raise RuntimeError("invalid search type passed. Can only be 'f' or 'd' ")
-    ts = int(ts)
+    ts = float(ts)
     op = subprocess.run(
         [
             "find",
-            parent_dir,
+            dir_parent,
             "-type",
             search_type,
             "-name",
@@ -66,10 +67,12 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     # print(tstamps)
     if search_type == "d":
         delta = 3600  # direct spectra files are time-limited files. no need to run a median.
+        dt = acclen * 4096 / 250e6
     else:
         delta = np.median(
             np.diff(tstamps)
         )  # find the time period. assumption: usually there will be several files in an hour.
+        dt = 4096 / 250e6
     # print(tstamps>ts)
     # if len(tstamps) == 1:
     #     flip = tstamps >= ts
@@ -85,7 +88,9 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     # print(delta, flip)
     # plt.plot(tstamps>ts)
     if ts - tstamps[flip] <= delta:
-        return files[flip]
+        return files[flip], np.round((ts - tstamps[flip]) / dt).astype(
+            int
+        )  # return the file and where inside the file you expect to find this timestamp
     else:
         if force_ts:
             if len(tstamps) == 1:
@@ -95,7 +100,7 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
             warnings.warn(
                 f"Returning a file whose start is {tstamps[flip + 1]}, {tstamps[flip + 1] -  ts} seconds away from your requested timestamp"
             )
-            return files[flip + 1]
+            return files[flip + 1], 0
         else:
             raise FileNotFoundError(
                 f"No file match for requested timestamp. Perhaps there was a data acquisition gap. Use force_ts = True."
@@ -103,6 +108,67 @@ def get_file_from_timestamp(ts, parent_dir, search_type, force_ts=False):
     # should be less than equal to delta, then our tstamp lies in a file.
     # otherwise there's no such file with that timestamp. tell user to start from the next future timestamp
     # force_ts = True  may be?
+
+
+def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
+    """Gets a list of filenames within specified time-rage.
+
+    Given a start and stop ctime, retrieve list of corresponding files.
+    This function assumes that the parent directory has the directory
+    structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
+    fine time stamp>.
+
+    Paramaters
+    -----------
+    time_start: int
+        start time in ctime
+    time_stop: int
+        stop time in ctime
+    dir_parent: str
+        parent directory, e.g. /path/to/data_100MHz
+    fraglen: int
+        number of digits in coarse time fragments
+
+    Returns
+    -------
+    list of str
+        List of files in specified time range.
+    """
+    times_coarse = os.listdir(dir_parent)
+    print(times_coarse)
+    times_coarse.sort()
+    s = re.compile(r"(\d{10})")  # We'll use this to search for 10-digit time strings
+    fnames = []
+    for time_coarse in times_coarse:
+        try:
+            # Include +-1 coarse directory on endpoints because
+            # sometimes the fine time stamp rolls over to the coarse
+            # time within the same directory
+            if (int(time_coarse) < int(str(time_start)[:fraglen]) - 1) or (
+                int(time_coarse) > int(str(time_stop)[:fraglen]) + 1
+            ):
+                continue
+
+            all_fnames = os.listdir("{}/{}".format(dir_parent, time_coarse))
+            all_fnames.sort()
+
+            for f in all_fnames:
+                if s.search(f):
+                    tstamp = int(s.search(f).groups()[0])
+                    if tstamp >= time_start and tstamp <= time_stop:
+                        # fnames.append(dir_parent+'/'+time_coarse+'/'+f)
+                        fnames.append(os.path.join(dir_parent, time_coarse, f))
+        except:
+            pass
+    fnames.sort()
+    return fnames
+
+
+def get_tstamp_from_filename(f):
+    s = re.compile(r"(\d{10})")
+    if s.search(f):
+        return int(s.search(f).groups()[0])
+    return None
 
 
 def get_ctime_from_locatime(lt, tz="US/Eastern"):
@@ -116,7 +182,7 @@ def get_localtime_from_ctime(tstamp, tz="US/Eastern"):
     return datetime.datetime.fromtimestamp(tstamp, tz=pytz.utc).astimezone(tz)
 
 
-def get_init_info(init_t, end_t, parent_dir):
+def get_init_info(init_t, end_t, dir_parent):
     """Get relevant indices from timestamps.
 
     Returns the index of file in a folder and
@@ -143,39 +209,6 @@ def get_init_info(init_t, end_t, parent_dir):
     """
     # create a big list of files from 5 digit subdirs. we might not need all of them, but I don't want to write regex.
     # This may be faster, and I don't care about storing a few 100 more strings than I need to.
-    print("HELLO")
-    frag1 = str(int(init_t / 100000))
-    frag2 = str(int(end_t / 100000))
-    print(frag1, frag2)
-    path = os.path.join(parent_dir, frag1)
-    files = glob.glob(path + "/*")
-    if frag1 != frag2:
-        path = os.path.join(parent_dir, frag2)
-        files.append(glob.glob(path + "/*"))
-    files.sort()
-    speclen = 4096  # length of each spectra
-    fs = 250e6  # Hz
-    dt_spec = speclen / fs  # time taken to read one spectra (frame)
-
-    # find which file to read first
-    filetstamps = [int(f.split(".")[0].split("/")[-1]) for f in files]
-    filetstamps.sort()
-    filetstamps = np.asarray(filetstamps)
-
-    # ------ SKIP -------#
-    # make sure the sorted order of tstamps is same as of files. so that indices we'll find below correspond to correct files
-    # np.unique(filetstamps - np.asarray([int(f.split('.')[0].split('/')[-1]) for f in files])) should return [0]
-
-    # we're looking for a file that has the start timestamp closest to what we want
-    fileidx = np.where(filetstamps <= init_t)[0][-1]
-    # assumed that our init_t will most often lie inside some file. hardly ever a file will begin with our init timestamp
-
-    # once we have a file, we seek to required position in time
-    idxstart = int((init_t - filetstamps[fileidx]) / dt_spec)
-    # check that starting index indeed corresponds to init_t
-    print("Fileidx:", fileidx)
-    print("CHECK", init_t, idxstart * dt_spec + filetstamps[fileidx])
-    print("CHECK", filetstamps[fileidx], files[fileidx])  # What does this check?
 
     return idxstart, fileidx, files
 

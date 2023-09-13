@@ -26,6 +26,7 @@ unpack_1bit_float_c.argtypes = [
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
+    ctypes.c_int,
 ]
 sortpols_c = mylib.sortpols
 sortpols_c.argtypes = [
@@ -170,7 +171,7 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
     return pol0, pol1
 
 
-def unpack_1bit(data, length_channels, chanstart, chanend):
+def unpack_1bit(data, length_channels, rowstart, rowend, chanstart, chanend):
     """Unpacks 1-bit data from binary dump file. (??)
 
     ??
@@ -193,18 +194,18 @@ def unpack_1bit(data, length_channels, chanstart, chanend):
     pol1: ??
         ??
     """
-
-    nspec = 2 * data.shape[0] * data.shape[1] // length_channels
+    nrows = rowend - rowstart
     ncols = chanend - chanstart
-    print("print shape of my pols", nspec, ncols)
-    pol0 = numpy.empty([nspec, ncols], dtype="complex64")
-    pol1 = numpy.empty([nspec, ncols], dtype="complex64")
+    print("print shape of my pols", nrows, ncols)
+    pol0 = numpy.empty([nrows, ncols], dtype="complex64")
+    pol1 = numpy.empty([nrows, ncols], dtype="complex64")
     t1 = time.time()
     unpack_1bit_float_c(
         data.ctypes.data,
         pol0.ctypes.data,
         pol1.ctypes.data,
-        nspec,
+        rowstart,
+        rowend,
         chanstart,
         chanend,
         length_channels,
