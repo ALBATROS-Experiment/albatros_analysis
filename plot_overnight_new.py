@@ -193,6 +193,8 @@ def get_avg(arr,block=10):
     '''
     if(arr is None):
         return None
+    if(arr.shape[0]<10):
+        return None
     iters=arr.shape[0]//block
     leftover=arr.shape[0]%block
     # print(iters,leftover)
