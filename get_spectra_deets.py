@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # Example usage: python get_spectra_deets.py /path/to/data_auto_cross/ 20181401_000000 20190401_000000
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("data_dir", type=str, help="Direct data directory")
+    parser.add_argument("data_dirs", type=str, nargs="+", help="Direct data directory")
     parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
     parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
     parser.add_argument("-tz", "--timezone", type=str, default=None, help="Local timezone of the telescope (must be recognized by pytz). Ex: US/Eastern.")
@@ -55,7 +55,9 @@ if __name__ == '__main__':
     else:
         raise ValueError("INVALID time format entered.")
 
-    data_subdirs = sft.time2fnames(ctime_start, ctime_stop, args.data_dir)
+    data_subdirs = []
+    for data_dir in args.data_dirs:
+        data_subdirs.extend(sft.time2fnames(ctime_start, ctime_stop, data_dir))
 
     dates = [datetime.datetime.utcfromtimestamp(int(os.path.basename(data_subdir))).date() for data_subdir in data_subdirs]
     dates = np.sort(dates)
