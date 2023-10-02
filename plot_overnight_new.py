@@ -366,7 +366,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     range_localtime =list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
     print("start and end times are",tstart,tend)
     plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {blocksize*chunk_time/60:4.2f} minutes.')
-    plt.tight_layout()
+    #plt.tight_layout()
     outfile = os.path.join(outdir,'direct_overnight_output'+ '_' + str(ctime_start) + '_' + str(ctime_stop) + '.jpg')
     plt.savefig(outfile)
     
