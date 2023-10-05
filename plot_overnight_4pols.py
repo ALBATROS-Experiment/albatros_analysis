@@ -23,7 +23,7 @@ def get_localtime_from_UTC(tstamp, mytz):
     return datetime.fromtimestamp(int(tstamp),tz=pytz.utc).astimezone(tz=mytz)
 
 #============================================================
-def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz):
+def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz, x, y):
     '''
     Given the path to a Big data directory (i.e. directory contains the directories 
     labeled by the first 5 digits of the ctime date), gets all the data in some time interval.
@@ -71,13 +71,13 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     nrows = 0
 
     t1=time.time()
-    new_dirs = [d+'/pol00.scio.bz2' for d in data_subdirs]
+    new_dirs = [d+f'/pol{x}{y}.scio.bz2' for d in data_subdirs]
     datpol00 = scio.read_files(new_dirs)
-    new_dirs = [d+'/pol11.scio.bz2' for d in data_subdirs]
+    new_dirs = [d+f'/pol{x}{y}.scio.bz2' for d in data_subdirs]
     datpol11 = scio.read_files(new_dirs)
-    new_dirs = [d+'/pol01r.scio.bz2' for d in data_subdirs]
+    new_dirs = [d+f'/pol{x}{y}r.scio.bz2' for d in data_subdirs]
     datpol01r = scio.read_files(new_dirs)
-    new_dirs = [d+'/pol01i.scio.bz2' for d in data_subdirs]
+    new_dirs = [d+f'/pol{x}{y}i.scio.bz2' for d in data_subdirs]
     datpol01i = scio.read_files(new_dirs)
     print(time.time()-t1, f"Read {len(data_subdirs)} files")
 
@@ -261,16 +261,16 @@ def get_ylim_times(t_i,t_f):
     return y_lims_plt
 
 #================= plotting functions =======================
-def full_plot(data_arrs, mytz, chunk_time):
+def full_plot(data_arrs, mytz, chunk_time, x, y):
     '''
     Makes a plot that contains autospectra waterfalls for each pol, as well
     as some statistics (min,max,med,mean spectra), and cross spectra
     '''
     global vmin, vmax, vmin2, vmax2
     pol00,pol11,pol01,tstart,tend = data_arrs
-    print("Generating stats for pol00")
+    # print("Generating stats for pol00")
     pol00_stats = get_stats(pol00)
-    print("Generating stats for pol11")
+    # print("Generating stats for pol11")
     pol11_stats = get_stats(pol11)
     # print("WHERE POL11 ZERO", np.where(pol11==0))
     # print("Pol00 median", pol00_stats['median'])
@@ -299,10 +299,10 @@ def full_plot(data_arrs, mytz, chunk_time):
     myext = np.array([freq[0], freq[-1], y_extent[1],y_extent[0]])
         
     plt.figure(figsize=(18,10), dpi=200)
-    
     plt.subplot(2,3,1)
+
     plt.imshow(pol00,vmin=vmin,vmax=vmax, aspect='auto', extent=myext)
-    plt.title('pol00')
+    plt.title(f'pol{x}{x}')
     cb00 = plt.colorbar()
     cb00.ax.set_ylabel('Uncalibrated log(power)', rotation=90)
     plt.xlabel('Frequency (MHz)')
@@ -319,7 +319,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     
     plt.subplot(2,3,4)
     plt.imshow(pol11,vmin=vmin2,vmax=vmax2, aspect='auto', extent=myext)
-    plt.title('pol11')
+    plt.title(f'pol{y}{y}')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
     cb00.ax.set_ylabel('Uncalibrated log(power)', rotation=90)
@@ -327,7 +327,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     ax=plt.gca()
     ax.yaxis.set_major_formatter(datetimefmt)
     # ax.yaxis.set_major_locator(locator)
-    
+
     plt.subplot(2,3,2)
     plt.title('Median power in frequency bins')
     plt.plot(freq, pol00_stats["max"], 'r-', label='Max')
@@ -335,7 +335,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.plot(freq, pol00_stats["mean"], 'k-', label='Mean')
     plt.plot(freq, pol00_stats["median"], color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
-    plt.ylabel('pol00')
+    plt.ylabel(f'pol{x}{x}')
     plt.legend(loc='lower right', fontsize='small')
     plt.ylim(ymin,ymax)
     plt.xlim(freq[0],freq[-1])
@@ -346,7 +346,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     plt.plot(freq, pol11_stats["mean"], 'k-', label='Mean')
     plt.plot(freq, pol11_stats["median"], color='#666666', linestyle='-', label='Median')
     plt.xlabel('Frequency (MHz)')
-    plt.ylabel('pol11')
+    plt.ylabel(f'pol{y}{y}')
     plt.ylim(ymin,ymax)
     plt.xlim(freq[0],freq[-1])
     
@@ -354,7 +354,7 @@ def full_plot(data_arrs, mytz, chunk_time):
 
     plt.subplot(2,3,3)
     plt.imshow(np.log10(np.abs(pol01)), vmin=3, vmax=8, aspect='auto', extent=myext)
-    plt.title('pol01 magnitude')
+    plt.title(f'pol{x}{y} magnitude')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
     cb00.ax.set_ylabel('Uncalibrated power', rotation=90)
@@ -362,7 +362,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     
     plt.subplot(2,3,6)
     plt.imshow(np.angle(pol01), vmin=-np.pi, vmax=np.pi, aspect='auto', extent=myext, cmap='RdBu')
-    plt.title('pol01 phase')
+    plt.title(f'pol{x}{y} phase')
     plt.xlabel('Frequency (MHz)')
     cb00=plt.colorbar()
     cb00.ax.set_ylabel('Radian', rotation=90)
@@ -372,7 +372,7 @@ def full_plot(data_arrs, mytz, chunk_time):
     print("start and end times are",tstart,tend)
     plt.suptitle(f'Plotting {range_localtime[0].strftime("%b-%d %H:%M:%S")} to {range_localtime[1].strftime("%b-%d %H:%M:%S")} in {mytz.zone} \nAveraged over {blocksize} chunks ~ {blocksize*chunk_time/60:4.2f} minutes.')
     plt.tight_layout(rect=[0,0.03,1,0.95])
-    outfile = os.path.join(outdir,'direct_overnight_output' + '_' + str(ctime_start) + '_' + str(ctime_stop) + '.jpg')
+    outfile = os.path.join(outdir,'spectra_overview_' + str(ctime_start) + '_' + str(ctime_stop) + f'_pols{x}{y}.jpg')
     plt.savefig(outfile)
     
     print('Wrote ' + outfile)
@@ -388,6 +388,7 @@ def main():
     parser.add_argument('data_dir', type=str,help='Direct data directory')
     parser.add_argument("time_start", type=str, help="Start time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
     parser.add_argument("time_stop", type=str, help="Stop time YYYYMMDD_HHMMSS or ctime. Both in UTC.")
+    parser.add_argument("pols", type=str, help="Select 2 pols to plots (e.g. 01 or 03 or 12).")
     parser.add_argument('-o', '--outdir', dest='outdir',type=str, default='.',
               help='Output plot directory [default: .]')
     
@@ -438,7 +439,9 @@ def main():
     chunk_time = args.acclen*4096/250e6
 
     #================= reading data =================#
-    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz)
+    X = args.pols[0]
+    Y = args.pols[1]
+    pol00,pol11,pol01r,pol01i, tstart, tend = get_data_arrs(args.data_dir, ctime_start, ctime_stop, chunk_time, args.blocksize, mytz, X, Y)
     # import sys
     # sys.exit(0)
 
