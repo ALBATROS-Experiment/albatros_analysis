@@ -207,10 +207,10 @@ def get_init_info(init_t, end_t, dir_parent):
     files: list of str
         Sorted list of path strings to all files in 'parent_dir'.
     """
-    # create a big list of files from 5 digit subdirs. we might not need all of them, but I don't want to write regex.
-    # This may be faster, and I don't care about storing a few 100 more strings than I need to.
-
-    return idxstart, fileidx, files
+    f1,idx=get_file_from_timestamp(init_t,dir_parent,'f')
+    f2,_=get_file_from_timestamp(end_t,dir_parent,'f')
+    files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent)
+    return files,idx
 
 
 def get_plot_lims(pol, acclen):

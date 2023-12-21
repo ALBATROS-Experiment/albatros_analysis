@@ -4,7 +4,8 @@ import operator
 import time
 from matplotlib import pyplot as plt
 import numba as nb
-
+from scipy.interpolate import CubicSpline
+import skyfield.api as sf
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -25,12 +26,17 @@ def ctime2mjd(tt=None, type="Dublin"):
 
 @nb.njit(parallel=True)
 def make_continuous(newpol, pol, spec_idx):
-    n = pol.shape[0]
+    n = len(spec_idx)
     for i in nb.prange(n):
         newpol[spec_idx[i], :] = pol[i, :]
 
+@nb.njit(parallel=True)
+def make_complex(cmpl, mag, phase):
+    N = cmpl.shape[0]
+    for i in nb.prange(0, N):
+        cmpl[i] = mag[i] * np.exp(1j * phase[i])
 
-def coarse_xcorr(f1, f2, chans):
+def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
     """Get coarse xcorr of each channel of two channelized timestreams.
     The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
 
@@ -46,17 +52,18 @@ def coarse_xcorr(f1, f2, chans):
     ndarray of complex128
         xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
     """
+    if(chans==None):
+        chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
-    print("Shape of passed channelized timestream =", f1.shape)
-    xcorr = np.zeros((2 * Nsmall, len(chans)), dtype="complex128")
+    #print("Shape of passed channelized timestream =", f1.shape)
+    xcorr = np.zeros((len(chans),2 * Nsmall), dtype="complex128")
+    wt = np.zeros(2 * Nsmall)
+    wt[:Nsmall] = 1
+    n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
+    #print("n_avg is", n_avg)
     for i, chan in enumerate(chans):
-        print("processing chan", chan)
-        #         p0=np.zeros(2*Nsmall,dtype='complex128')
-        #         p1=np.zeros(2*Nsmall,dtype='complex128')
-        #         p0[:Nsmall]=f1[:Nsmall,chan].flatten()
-        #         p1[:Nsmall]=f2[:Nsmall,chan].flatten()
-        #         xcorr[:,i]=np.fft.ifft(np.fft.fft(p0)*np.conj(np.fft.fft(p1)))
-        xcorr[:, i] = np.fft.ifft(
+        #print("processing chan", chan)
+        xcorr[i, :] = np.fft.ifft(
             np.fft.fft(
                 np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
             )
@@ -68,9 +75,38 @@ def coarse_xcorr(f1, f2, chans):
                 )
             )
         )
-    print(xcorr.shape)
+        xcorr[i, :] = xcorr[i, :] / n_avg / Npfb
     return xcorr
 
+def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
+    """Get a upsampled xcorr from coarse_xcorr by adding back the carrier frequency.
+
+    Parameters
+    ----------
+    coarse_xcorr: ndarray
+        1-D array of coarse xcorr of one channel.
+    chan : int
+        Channel for the passed coarse xcorr.
+    osamp: int
+        Number of times to over sample over the default 4 ns time-resolution. E.g. osamp=4 means 1 ns time-resolution.
+
+    Returns
+    -------
+    final_xcorr_cwave: ndarray
+        Complex upsampled xcorr.
+    """
+    print("coarse shape", coarse_xcorr.shape)
+    final_xcorr_cwave = np.empty(
+        sample_no.shape[0], dtype="complex128"
+    )
+    print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
+    uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
+    newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
+    newphase = np.interp(sample_no, coarse_sample_no, newphase)
+    cs = CubicSpline(coarse_sample_no, np.abs(coarse_xcorr))
+    newmag = cs(sample_no)
+    make_complex(final_xcorr_cwave, newmag, newphase)
+    return final_xcorr_cwave
 
 def gauss_smooth(data, sigma=5):
     """Gaussian smooth an N-dim signal. The user should take care about 0-padding.
@@ -267,3 +303,40 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
         transits[chan] = find_pulses(spectra[:, chan], cond=">", thresh=snr_thresh)
 
     return transits
+
+def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
+    obs1=sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
+    obs2=sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
+
+    num_iter=niter
+    sim_delay=np.zeros(num_iter)
+    c=299792458
+    tt=time_start # seek to timestamp where signal begins
+    ind=None
+
+    sats=sf.load.tle_file(tle_path)
+
+    for i,sat in enumerate(sats):
+        if(sat.model.satnum==satnorad):
+            ind=i
+            break
+    print(sats[ind])
+    diff1=sats[ind]-obs1
+    diff2=sats[ind]-obs2
+    for iter in range(num_iter):
+        ts=sf.load.timescale()
+        jd=ctime2mjd(tt,type='JD')
+        t=ts.ut1_jd(jd)
+
+        topo1=diff1.at(t)
+        alt,az,dist=topo1.altaz()
+        range1=dist.m
+
+        topo2=diff2.at(t)
+        alt,az,dist=topo2.altaz()
+        range2=dist.m
+
+        sim_delay[iter]= (range2-range1)/c
+        tt+=1
+    return sim_delay

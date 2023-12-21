@@ -17,8 +17,8 @@ else:
 
 def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=0, chanend=None):
     
-    idxstart1, fileidx1, files1 = butils.get_init_info(init_t, end_t, path1)
-    idxstart2, fileidx2, files2 = butils.get_init_info(init_t, end_t, path2)
+    files1, idxstart1 = butils.get_init_info(init_t, end_t, path1)
+    files2, idxstart2 = butils.get_init_info(init_t, end_t, path2)
     # idxstart1=2502441
     # idxstart2=1647949
     print(idxstart1,idxstart2, "IDXSTARTS")
@@ -27,13 +27,12 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
         
     else:
         idxstart2+=np.abs(delay)
-        
 
-    print(idxstart1,idxstart2)
-
-    # print("Starting at: ",idxstart, "in filenum: ",fileidx)
+    print("Starting at: ",idxstart1, "in filenum: ",files1[0], "for antenna 1")
+    print("Starting at: ",idxstart2, "in filenum: ",files2[0], "for antenna 2")
     # print(files[fileidx])
-
+    fileidx1 = 0
+    fileidx2 = 0
     ant1 = bdc.BasebandFileIterator(files1,fileidx1,idxstart1,acclen,nchunks=nchunks,chanstart=chanstart,chanend=chanend)
     ant2 = bdc.BasebandFileIterator(files2,fileidx2,idxstart2,acclen,nchunks=nchunks,chanstart=chanstart,chanend=chanend)
     ncols=ant1.obj.chanend-ant1.obj.chanstart
@@ -44,7 +43,7 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     for i, (chunk1,chunk2) in enumerate(zip(ant1,ant2)):
         t1=time.time()
         # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
-        pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk2['pol0'], chunk1['pol0'],chunk2['specnums'],chunk1['specnums'],m2+i*acclen,m1+i*acclen)
+        pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
         t2=time.time()
         print("time taken for one loop", t2-t1)
         j=ant1.spec_num_start
@@ -75,8 +74,8 @@ if __name__=="__main__":
     if(not args.chans):
         args.chans=[0,None]
 
-    path1=join(args.data_dir,'snap1')
-    path2=join(args.data_dir,'snap3')
+    path1=join(args.data_dir,'snap3')
+    path2=join(args.data_dir,'snap1')
     print(path1,path2)
     init_t = args.time_start #c#1627441379 #1627441542 #1627439234
     acclen=args.acclen

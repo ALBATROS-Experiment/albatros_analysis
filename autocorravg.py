@@ -85,7 +85,8 @@ def get_avg_fast(
         What?
     """
 
-    idxstart, fileidx, files = butils.get_init_info(init_t, end_t, path)
+    files, idxstart = butils.get_init_info(init_t, end_t, path)
+    fileidx = 0
     print("Starting at: ", idxstart, "in filenum: ", fileidx)
     print(files[fileidx])
 
