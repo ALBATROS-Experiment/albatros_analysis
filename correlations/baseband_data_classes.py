@@ -10,30 +10,43 @@ if __name__ == "__main__":
 else:
     from . import unpacking as unpk  # If loaded as a module
 
-# keeping track of number of times specnum overflows in a given long-averaging run (e.g. several days)
-
-
 @nb.njit(parallel=True)
-def fill_arr(myarr, specnum, spec_per_packet):
-    """Fill array with ??
+def fill_arr(arr, specnum, spec_per_packet):
+    """Make the spectrum number array continuous. Raw spec_num has starting spectrum number of each packet.
+    This function expands each packet. Array is required in x-corr computation for handling missing packets.
 
     Parameters
     ----------
-    myarr: np.ndarray
+    arr: np.ndarray
         1d array to fill with data, length is len(specnum) * spec_per_packet
     specnum: array-like
-        ??
+        Raw spectrum number array.
     spec_per_packet: int
-        Length of ??
+        Number of spectrums in a single packet (stored in file header).
     """
     n = len(specnum)
     for i in nb.prange(n):
         for j in nb.prange(spec_per_packet):
-            myarr[i * spec_per_packet + j] = specnum[i] + j
+            arr[i * spec_per_packet + j] = specnum[i] + j
 
+@nb.njit(parallel=True)
+def add_constant_to_arr(arr,const):
+    """Add a constant to an array. Function typically used for handling spectrum number int32 wrapping.
+    Spectrum number array can be O(1e7) long.
+
+    Parameters
+    ----------
+    arr: np.ndarray
+        1d array to which constant will be added.
+    const: int
+        constant to add
+    """
+    n = len(arr)
+    for i in nb.prange(n):
+        arr[i] += const
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1, fixoverflow=True):
+    def __init__(self, file_name, readlen=-1, fixoverflow=1):
         """Create instance of Baseband.
 
         TODO: Explain what the Baseband class is and what it does??
@@ -47,8 +60,8 @@ class Baseband:
             If it is an integer >=1, specifies # of packets to read.
             If it is a float in (0,1), reads fraction of total packets.
             Defaults to -1, in which case all packets are read.
-        fixoverflow: bool
-            Defaults to True. ??
+        fixoverflow: int
+            Defaults to 1. Number of cycles of int32 wrap that need to be undone in spectrum numbers.
 
         Returns
         -------
@@ -105,7 +118,8 @@ class Baseband:
             self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
-            self.specnum_overflow = 0
+            self.__overflowed = False
+            self._spec_idx = None
 
             if self.bit_mode == 1:
                 self.channels = numpy.ravel(
@@ -149,29 +163,32 @@ class Baseband:
                 self.raw_data = numpy.array(data["spectra"], dtype="uint8")
                 self.spec_num = numpy.array(data["spec_num"], dtype="int64")
                 # check for specnum overflow in current file
-                self.where_zero = np.where(np.diff(self.spec_num) < 0)[0]
-                if fixoverflow:
-                    if len(self.where_zero) == 1:
-                        self.spec_num[self.where_zero[0] + 1 :] += 2**32
-                    elif len(self.where_zero) > 1:
-                        raise ValueError(
-                            "Why are there two -ve diffs in specnum? Investigate this file"
-                        )
-                self._set_specidx()
+                self._wrap_loc = np.where(np.diff(self.spec_num) < 0)[0]
+                if len(self._wrap_loc) == 1:
+                    self.spec_num[self._wrap_loc[0] + 1 :] += 2**32
+                    self._overflowed = True
+                elif len(self._wrap_loc) > 1:
+                    raise ValueError(
+                        "Why are there two -ve diffs in specnum? Investigate this file"
+                    )
         return
 
-    def _set_specidx(self):
-        self.spec_idx = numpy.zeros(
-            self.spec_num.shape[0] * self.spectra_per_packet, dtype="int64"
-        )  # keep dtype int64 otherwise numpy binary search becomes slow
-        fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
-        specdiff = numpy.diff(self.spec_num)
-        idx = numpy.where(specdiff != self.spectra_per_packet)[0]
-        self.missing_loc = (
-            self.spec_num[idx] + self.spectra_per_packet - self.spec_num[0]
-        ).astype("int64")
-        self.missing_num = (specdiff[idx] - self.spectra_per_packet).astype("int64")
-        return
+    @property
+    def spec_idx(self):
+        # Lazy initialization, since no need to spend time to compute this unless accessed by someone.
+        if self._spec_idx is None:
+            self._spec_idx = numpy.zeros(
+                self.spec_num.shape[0] * self.spectra_per_packet, dtype="int64"
+            )  # keep dtype int64 otherwise numpy binary search becomes slow
+            fill_arr(self._spec_idx, self.spec_num, self.spectra_per_packet)
+            specdiff = numpy.diff(self.spec_num)
+            idx = numpy.where(specdiff != self.spectra_per_packet)[0]
+            self._missing_loc = (
+                self.spec_num[idx] + self.spectra_per_packet - self.spec_num[0]
+            ).astype("int64")
+            self._missing_num = (specdiff[idx] - self.spectra_per_packet).astype("int64")
+        return self._spec_idx
+        
 
     def __str__(self):
         """Calls print_headers()"""
@@ -228,7 +245,7 @@ class Baseband:
         """
         # mode = 0 for pol0, 1 for pol1, -1 for both
         rowstart = 0
-        rowend = len(self.spec_idx)
+        rowend = self.spec_num.shape[0] * self.spectra_per_packet
         return unpk.hist(
             self.raw_data, rowstart, rowend, self.length_channels, self.bit_mode, mode
         )
@@ -237,8 +254,8 @@ class Baseband:
 def get_header(file_name, verbose=True):
     """Get header dictionary from (attributes of) baseband file.
 
-    Loads the data at <file_name> by instantiating a Baseband object,
-    returns the object's attributes (self.__dict__), incl header info.
+    Only reads the header of <file_name> by instantiating a Baseband object with readlen=0.
+    Returns the object's public attributes which is the header information.
 
     Parameters
     ----------
@@ -250,12 +267,12 @@ def get_header(file_name, verbose=True):
     Returns
     -------
     dict
-        Baseband dictionary containing header information.
+        Dictionary containing header information.
     """
     obj = Baseband(file_name, readlen=0)
     if verbose:
         obj.print_header()
-    return obj.__dict__
+    return {k: v for k, v in obj.__dict__.items() if not k.startswith('_')}
 
 
 class BasebandFloat(Baseband):
@@ -432,20 +449,22 @@ class BasebandFileIterator:
         chanend=None,
         type="packed",
     ):
-        """Create instance of BasebandFileIterator.
+        """Create an instance of BasebandFileIterator (BFI).
 
-        ??
+        An iterator for iterating through an arbitrary number of baseband files passed to it, acclen spectrums (= 1 chunk) at a time. 
+        Typically, a BFI instance is associated with a particular antenna, allowing one to obtain a timestream of acclen-long chunks, which can be correlated and averaged. 
+        BFI gracefully handles missing spectra and int32 overflows.
 
         Parameters
         ----------
         file_paths: list of str
             Paths to baseband binary files to be read.
         fileidx: int
-            ??
+            The index of the file in file_paths from which contains idxstart.
         idxstart: int
-            ??
+            The starting spectrum number.
         acclen: int
-            ??
+            Accumulation length, i.e. size of each chunks.
         nchunks: int
             Defaults to None. You need to pass nchunks if you are
             passing the iterator to zip(). Without nchunks, iteration
@@ -457,7 +476,6 @@ class BasebandFileIterator:
             in which case select up to highest frequency channel.
         """
         print("ACCLEN RECEIVED IS", acclen)
-        self._OVERFLOW_DICT = {}
         self._OVERFLOW_CTR = 0
         self.acclen = acclen
         self.file_paths = file_paths
@@ -467,13 +485,8 @@ class BasebandFileIterator:
         self.chanstart = chanstart
         self.chanend = chanend
         self.type = type
-        if type == "float":
-            self.load = BasebandFloat
-            self.dtype = "complex64"
-        elif type == "packed":
-            self.load = BasebandPacked
-            self.dtype = "uint8"
-        self.obj = self.load(
+        self.file_loader = self.get_file_loader() #NB: this is technically not a bound method, but it's OK b/c we don't need self to be passed to file_loader.
+        self.obj = self.file_loader(
             file_paths[fileidx], chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.spec_num_start = (
@@ -495,39 +508,18 @@ class BasebandFileIterator:
             self.ncols = (
                 self.obj.chanend - self.obj.chanstart
             )  # for 4 bits ncols = nchans regardless of packed or float, only dtype changes. For 1 bit, we want one col for each chan if float.
-
-    def _read_packed(
-        self,
-        file_name,
-        readlen=-1,
-        fixoverflow=True,
-        rowstart=None,
-        rowend=None,
-        chanstart=0,
-        chanend=None,
-        unpack=True,
-    ):
-        temp_obj = BasebandPacked(
-            file_name,
-            fixoverflow=False,
-            chanstart=chanstart,
-            chanend=chanend,
-            unpack=False,
-        )
-        temp_obj.spec_num[:] += (
-            self._OVERFLOW_CNTR * 2**32
-        )  # correct for past overflows in this run of averaging
-        if len(temp_obj.where_zero) == 1:
-            if file_name not in self._OVERFLOW_DICT.keys():
-                self._OVERFLOW_DICT[file_name] = 1
-                self._OVERFLOW_CTR += 1
-                temp_obj.spec_num[temp_obj.where_zero[0] + 1 :] += 2**32
-            elif len(temp_obj.where_zero) > 1:
-                raise ValueError(
-                    f"Why are there two -ve diffs in specnum? Investigate {file_name}"
-                )
-        temp_obj._set_specidx()
-        return temp_obj
+    
+    def get_file_loader(self):
+        if self.type == 'float':
+            myclass = BasebandFloat
+        elif self.type == 'packed':
+            myclass = BasebandPacked
+        def file_loader(*args):
+                obj = myclass(*args)
+                add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR) #account for all previous overflows
+                if obj._overflowed: self._OVERFLOW_CTR+=1
+                return obj
+        return file_loader
 
     def __iter__(self):
         return self
@@ -589,7 +581,7 @@ class BasebandFileIterator:
                     self.spec_num_start += l
                     # print("Reading new file")
                     self.fileidx += 1
-                    self.obj = self.load(
+                    self.obj = self.file_loader(
                         self.file_paths[self.fileidx],
                         chanstart=self.chanstart,
                         chanend=self.chanend,
