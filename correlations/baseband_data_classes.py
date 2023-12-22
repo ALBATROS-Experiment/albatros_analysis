@@ -46,7 +46,7 @@ def add_constant_to_arr(arr,const):
         arr[i] += const
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1, fixoverflow=1):
+    def __init__(self, file_name, readlen=-1):
         """Create instance of Baseband.
 
         TODO: Explain what the Baseband class is and what it does??
@@ -118,7 +118,7 @@ class Baseband:
             self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
             self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
-            self.__overflowed = False
+            self._overflowed = False
             self._spec_idx = None
 
             if self.bit_mode == 1:
@@ -280,7 +280,6 @@ class BasebandFloat(Baseband):
         self,
         file_name,
         readlen=-1,
-        fixoverflow=True,
         rowstart=None,
         rowend=None,
         chanstart=0,
@@ -350,7 +349,6 @@ class BasebandPacked(Baseband):
         self,
         file_name,
         readlen=-1,
-        fixoverflow=True,
         rowstart=None,
         rowend=None,
         chanstart=0,
@@ -512,11 +510,13 @@ class BasebandFileIterator:
     def get_file_loader(self):
         if self.type == 'float':
             myclass = BasebandFloat
+            self.dtype = 'complex64'
         elif self.type == 'packed':
             myclass = BasebandPacked
-        def file_loader(*args):
-                obj = myclass(*args)
-                add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR) #account for all previous overflows
+            self.dtype = 'uint8'
+        def file_loader(*args, **kwargs):
+                obj = myclass(*args, **kwargs)
+                add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: self._OVERFLOW_CTR+=1
                 return obj
         return file_loader

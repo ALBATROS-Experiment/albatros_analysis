@@ -6,8 +6,7 @@ import pytest
 
 
 @nb.njit()
-def myhist(arr):
-    res = np.zeros((2, arr.shape[1] * 4), dtype="int64")
+def myhist(arr, res):
     mylen = arr.shape[0]
     mycol = arr.shape[1]
     for i in range(mylen):
@@ -20,7 +19,6 @@ def myhist(arr):
             res[(arr[i, j] >> 5) & 1, 4 * j + 1] += 1
             res[(arr[i, j] >> 6) & 1, 4 * j] += 1
             res[(arr[i, j] >> 7) & 1, 4 * j] += 1
-    return res
 
 
 fpath = os.path.join(
@@ -35,8 +33,10 @@ def file_obj_packed():
 
 
 def test_histogram_1bit_file(file_obj_packed):
-    r1 = myhist(file_obj_packed.pol0)
-    r2 = myhist(file_obj_packed.pol1)
+    r1 = np.zeros((2, file_obj_packed.pol0.shape[1] * 4), dtype="int64")
+    myhist(file_obj_packed.pol0, r1)
+    r2 = np.zeros((2, file_obj_packed.pol1.shape[1] * 4), dtype="int64")
+    myhist(file_obj_packed.pol1, r2)
     hist1 = file_obj_packed.get_hist(mode=0)
     hist2 = file_obj_packed.get_hist(mode=1)
     assert file_obj_packed.pol0.shape[0] == len(file_obj_packed.spec_idx)
