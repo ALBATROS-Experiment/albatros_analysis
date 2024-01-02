@@ -52,6 +52,11 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
     ndarray of complex128
         xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
     """
+    if len(f1.shape) == 1:
+        f1 = f1.reshape(-1,1)
+    if len(f2.shape) == 1:
+        f2 = f2.reshape(-1,1)
+    print(f1.shape)
     if(chans==None):
         chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
