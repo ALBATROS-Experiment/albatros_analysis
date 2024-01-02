@@ -135,7 +135,6 @@ def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
         List of files in specified time range.
     """
     times_coarse = os.listdir(dir_parent)
-    print(times_coarse)
     times_coarse.sort()
     s = re.compile(r"(\d{10})")  # We'll use this to search for 10-digit time strings
     fnames = []

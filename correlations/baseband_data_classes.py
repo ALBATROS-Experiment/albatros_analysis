@@ -251,7 +251,7 @@ class Baseband:
         )
 
 
-def get_header(file_name, verbose=True):
+def get_header(file_name, verbose=False):
     """Get header dictionary from (attributes of) baseband file.
 
     Only reads the header of <file_name> by instantiating a Baseband object with readlen=0.
@@ -516,7 +516,8 @@ class BasebandFileIterator:
             self.dtype = 'uint8'
         def file_loader(*args, **kwargs):
                 obj = myclass(*args, **kwargs)
-                add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
+                if self._OVERFLOW_CTR > 0:
+                    add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: self._OVERFLOW_CTR+=1
                 return obj
         return file_loader
@@ -526,11 +527,11 @@ class BasebandFileIterator:
 
     def __next__(self):
         t1 = time.time()
-        print(
-            "Current obj first spec vs acc start",
-            self.obj.spec_idx[0],
-            self.spec_num_start,
-        )
+        # print(
+        #     "Current obj first spec vs acc start",
+        #     self.obj.spec_idx[0],
+        #     self.spec_num_start,
+        # )
         if self.nchunks and self.chunksread == self.nchunks:
             raise StopIteration
         pol0 = numpy.zeros(
@@ -543,7 +544,7 @@ class BasebandFileIterator:
         rem = self.acclen
         i = 0
         while rem:
-            print("Rem is", rem)
+            # print("Rem is", rem)
             if self.spec_num_start < self.obj.spec_num[0]:
                 # we are in a gap between the files
                 print("IN A GAP BETWEEN FILES")
@@ -562,12 +563,12 @@ class BasebandFileIterator:
                     rowstart, rowend = get_rows_from_specnum(
                         self.spec_num_start, self.spec_num_start + l, self.obj.spec_idx
                     )
-                    print(
-                        "From if:, rowstart, rowend",
-                        rowstart,
-                        rowend,
-                        rowend - rowstart,
-                    )
+                    # print(
+                    #     "From if:, rowstart, rowend",
+                    #     rowstart,
+                    #     rowend,
+                    #     rowend - rowstart,
+                    # )
                     specnums = numpy.append(
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
@@ -587,24 +588,24 @@ class BasebandFileIterator:
                         chanend=self.chanend,
                         unpack=False,
                     )
-                    print(
-                        "My specnum pointer at",
-                        self.spec_num_start,
-                        "first specnum of new obj",
-                        self.obj.spec_num[0],
-                    )
+                    # print(
+                    #     "My specnum pointer at",
+                    #     self.spec_num_start,
+                    #     "first specnum of new obj",
+                    #     self.obj.spec_num[0],
+                    # )
                 else:
                     rowstart, rowend = get_rows_from_specnum(
                         self.spec_num_start,
                         self.spec_num_start + rem,
                         self.obj.spec_idx,
                     )
-                    print(
-                        "From else:, rowstart, rowend",
-                        rowstart,
-                        rowend,
-                        rowend - rowstart,
-                    )
+                    # print(
+                    #     "From else:, rowstart, rowend",
+                    #     rowstart,
+                    #     rowend,
+                    #     rowend - rowstart,
+                    # )
                     specnums = numpy.append(
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
