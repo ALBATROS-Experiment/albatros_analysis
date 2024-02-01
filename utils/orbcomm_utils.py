@@ -56,7 +56,6 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
         f1 = f1.reshape(-1,1)
     if len(f2.shape) == 1:
         f2 = f2.reshape(-1,1)
-    print(f1.shape)
     if(chans==None):
         chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
@@ -100,11 +99,11 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     final_xcorr_cwave: ndarray
         Complex upsampled xcorr.
     """
-    print("coarse shape", coarse_xcorr.shape)
+    # print("coarse shape", coarse_xcorr.shape)
     final_xcorr_cwave = np.empty(
         sample_no.shape[0], dtype="complex128"
     )
-    print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
+    # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
     uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
     newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
     newphase = np.interp(sample_no, coarse_sample_no, newphase)

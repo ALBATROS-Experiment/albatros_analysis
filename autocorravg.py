@@ -137,7 +137,7 @@ if __name__ == "__main__":
         type=str,
         help="Parent data directory. Should have 5 digit time folders.",
     )
-    parser.add_argument("time_start", type=int, help="Start timestamp ctime")
+    parser.add_argument("time_start", type=float, help="Start timestamp ctime")
     parser.add_argument("acclen", type=int, help="Accumulation length for averaging")
     parser.add_argument(
         "-n",
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         "-t",
         "--time_stop",
         dest="time_stop",
-        type=int,
+        type=float,
         default=False,
         help="Stop time. Overwrites nchunks if specified",
     )
