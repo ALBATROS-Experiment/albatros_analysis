@@ -67,8 +67,6 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     # print("Starting with a guess of ", nrows_guess)
     print("guessed rows", nrows_guess)
     pol00 = np.zeros((nrows_guess+500,2048))
-    
-    nrows = 0
 
     t1=time.time()
     new_dirs = [d+'/pol00.scio.bz2' for d in data_subdirs]
@@ -103,20 +101,21 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     t1=time.time()
     tstart=0
     tend=0
+    nrows=0
     for i, d in enumerate(avgpol00):
         # print("Mean, median are", np.mean(d,axis=0),np.median(d,axis=0))
         print("working on",data_subdirs[i])
         if(d is None):
             continue
-        if(i==0):
+        if(nrows==0):
+            # we are yet to read the first file
             pol00[:d.shape[0]] = d
             nrows+=d.shape[0]
-            ts=get_ts_from_name(data_subdirs[i])
-
+            ts = get_ts_from_name(data_subdirs[i])
             tstart=ts #save starting time for user output
-            ts = ts+d.shape[0]*chunk_time*blocklen
+            ts+=d.shape[0]*chunk_time*blocklen #end time of the current file, to be compared in next iteration
             continue
-        newts = get_ts_from_name(data_subdirs[i])
+        newts = get_ts_from_name(data_subdirs[i]) #start time of the current file
         diff=int((newts-ts)/chunk_time/blocklen) 
         # each cell in the plot represents a minimum time of blocklen * chunktime. 
         # That's the time resolution for the plot. Can't catch gaps < resolution.
@@ -125,29 +124,21 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
             pol00[nrows:nrows+diff,:]=np.nan
             pol00=np.append(pol00, np.zeros((diff,2048)), axis=0)
             nrows+=diff
-        # print(nrows, d.shape)
-        # print(nrows,nrows+d.shape[0],pol00.shape,"heh")
         pol00[nrows:nrows+d.shape[0],:]=d
         nrows+=d.shape[0]
-        # print("reading", data_subdirs[i], "with size ", d.shape[0], "NROWS", oldnrows,nrows)
-        tstart=newts
-        ts=newts+d.shape[0]*chunk_time*blocklen
+        ts=newts+d.shape[0]*chunk_time*blocklen #end time of the current file
     tend=ts
-    # print("HERE")
-    #once we have pol00, we know the exact size. use it
-    tstart=get_ts_from_name(data_subdirs[0]) #tstart was replaced above for missing gap info
+
     print("############################################################")
-    print(f"First file at: {tstart}, Last file at: {get_ts_from_name(data_subdirs[-1])}")
+    print(f"First file at: {get_ts_from_name(data_subdirs[0])}, Last file at: {get_ts_from_name(data_subdirs[-1])}")
     print(f"Plotting all data starting {tstart} and ending {int(tend)}")
     ts,te= list(map(partial(get_localtime_from_UTC,mytz=mytz), [tstart, tend]))
     print(f"In Local time: {ts.strftime('%b-%d %H:%M:%S')} to {te.strftime('%b-%d %H:%M:%S')} in {mytz.zone}")
     print("Final nrows:", nrows)
 
-
-
     pol00 = pol00[:nrows].copy()
     # print(pol00.shape)
-
+    #once we have pol00, we know the exact size. use it
     pol11 = np.zeros((nrows,2048))
     pol01r = np.zeros((nrows,2048))
     pol01i = np.zeros((nrows,2048))
@@ -156,7 +147,7 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
     for i in range(len(avgpol00)):
         if((avgpol11[i] is None) or (avgpol01i[i] is None) or (avgpol01r[i] is None)):
             continue
-        if(i==0):
+        if(nrows==0):
             r=avgpol11[i].shape[0]
             pol11[:r,:]=avgpol11[i]
             pol01r[:r,:]=avgpol01r[i]
@@ -177,7 +168,6 @@ def get_data_arrs(data_dir, ctime_start, ctime_stop, chunk_time, blocklen, mytz)
         pol01i[nrows:nrows+r,:]=avgpol01i[i]
         nrows+=r
         ts=newts+r*chunk_time*blocklen
-
     t2=time.time()
     # print('Time taken to concatenate data:',t2-t1)
     # print("pol00, pol11,pol01r, pol01i shape:", pol00.shape,pol11.shape,pol01r.shape,pol01i.shape)
