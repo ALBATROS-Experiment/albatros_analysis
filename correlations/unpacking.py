@@ -154,7 +154,7 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
     ncols = chanend - chanstart
     pol0 = numpy.empty([nrows, ncols], dtype="complex64")
     pol1 = numpy.empty([nrows, ncols], dtype="complex64")
-    print("num spec being unpacked is", nrows)
+    # print("num spec being unpacked is", nrows)
     t1 = time.time()
     unpack_4bit_float_c(
         data.ctypes.data,
@@ -167,7 +167,7 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
         length_channels,
     )
     t2 = time.time()
-    print("Took " + str(t2 - t1) + " to unpack")
+    # print("Took " + str(t2 - t1) + " to unpack")
     return pol0, pol1
 
 
@@ -283,6 +283,6 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
         chanend,
     )
     t2 = time.time()
-    print(f"Took {(t2 - t1):5.3f} to unpack")
+    # print(f"Took {(t2 - t1):5.3f} to unpack")
 
     return pol0, pol1
