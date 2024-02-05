@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 def delay_corrector(idx1,idx2, delay):
     # convetion is xcorr = <a(t)b(t-delay)>
     # where a = antenna1 and b = antenna2
-    delay = delay - 100000
+    delay = delay - 100000 # this is dN from the coarse xcorr
     print("original",idx1,idx2)
     if delay > 0:
         idx1+=delay
@@ -30,7 +30,7 @@ def delay_corrector(idx1,idx2, delay):
 
 tstart = 1627453681
 dt = 4096 / 250e6
-t1 = tstart + 150 * 6.44
+t1 = tstart + 150 * 6.47 # OG is 150. Got nothin in common for 21 subblocks.
 t2 = tstart + 230 * 6.44  # 100 sec of bright data
 print(f"Start time: {t1:.3f}, End time: {t2:.3f}, Duration: {t2-t1:.3f}")
 files_a1, idx1 = butils.get_init_info(
@@ -39,7 +39,7 @@ files_a1, idx1 = butils.get_init_info(
 files_a2, idx2 = butils.get_init_info(
     t1, t2, "/project/s/sievers/albatros/uapishka/202107/baseband/snap1/"
 )
-idx1,idx2 = delay_corrector(idx1,idx2,40429)
+idx1,idx2 = delay_corrector(idx1,idx2,40429) #original is 40429
 hdr1 = bdc.get_header(files_a1[0])
 chanstart = np.where(hdr1["channels"] == 1839)[0][0]
 nchans = 10
@@ -48,7 +48,7 @@ size = 20000
 # idx1+=size*30 <- had gotten an error here but that was because of my useless assertion. last specnum need not always be present. might be in a missing region.
 # idx2+=size*30
 # nchunks = int((t2 - t1) / (size * dt))
-block_len = 20 #226 for 9, 167 for 9, 139 for 10, 4 for 15
+block_len = 15 #226 for 9, 167 for 9, 139 for 10, 4 for 15; <- these are 3 or 2? proly 3. bug was not fixed then -> for 2 consecutive 194 for 20, nothin for 21
 nchunks=block_len * 2
 print(
     f"Start channel: {1839:d} at index {chanstart:d}. Num channels: {nchans:d}. Block length: {size:d}. nchunks: {nchunks:d}"
@@ -106,8 +106,7 @@ block_xcorr = np.zeros((block_len, dN_interp*4096*osamp),dtype='complex128')
 tot_noise = 0
 jj=-1
 for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
-    jj+=1
-    print(f"Processing block {ii} and filling block {jj}...")
+    print(f"Processing block {ii} and filling block {jj+1}...")
     # print(chunk2['specnums'], len(chunk2['specnums']))
     # assert(chunk2['specnums'][-1]-chunk2['specnums'][0]+1==size)
     p0_a1 = np.zeros((size, nchans), dtype="complex64")  # could parallelize
@@ -118,6 +117,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     if perc_missing_a1 > 10 or perc_missing_a2 > 10:
         print("TOO MUCH MISSING, CONTINUING")
         continue
+    jj+=1
     outils.make_continuous(
         p0_a1, chunk1["pol0"], chunk1["specnums"] - chunk1["specnums"][0]
     )
@@ -176,7 +176,8 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     t1=time.time()
     for i, chan in enumerate(corr_chans):
         sat = chan2sat[chan]
-        shift = -int(delays[sat][ii] * 250e6 * osamp) #get delay for chunk num ii
+        # shift = -int(delays[sat][ii] * 250e6 * osamp) #get delay for chunk num ii
+        shift = np.round(-delays[sat][ii] * 250e6 * osamp).astype(int)
         # print("dely is", delays[sat][ii])
         # print("shift is ", shift, "for sat", sat)
         noise_real=np.std(np.real(all_xcorrs[i][0,COARSE_CENTER+500:]))
@@ -190,9 +191,9 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     print("all upsampling done", t2-t1,(t2-t1)/len(corr_chans))
     block_xcorr[jj,:] = np.sum(final_xcorr,axis=0)
     if (ii+1)%block_len == 0:
-        print("ONE BLOCK COMPLETE")
-        tot_noise = np.sqrt(2*tot_noise/block_len**2)
-        final_block_xcorr = np.mean(block_xcorr,axis=0)
+        print("ONE BLOCK COMPLETE, Total sub-blocks being averaged = ", jj+1)
+        tot_noise = np.sqrt(2*tot_noise/(jj+1)**2)
+        final_block_xcorr = np.mean(block_xcorr[:jj+1,:],axis=0)
         mm=np.argmax(final_block_xcorr.real)
         print("block xcorr max at", mm)
         print("total noise", tot_noise)
