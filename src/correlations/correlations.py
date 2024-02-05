@@ -137,31 +137,21 @@ def avg_autocorr_4bit(data, specnums):
     corr: np.ndarray
         Time-averaged autocorrelations.
     """
-    # print("data being passed from python is", data)
-    nrows = len(specnums)
-    print("NROWS", nrows)
-    # x=np.sum(data,axis=1)
-    # nn=np.where(x==0)[0][0]
-    # print(nn)
-    # print("DATA FROM PYTHON")
-    # print(data)
+    rowcount = len(specnums)
+    print("rowcount", rowcount)
     corr = np.empty(
         data.shape[1], dtype="int64", order="c"
     )  # will be put in float64 in frontend script
-    if nrows == 0:
+    if rowcount == 0:
         print("empty block")
         corr = np.nan
         return corr
     t1 = time.time()
-    avg_autocorr_4bit_c(data.ctypes.data, corr.ctypes.data, nrows, data.shape[1])
+    avg_autocorr_4bit_c(data.ctypes.data, corr.ctypes.data, rowcount, data.shape[1])
     t2 = time.time()
-    # print(corr)
-    # print("last element from python", data[-1][-1])
 
     print(f"time taken for avg_corr {t2-t1:5.3f}s")
-    return (
-        corr / nrows
-    )  # [Steve] why do we divide by nrows—shouldn't that be taken care of in avg_autocorr_4bit_c?
+    return corr / rowcount
 
 
 def xcorr_4bit(data0, data1):
@@ -213,20 +203,20 @@ def avg_xcorr_4bit(data0, data1, specnums):
     """
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
-    nrows = len(specnums)
+    rowcount = len(specnums)
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     xcorr = np.empty(data0.shape[1], dtype="complex64", order="c")
-    if nrows == 0:
+    if rowcount == 0:
         print("empty block")
         xcorr = np.nan
         return xcorr
     t1 = time.time()
     avg_xcorr_4bit_c(
-        data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, nrows, data0.shape[1]
+        data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, rowcount, data0.shape[1]
     )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return xcorr / nrows
+    return xcorr / rowcount
 
 
 def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1):
@@ -264,7 +254,7 @@ def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1
     # print("First specnums", specnum0[0],specnum1[0])
     # print(specnum0-start_idx0, specnum1-start_idx1)
     t1 = time.time()
-    row_count = avg_xcorr_4bit_2ant_c(
+    rowcount = avg_xcorr_4bit_2ant_c(
         data0.ctypes.data,
         data1.ctypes.data,
         xcorr.ctypes.data,
@@ -278,22 +268,22 @@ def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1
     )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    print("ROW COUNT IS ", row_count)
-    if row_count == 0:
+    print("ROW COUNT IS ", rowcount)
+    if rowcount == 0:
         xcorr = np.nan
         return xcorr
-    return xcorr / row_count
+    return xcorr / rowcount
 
 
 def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     # nchannels = num of channels contained in packed pol0/pol1 data
     assert data0.shape[0] == data1.shape[0]
     assert data0.shape[1] == data1.shape[1]
-    nrows = len(specnums)
-    print("Input shape is", nrows)
+    rowcount = len(specnums)
+    print("Input shape is", rowcount)
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     xcorr = np.empty(nchannels, dtype="complex64", order="c")
-    if nrows == 0:
+    if rowcount == 0:
         xcorr = np.nan
         return xcorr
     t1 = time.time()
@@ -302,27 +292,27 @@ def avg_xcorr_1bit(data0, data1, specnums, nchannels):
         data1.ctypes.data,
         xcorr.ctypes.data,
         nchannels,
-        nrows,
+        rowcount,
         data0.shape[1],
     )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return xcorr / nrows
+    return xcorr / rowcount
 
 
 def avg_xcorr_1bit_vanvleck(data0, data1, specnums, nchannels):
     # nchannels = num of channels contained in packed pol0/pol1 data
     assert data0.shape[0] == data1.shape[0]
     assert data0.shape[1] == data1.shape[1]
-    nrows = len(specnums)
-    print("Input shape is", nrows)
+    rowcount = len(specnums)
+    print("Input shape is", rowcount)
 
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     R0 = np.empty(nchannels, dtype="float32", order="c")
     R1 = np.empty(nchannels, dtype="float32", order="c")
     IM0 = np.empty(nchannels, dtype="float32", order="c")
     IM1 = np.empty(nchannels, dtype="float32", order="c")
-    if nrows == 0:
+    if rowcount == 0:
         R0[:] = np.nan
         R1[:] = np.nan
         IM0[:] = np.nan
@@ -337,12 +327,12 @@ def avg_xcorr_1bit_vanvleck(data0, data1, specnums, nchannels):
         IM0.ctypes.data,
         IM1.ctypes.data,
         nchannels,
-        nrows,
+        rowcount,
         data0.shape[1],
     )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return [R0 / nrows, R1 / nrows, IM0 / nrows, IM1 / nrows]
+    return [R0 / rowcount, R1 / rowcount, IM0 / rowcount, IM1 / rowcount]
 
 
 def avg_xcorr_1bit_vanvleck_2ant(
@@ -389,3 +379,9 @@ def avg_xcorr_1bit_vanvleck_2ant(
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
     return [R0 / rowcount, R1 / rowcount, IM0 / rowcount, IM1 / rowcount]
+
+def van_vleck_correction(corr, power0, power1):
+    R0,R1,I0,I1=corr
+    Vij= (R0+R1 + 1J*(I1-I0))*2/np.sqrt(power0 * power1)
+    return Vij
+

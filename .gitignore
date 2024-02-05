@@ -3,6 +3,7 @@
 *.wav
 *.png
 *.swp
+*.raw
 plots/
 usage.txt
 plot_one_file_scaled.py
