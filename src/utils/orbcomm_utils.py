@@ -250,21 +250,46 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
     else:
         return boundaries
 
+# this function takes in satellite transit data returned by a different function
+# def get_simul_pulses(transits, nrows, mask=None, thresh=5):
+#     nchan = len(transits)
+#     passes = np.zeros((nrows, nchan), dtype=bool)
+#     for c in range(0, 20):
+#         for t in transits[c]:
+#             if t[1] - t[0] > 10:
+#                 passes[t[0] : t[1], c] = 1
+#     if mask is not None:
+#         assert len(mask) == nrows
+#         passes[:] = passes * mask
+#     plt.imshow(passes, aspect="auto", interpolation="none")
+#     x = np.arange(nchan - 1, -1, -1, dtype=int).reshape(nchan, -1)
+#     pwr = 2 ** (np.ones(nrows, dtype=int).reshape(nrows, 1) @ x.T)
+#     rep = np.sum(passes * pwr, axis=1)
+#     cur = 0
+#     curidx = 0
+#     curlen = 0
+#     pulses = []
+#     for i, x in enumerate(rep):
+#         #         print(i, x)
+#         if x != cur:
+#             if curlen > thresh and cur > 0:
+#                 pulses.append([[curidx, i], get_set_bits(cur, reverse=True)])
+#             cur = x
+#             curlen = 0
+#             curidx = i
+#         else:
+#             curlen += 1
+#     return pulses
 
-def get_simul_pulses(transits, nrows, mask=None, thresh=5):
-    nchan = len(transits)
-    passes = np.zeros((nrows, nchan), dtype=bool)
-    for c in range(0, 20):
-        for t in transits[c]:
-            if t[1] - t[0] > 10:
-                passes[t[0] : t[1], c] = 1
+def get_simul_pulses(passes, mask=None, thresh=9):
     if mask is not None:
-        assert len(mask) == nrows
+        assert len(mask) == nrows #mask is buggy currently. fix
         passes[:] = passes * mask
     plt.imshow(passes, aspect="auto", interpolation="none")
-    x = np.arange(nchan - 1, -1, -1, dtype=int).reshape(nchan, -1)
-    pwr = 2 ** (np.ones(nrows, dtype=int).reshape(nrows, 1) @ x.T)
-    rep = np.sum(passes * pwr, axis=1)
+    x = 2**np.arange(0,passes.shape[1], dtype=int).reshape(passes.shape[1], -1)
+    rep = passes @ x #treat each row of 0s and 1s as a binary number.
+    rep = np.vstack([rep,0]) #make sure that if the data ends with risen sats, we catch them. force a transition. nothing happens if 0s.
+    #get a timestream of numbers. if the number changes then at least one of the bits flipped somewhere.
     cur = 0
     curidx = 0
     curlen = 0
@@ -273,14 +298,14 @@ def get_simul_pulses(transits, nrows, mask=None, thresh=5):
         #         print(i, x)
         if x != cur:
             if curlen > thresh and cur > 0:
-                pulses.append([[curidx, i], get_set_bits(cur, reverse=True)])
+                pulses.append([[curidx, i], get_set_bits(cur, nbits=passes.shape[1])])
             cur = x
             curlen = 0
             curidx = i
         else:
             curlen += 1
+        
     return pulses
-
 
 def get_set_bits(x, nbits=20, reverse=False):
     if reverse:
