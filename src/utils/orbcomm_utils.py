@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import numba as nb
 from scipy.interpolate import CubicSpline
 import skyfield.api as sf
+from scipy import fft
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -36,6 +37,28 @@ def make_complex(cmpl, mag, phase):
     for i in nb.prange(0, N):
         cmpl[i] = mag[i] * np.exp(1j * phase[i])
 
+@nb.njit(parallel=True)
+def complex_mult_conj(arr1,arr2,newarr):
+    Nrows = arr1.shape[0]
+    Ncols = arr1.shape[1]
+    for i in nb.prange(Nrows):
+        for j in range(Ncols):
+            newarr[i,j] = arr1[i,j] * np.conj(arr2[i,j])
+
+
+
+@nb.njit(parallel=True)
+def vstack_zeros_transpose(arr,bigarr):
+    Nrows = arr.shape[0]
+    Ncols = arr.shape[1]
+    for j in nb.prange(0, Ncols):
+        for i in range(0, Nrows):
+            bigarr[j, i] = arr[i, j]
+        for i in range(Nrows, 2*Nrows):
+            bigarr[j, i] = 0
+    
+
+
 def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
     """Get coarse xcorr of each channel of two channelized timestreams.
     The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
@@ -64,6 +87,7 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
     wt = np.zeros(2 * Nsmall)
     wt[:Nsmall] = 1
     n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
+    n_avg[Nsmall] = np.nan
     #print("n_avg is", n_avg)
     for i, chan in enumerate(chans):
         #print("processing chan", chan)
@@ -80,6 +104,53 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
             )
         )
         xcorr[i, :] = xcorr[i, :] / n_avg / Npfb
+    return xcorr
+
+def get_coarse_xcorr_fast(f1, f2, chans=None, Npfb=4096):
+    """Get coarse xcorr of each channel of two channelized timestreams.
+    The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
+
+    Parameters
+    ----------
+    f1, f2 : ndarray of complex64
+        First and second timestreams. Both n_spectrum x n_channel complex array.
+    chans: tuple of int
+        Channels (columns) of f1 and f2 that should be correlated.
+
+    Returns
+    -------
+    ndarray of complex128
+        xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
+    """
+    if len(f1.shape) == 1:
+        f1 = f1.reshape(-1,1)
+    if len(f2.shape) == 1:
+        f2 = f2.reshape(-1,1)
+    if(chans==None):
+        chans = np.arange(f1.shape[1])
+    Nsmall = f1.shape[0]
+    #print("Shape of passed channelized timestream =", f1.shape)
+    bigf1 = np.empty((len(chans),2 * Nsmall), dtype="complex128")
+    bigf2 = np.empty((len(chans),2 * Nsmall), dtype="complex128")
+    xcorr = np.empty((len(chans),2 * Nsmall), dtype="complex128")
+    vstack_zeros_transpose(f1,bigf1)
+    vstack_zeros_transpose(f2,bigf2)
+    wt = np.zeros(2 * Nsmall, dtype= "float64")
+    wt[:Nsmall] = 1
+    n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
+    n_avg[Nsmall] = np.nan
+    norm = np.outer(np.ones((len(chans))), n_avg) * Npfb
+    # print(norm, norm.shape)
+    n_workers = min(40,len(chans))
+    #print("n_avg is", n_avg)
+    with fft.set_workers(n_workers):
+        bigf1 = fft.fft(bigf1,axis=1,workers=n_workers)
+        bigf2 = fft.fft(bigf2,axis=1,workers=n_workers)
+        complex_mult_conj(bigf1,bigf2,xcorr)
+        # print("bigf1 fx\n", bigf1)
+        # print("bigf2 fx\n", bigf1)
+        # print("conj mult\n", xcorr)
+        xcorr = fft.ifft(xcorr,axis=1,workers=n_workers)/norm
     return xcorr
 
 def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
