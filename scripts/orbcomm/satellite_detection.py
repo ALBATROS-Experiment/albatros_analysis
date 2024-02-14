@@ -1,7 +1,8 @@
 import sys
 import time
 import os
-
+#status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
+#                           sat delay values match, coarse xcorr values match, SNR matches
 sys.path.insert(0, "/home/s/sievers/mohanagr/")
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -9,6 +10,8 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
+import json
+import cProfile, pstats
 
 T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 393216 * T_SPECTRA
@@ -61,24 +64,29 @@ for i, satnum in enumerate(satlist):
 a1_coords = [51.4646065, -68.2352594, 341.052]  # north antenna
 a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna
 
+sat_data = {}
+profiler = cProfile.Profile()
 for file in direct_files:
-    tstart = butils.get_tstamp_from_filename(file)
-    nrows=560
-    # tstart = ts1
-    # nrows = 50
+    # tstart = butils.get_tstamp_from_filename(file)
+    # nrows=560
+    tstart = ts1
+    nrows = 50
+    sat_data[tstart] = []
     tle_path = "/home/s/sievers/mohanagr/albatros_analysis/scripts/orbcomm/orbcomm_28July21.txt"
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, niter=nrows)
-    print(rsats)
+    # print(rsats)
     for i, row in enumerate(rsats):
         for satnum, satele in row:
             arr[i][satmap[satnum]] = 1
-    print(arr)
     pulses = outils.get_simul_pulses(arr)
-    print(pulses)
-
+    print("Sat transits detected are:", pulses)
     for (pstart, pend), sats in pulses:
         print(pstart, pend, sats)
+        pulse_data = {}
+        pulse_data["start"] = pstart
+        pulse_data["end"] = pend
+        pulse_data["sats"] = {}
         numsats_in_pulse = len(sats)
         t1 = tstart + pstart * T_ACCLEN
         t2 = tstart + pend * T_ACCLEN
@@ -122,14 +130,15 @@ for file in direct_files:
             type="float",
         )
 
-        p0_a1 = np.zeros((size, nchans), dtype="complex64")
-        p0_a2 = np.zeros((size, nchans), dtype="complex64")
+        p0_a1 = np.empty((size, nchans), dtype="complex128")
+        p0_a2 = np.empty((size, nchans), dtype="complex128")
         freq = 250e6 * (1 - np.arange(1834, 1854) / 4096).reshape(
             -1, nchans
         )  # get actual freq from aliasedprint("FREQ",freq/1e6," MHz")
         niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
         print("niter is", niter)
         delays = np.zeros((size, len(sats)))
+        # get geo delay for each satellite from Skyfield
         for i, satID in enumerate(sats):
             d = outils.get_sat_delay(
                 a1_coords,
@@ -143,6 +152,7 @@ for file in direct_files:
                 np.arange(0, size) * T_SPECTRA, np.arange(0, niter), d
             )
             print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
+        # get baseband chunk for the duration of required transit. Take the first chunk `size` long that satisfies missing packet requirement
         for i, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
             perc_missing_a1 = (1 - len(chunk1["specnums"]) / size) * 100
             perc_missing_a2 = (1 - len(chunk2["specnums"]) / size) * 100
@@ -156,41 +166,54 @@ for file in direct_files:
                 p0_a2, chunk2["pol0"], chunk2["specnums"] - chunk2["specnums"][0]
             )
             break
-        cx = []
+        cx = []  # store coarse xcorr for each satellite
         N = 2 * size
         dN = min(100000, int(0.3 * N))
-        stamp = slice(N // 2 - dN, N // 2 + dN)
-        print(N, dN)
+        print("2*N and 2*dN", N, dN)
         temp_satmap = []  # will need to map the row number to satID later
-        cx.append(
-            np.fft.fftshift(outils.get_coarse_xcorr_fast(p0_a1, p0_a2), axes=1)[:, stamp]
-        )  # no correction
+
+        # profiler.enable()
+        # for ii in range(0, 10):
+            # testvar = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2)
+        # profiler.disable()
+        # stats = pstats.Stats(profiler)
+        # # stats.strip_dirs()
+        # stats.sort_stats("tottime")
+        # stats.print_stats(15)
+        # exit(1)
+        cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
         temp_satmap.append("default")  # zeroth row is always "no phase"
+        # get beamformed visibilities for each satellite
+
         for i, satID in enumerate(sats):
             print("processing satellite:", satmap[satID])
             temp_satmap.append(satmap[satID])
             phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
             print("phase delay shape", phase_delay.shape)
             cx.append(
-                np.fft.fftshift(
-                    outils.get_coarse_xcorr_fast(p0_a1, p0_a2 * np.exp(1j * phase_delay)),
-                    axes=1,
-                )[:, stamp]
+                    outils.get_coarse_xcorr_fast(
+                        p0_a1, p0_a2 * np.exp(1j * phase_delay), dN
+                    )
             )
-            # print(cx[i+1][5, 1:5])
-        snr_arr = np.zeros((len(sats) + 1, nchans), dtype="float64")
-        detected_sats = [np.nan] * nchans
+            print("CX values", cx[i+1][5, 1:5])
+        snr_arr = np.zeros(
+            (len(sats) + 1, nchans), dtype="float64"
+        )  # rows = sats, cols = channels
+        detected_sats = np.zeros(nchans, dtype="int")
         # save the SNR for each channel for each satellite
         # cx[0] is the default "dont do anything" xcorr
 
         fig, ax = plt.subplots(1, 1)
+        plt.title(f"Pulse {pstart} to {pend} in file {tstart}")
         for i in range(len(sats) + 1):
             snr_arr[i, :] = np.max(np.abs(cx[i]), axis=1) / stats.median_abs_deviation(
                 np.abs(cx[i]), axis=1
             )
             ax.plot(snr_arr[i, 5:15], label=f"{temp_satmap[i]}")
         plt.legend()
-        plt.savefig("/scratch/s/sievers/mohanagr/debug_snr_channel.jpg")
+        plt.savefig(
+            f"/scratch/s/sievers/mohanagr/debug_snr_{pstart}_{pend}_{tstart}.jpg"
+        )
         # for each channel, update the detected satellite for that channel
         print(snr_arr)
         for chan in range(nchans):
@@ -201,10 +224,29 @@ for file in direct_files:
             ):  # no sat was detected, idx 0 is the default "no phase" value
                 continue
             print("not continuing")
-            if (snr_arr[sortidx[-1],chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(
+            if (snr_arr[sortidx[-1], chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(
                 2
             ) > 5:  # if SNR 1 = a1/sigma, SNR 2 = a2/sigma.
                 # I want SNR on a1-a2 i.e. is the difference significant.
-                print("top two snr for chan", chan, snr_arr[sortidx[-1],chan], snr_arr[sortidx[-2], chan])
+                # print(
+                #     "top two snr for chan",
+                #     chan,
+                #     snr_arr[sortidx[-1], chan],
+                #     snr_arr[sortidx[-2], chan],
+                # )
                 detected_sats[chan] = temp_satmap[sortidx[-1]]
+        for i, satID in enumerate(sats):
+            where_sat = (
+                np.where(detected_sats == satmap[satID])[0] + 1834
+            )  # what channels is this sat in
+            pulse_data["sats"][
+                satmap[satID]
+            ] = (
+                where_sat.tolist()
+            )  # make sure it's serializable with json. numpy array wont work
         print(detected_sats)
+        sat_data[tstart].append(pulse_data)
+json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}.json"
+with open(json_output, "w") as file:
+    json.dump(sat_data, file, indent=4)
+print(sat_data)

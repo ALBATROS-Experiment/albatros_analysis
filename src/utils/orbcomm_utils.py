@@ -8,6 +8,7 @@ from scipy.interpolate import CubicSpline
 import skyfield.api as sf
 from scipy import fft
 
+
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
     if tt is None:
@@ -26,10 +27,11 @@ def ctime2mjd(tt=None, type="Dublin"):
 
 
 @nb.njit(parallel=True)
-def make_continuous(newpol, pol, spec_idx):
+def make_continuous(arr, newarr, spec_idx):
     n = len(spec_idx)
     for i in nb.prange(n):
-        newpol[spec_idx[i], :] = pol[i, :]
+        newarr[spec_idx[i], :] = arr[i, :]
+
 
 @nb.njit(parallel=True)
 def make_complex(cmpl, mag, phase):
@@ -37,26 +39,71 @@ def make_complex(cmpl, mag, phase):
     for i in nb.prange(0, N):
         cmpl[i] = mag[i] * np.exp(1j * phase[i])
 
+
 @nb.njit(parallel=True)
-def complex_mult_conj(arr1,arr2,newarr):
+def complex_mult_conj(arr1, arr2, newarr):
     Nrows = arr1.shape[0]
     Ncols = arr1.shape[1]
     for i in nb.prange(Nrows):
         for j in range(Ncols):
-            newarr[i,j] = arr1[i,j] * np.conj(arr2[i,j])
-
+            newarr[i, j] = arr1[i, j] * np.conj(arr2[i, j])
 
 
 @nb.njit(parallel=True)
-def vstack_zeros_transpose(arr,bigarr):
+def vstack_zeros_transpose2(arr, bigarr):
     Nrows = arr.shape[0]
     Ncols = arr.shape[1]
     for j in nb.prange(0, Ncols):
         for i in range(0, Nrows):
             bigarr[j, i] = arr[i, j]
-        for i in range(Nrows, 2*Nrows):
+        # for i in range(Nrows, 2*Nrows):
+        #     bigarr[j, i] = 0
+
+
+@nb.njit(parallel=True)
+def vstack_zeros_transpose(arr, bigarr):
+    Nrows = arr.shape[0]
+    Ncols = arr.shape[1]
+    for j in nb.prange(0, Ncols):
+        for i in range(0, Nrows):
+            bigarr[j, i] = arr[i, j]
+        for i in range(Nrows, 2 * Nrows):
             bigarr[j, i] = 0
-    
+
+
+@nb.njit(parallel=True)
+def get_weights(weights):
+    # get weights to normalize a zero-padded FFT
+    # shape of weights is N -> EVEN = 2 * Nsmall.
+    N = weights.shape[0]
+    weights[0] = N // 2
+    weights[N // 2] = np.nan
+    for i in nb.prange(1, N // 2):
+        weights[i] = N // 2 - i
+        weights[N - i] = N // 2 - i
+
+
+@nb.njit(parallel=True)
+def apply_delay(arr, newarr, delay, freqs):
+    # apply delay to an array of complex electric field or their correlation
+    # does exp( j 2 pi nu tau) sign of tau is user dependent
+    # freqs should correspond to the columns of the nspec x nchan array
+    nspec = arr.shape[0]
+    nchan = arr.shape[1]
+    for i in range(nspec):
+        for j in range(nchan):
+            newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay[i])
+
+@nb.njit(parallel=True)
+def get_normalized_stamp(cxcorr, stamp, weights, Npfb):
+    nchans = cxcorr.shape[0]
+    N = cxcorr.shape[1]  # = len(weights)
+    M = stamp.shape[1]  # = dN*2
+    M2 = M // 2
+    for i in nb.prange(nchans):
+        for j in range(M2):
+            stamp[i, j] = cxcorr[i, -M2 + j] / weights[-M2 + j] / Npfb
+            stamp[i, M2 + j] = cxcorr[i, j] / weights[j] / Npfb
 
 
 def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
@@ -76,21 +123,21 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
         xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
     """
     if len(f1.shape) == 1:
-        f1 = f1.reshape(-1,1)
+        f1 = f1.reshape(-1, 1)
     if len(f2.shape) == 1:
-        f2 = f2.reshape(-1,1)
-    if(chans==None):
+        f2 = f2.reshape(-1, 1)
+    if chans == None:
         chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
-    #print("Shape of passed channelized timestream =", f1.shape)
-    xcorr = np.zeros((len(chans),2 * Nsmall), dtype="complex128")
+    # print("Shape of passed channelized timestream =", f1.shape)
+    xcorr = np.zeros((len(chans), 2 * Nsmall), dtype="complex128")
     wt = np.zeros(2 * Nsmall)
     wt[:Nsmall] = 1
     n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
     n_avg[Nsmall] = np.nan
-    #print("n_avg is", n_avg)
+    # print("n_avg is", n_avg)
     for i, chan in enumerate(chans):
-        #print("processing chan", chan)
+        # print("processing chan", chan)
         xcorr[i, :] = np.fft.ifft(
             np.fft.fft(
                 np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
@@ -106,7 +153,8 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
         xcorr[i, :] = xcorr[i, :] / n_avg / Npfb
     return xcorr
 
-def get_coarse_xcorr_fast(f1, f2, chans=None, Npfb=4096):
+
+def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     """Get coarse xcorr of each channel of two channelized timestreams.
     The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
 
@@ -123,35 +171,83 @@ def get_coarse_xcorr_fast(f1, f2, chans=None, Npfb=4096):
         xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
     """
     if len(f1.shape) == 1:
-        f1 = f1.reshape(-1,1)
+        f1 = f1.reshape(-1, 1)
     if len(f2.shape) == 1:
-        f2 = f2.reshape(-1,1)
-    if(chans==None):
+        f2 = f2.reshape(-1, 1)
+    if chans == None:
         chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
-    #print("Shape of passed channelized timestream =", f1.shape)
-    bigf1 = np.empty((len(chans),2 * Nsmall), dtype="complex128")
-    bigf2 = np.empty((len(chans),2 * Nsmall), dtype="complex128")
-    xcorr = np.empty((len(chans),2 * Nsmall), dtype="complex128")
-    vstack_zeros_transpose(f1,bigf1)
-    vstack_zeros_transpose(f2,bigf2)
-    wt = np.zeros(2 * Nsmall, dtype= "float64")
+    # print("Shape of passed channelized timestream =", f1.shape)
+    bigf1 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    bigf2 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    xcorr = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    xcorr_stamp = np.empty((len(chans), 2 * dN), dtype="complex128")
+    n_avg = np.empty(2 * Nsmall, dtype="float64")
+    vstack_zeros_transpose(f1, bigf1)
+    vstack_zeros_transpose(f2, bigf2)
+    get_weights(n_avg)
+
+    n_workers = min(40, len(chans))
+    # print("n_avg is", n_avg)
+    with fft.set_workers(n_workers):
+        bigf1 = fft.fft(bigf1, axis=1, workers=n_workers)
+        bigf2 = fft.fft(bigf2, axis=1, workers=n_workers)
+        complex_mult_conj(bigf1, bigf2, xcorr)
+        # print("bigf1 fx\n", bigf1)
+        # print("bigf2 fx\n", bigf1)
+        # print("conj mult\n", xcorr)
+        xcorr = fft.ifft(xcorr, axis=1, workers=n_workers)
+    get_normalized_stamp(xcorr, xcorr_stamp, n_avg, Npfb)
+    return xcorr_stamp
+
+
+def get_coarse_xcorr_fast_old(f1, f2, chans=None, Npfb=4096):
+    """Get coarse xcorr of each channel of two channelized timestreams.
+    The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
+
+    Parameters
+    ----------
+    f1, f2 : ndarray of complex64
+        First and second timestreams. Both n_spectrum x n_channel complex array.
+    chans: tuple of int
+        Channels (columns) of f1 and f2 that should be correlated.
+
+    Returns
+    -------
+    ndarray of complex128
+        xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
+    """
+    if len(f1.shape) == 1:
+        f1 = f1.reshape(-1, 1)
+    if len(f2.shape) == 1:
+        f2 = f2.reshape(-1, 1)
+    if chans == None:
+        chans = np.arange(f1.shape[1])
+    Nsmall = f1.shape[0]
+    # print("Shape of passed channelized timestream =", f1.shape)
+    bigf1 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    bigf2 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    xcorr = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    vstack_zeros_transpose(f1, bigf1)
+    vstack_zeros_transpose(f2, bigf2)
+    wt = np.zeros(2 * Nsmall, dtype="float64")
     wt[:Nsmall] = 1
     n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
     n_avg[Nsmall] = np.nan
     norm = np.outer(np.ones((len(chans))), n_avg) * Npfb
     # print(norm, norm.shape)
-    n_workers = min(40,len(chans))
-    #print("n_avg is", n_avg)
+    n_workers = min(40, len(chans))
+    # print("n_avg is", n_avg)
     with fft.set_workers(n_workers):
-        bigf1 = fft.fft(bigf1,axis=1,workers=n_workers)
-        bigf2 = fft.fft(bigf2,axis=1,workers=n_workers)
-        complex_mult_conj(bigf1,bigf2,xcorr)
+        bigf1 = fft.fft(bigf1, axis=1, workers=n_workers)
+        bigf2 = fft.fft(bigf2, axis=1, workers=n_workers)
+        complex_mult_conj(bigf1, bigf2, xcorr)
         # print("bigf1 fx\n", bigf1)
         # print("bigf2 fx\n", bigf1)
         # print("conj mult\n", xcorr)
-        xcorr = fft.ifft(xcorr,axis=1,workers=n_workers)/norm
+        xcorr = fft.ifft(xcorr, axis=1, workers=n_workers) / norm
     return xcorr
+
 
 def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     """Get a upsampled xcorr from coarse_xcorr by adding back the carrier frequency.
@@ -171,9 +267,7 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
         Complex upsampled xcorr.
     """
     # print("coarse shape", coarse_xcorr.shape)
-    final_xcorr_cwave = np.empty(
-        sample_no.shape[0], dtype="complex128"
-    )
+    final_xcorr_cwave = np.empty(sample_no.shape[0], dtype="complex128")
     # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
     uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
     newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
@@ -182,6 +276,7 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     newmag = cs(sample_no)
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
+
 
 def gauss_smooth(data, sigma=5):
     """Gaussian smooth an N-dim signal. The user should take care about 0-padding.
@@ -321,6 +416,7 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
     else:
         return boundaries
 
+
 # this function takes in satellite transit data returned by a different function
 # def get_simul_pulses(transits, nrows, mask=None, thresh=5):
 #     nchan = len(transits)
@@ -352,15 +448,18 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
 #             curlen += 1
 #     return pulses
 
+
 def get_simul_pulses(passes, mask=None, thresh=9):
     if mask is not None:
-        assert len(mask) == nrows #mask is buggy currently. fix
+        assert len(mask) == nrows  # mask is buggy currently. fix
         passes[:] = passes * mask
     plt.imshow(passes, aspect="auto", interpolation="none")
-    x = 2**np.arange(0,passes.shape[1], dtype=int).reshape(passes.shape[1], -1)
-    rep = passes @ x #treat each row of 0s and 1s as a binary number.
-    rep = np.vstack([rep,0]) #make sure that if the data ends with risen sats, we catch them. force a transition. nothing happens if 0s.
-    #get a timestream of numbers. if the number changes then at least one of the bits flipped somewhere.
+    x = 2 ** np.arange(0, passes.shape[1], dtype=int).reshape(passes.shape[1], -1)
+    rep = passes @ x  # treat each row of 0s and 1s as a binary number.
+    rep = np.vstack(
+        [rep, 0]
+    )  # make sure that if the data ends with risen sats, we catch them. force a transition. nothing happens if 0s.
+    # get a timestream of numbers. if the number changes then at least one of the bits flipped somewhere.
     cur = 0
     curidx = 0
     curlen = 0
@@ -375,8 +474,9 @@ def get_simul_pulses(passes, mask=None, thresh=9):
             curidx = i
         else:
             curlen += 1
-        
+
     return pulses
+
 
 def get_set_bits(x, nbits=20, reverse=False):
     if reverse:
@@ -404,39 +504,40 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
 
     return transits
 
+
 def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
-    obs1=sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
-    obs2=sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
+    obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
 
-    num_iter=niter
-    sim_delay=np.zeros(num_iter)
-    c=299792458
-    tt=time_start # seek to timestamp where signal begins
-    ind=None
+    num_iter = niter
+    sim_delay = np.zeros(num_iter)
+    c = 299792458
+    tt = time_start  # seek to timestamp where signal begins
+    ind = None
 
-    sats=sf.load.tle_file(tle_path)
+    sats = sf.load.tle_file(tle_path)
 
-    for i,sat in enumerate(sats):
-        if(sat.model.satnum==satnorad):
-            ind=i
+    for i, sat in enumerate(sats):
+        if sat.model.satnum == satnorad:
+            ind = i
             break
     print(sats[ind])
-    diff1=sats[ind]-obs1
-    diff2=sats[ind]-obs2
+    diff1 = sats[ind] - obs1
+    diff2 = sats[ind] - obs2
+    ts = sf.load.timescale()
     for iter in range(num_iter):
-        ts=sf.load.timescale()
-        jd=ctime2mjd(tt,type='JD')
-        t=ts.ut1_jd(jd)
+        jd = ctime2mjd(tt, type="JD")
+        t = ts.ut1_jd(jd)
 
-        topo1=diff1.at(t)
-        alt,az,dist=topo1.altaz()
-        range1=dist.m
+        topo1 = diff1.at(t)
+        alt, az, dist = topo1.altaz()
+        range1 = dist.m
 
-        topo2=diff2.at(t)
-        alt,az,dist=topo2.altaz()
-        range2=dist.m
+        topo2 = diff2.at(t)
+        alt, az, dist = topo2.altaz()
+        range2 = dist.m
 
-        sim_delay[iter]= (range2-range1)/c
-        tt+=1
+        sim_delay[iter] = (range2 - range1) / c
+        tt += 1
     return sim_delay
