@@ -67,15 +67,19 @@ a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna
 sat_data = {}
 profiler = cProfile.Profile()
 for file in direct_files:
-    # tstart = butils.get_tstamp_from_filename(file)
-    # nrows=560
-    tstart = ts1
-    nrows = 50
+    tstart = butils.get_tstamp_from_filename(file)
+    nrows=560
+    # tstart = ts1
+    # nrows = 50
     sat_data[tstart] = []
     tle_path = "/home/s/sievers/mohanagr/albatros_analysis/scripts/orbcomm/orbcomm_28July21.txt"
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, niter=nrows)
-    # print(rsats)
+    fig, ax = plt.subplots(1, 1)
+    plt.title(f"Risen sats for file {tstart}")
+    ax.plot(rsats)
+    ax.set_xlabel("niter = nrows in file")
+    plt.savefig(f"/scratch/s/sievers/mohanagr/risen_sats_{tstart}.jpg")
     for i, row in enumerate(rsats):
         for satnum, satele in row:
             arr[i][satmap[satnum]] = 1
@@ -130,11 +134,12 @@ for file in direct_files:
             type="float",
         )
 
-        p0_a1 = np.empty((size, nchans), dtype="complex128")
-        p0_a2 = np.empty((size, nchans), dtype="complex128")
-        freq = 250e6 * (1 - np.arange(1834, 1854) / 4096).reshape(
-            -1, nchans
-        )  # get actual freq from aliasedprint("FREQ",freq/1e6," MHz")
+        p0_a1 = np.zeros((size, nchans), dtype="complex128") #remember that BDC returns complex64. wanna do phase-centering in 128.
+        p0_a2 = np.zeros((size, nchans), dtype="complex128")
+        p0_a2_delayed = np.zeros((size, nchans), dtype="complex128")
+        # freq = 250e6 * (1 - np.arange(1834, 1854) / 4096).reshape(
+        #     -1, nchans
+        # )  # get actual freq from aliasedprint("FREQ",freq/1e6," MHz")
         niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
         print("niter is", niter)
         delays = np.zeros((size, len(sats)))
@@ -153,19 +158,32 @@ for file in direct_files:
             )
             print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
         # get baseband chunk for the duration of required transit. Take the first chunk `size` long that satisfies missing packet requirement
+        a1_start = ant1.spec_num_start
+        a2_start = ant2.spec_num_start
         for i, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
             perc_missing_a1 = (1 - len(chunk1["specnums"]) / size) * 100
             perc_missing_a2 = (1 - len(chunk2["specnums"]) / size) * 100
             print("missing a1", perc_missing_a1, "missing a2", perc_missing_a2)
             if perc_missing_a1 > 5 or perc_missing_a2 > 5:
+                # a1_start = ant1.spec_num_start
+                # a2_start = ant2.spec_num_start
                 continue
+            print(chunk1["pol0"])
+            print(chunk2["pol0"])
             outils.make_continuous(
                 p0_a1, chunk1["pol0"], chunk1["specnums"] - chunk1["specnums"][0]
             )
             outils.make_continuous(
                 p0_a2, chunk2["pol0"], chunk2["specnums"] - chunk2["specnums"][0]
             )
+            # outils.make_continuous(
+            #     p0_a1, chunk1["pol0"], chunk1["specnums"] - a1_start
+            # )
+            # outils.make_continuous(
+            #     p0_a2, chunk2["pol0"], chunk2["specnums"] - a2_start
+            # )
             break
+        print(p0_a1, p0_a2)
         cx = []  # store coarse xcorr for each satellite
         N = 2 * size
         dN = min(100000, int(0.3 * N))
@@ -184,18 +202,25 @@ for file in direct_files:
         cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
         temp_satmap.append("default")  # zeroth row is always "no phase"
         # get beamformed visibilities for each satellite
-
+        freqs = 250e6 * (1 - np.arange(1834, 1854) / 4096)
+        profiler.enable()
         for i, satID in enumerate(sats):
             print("processing satellite:", satmap[satID])
             temp_satmap.append(satmap[satID])
-            phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
-            print("phase delay shape", phase_delay.shape)
+            # phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
+            # print("phase delay shape", phase_delay.shape)
+            outils.apply_delay(p0_a2, p0_a2_delayed, delays[:,i], freqs)
             cx.append(
                     outils.get_coarse_xcorr_fast(
-                        p0_a1, p0_a2 * np.exp(1j * phase_delay), dN
+                        p0_a1, p0_a2_delayed, dN
                     )
             )
-            print("CX values", cx[i+1][5, 1:5])
+        profiler.disable()
+        sstats = pstats.Stats(profiler)
+        sstats.strip_dirs()
+        sstats.sort_stats("tottime")
+        sstats.print_stats(15)
+            # print("CX values", cx[i+1][5, 1:5])
         snr_arr = np.zeros(
             (len(sats) + 1, nchans), dtype="float64"
         )  # rows = sats, cols = channels
@@ -246,7 +271,7 @@ for file in direct_files:
             )  # make sure it's serializable with json. numpy array wont work
         print(detected_sats)
         sat_data[tstart].append(pulse_data)
-json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}.json"
+json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{int(time.time())}.json"
 with open(json_output, "w") as file:
     json.dump(sat_data, file, indent=4)
 print(sat_data)
