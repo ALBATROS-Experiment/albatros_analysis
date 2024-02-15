@@ -27,7 +27,7 @@ def ctime2mjd(tt=None, type="Dublin"):
 
 
 @nb.njit(parallel=True)
-def make_continuous(arr, newarr, spec_idx):
+def make_continuous(newarr, arr, spec_idx):
     n = len(spec_idx)
     for i in nb.prange(n):
         newarr[spec_idx[i], :] = arr[i, :]
@@ -48,18 +48,6 @@ def complex_mult_conj(arr1, arr2, newarr):
         for j in range(Ncols):
             newarr[i, j] = arr1[i, j] * np.conj(arr2[i, j])
 
-
-@nb.njit(parallel=True)
-def vstack_zeros_transpose2(arr, bigarr):
-    Nrows = arr.shape[0]
-    Ncols = arr.shape[1]
-    for j in nb.prange(0, Ncols):
-        for i in range(0, Nrows):
-            bigarr[j, i] = arr[i, j]
-        # for i in range(Nrows, 2*Nrows):
-        #     bigarr[j, i] = 0
-
-
 @nb.njit(parallel=True)
 def vstack_zeros_transpose(arr, bigarr):
     Nrows = arr.shape[0]
@@ -69,7 +57,6 @@ def vstack_zeros_transpose(arr, bigarr):
             bigarr[j, i] = arr[i, j]
         for i in range(Nrows, 2 * Nrows):
             bigarr[j, i] = 0
-
 
 @nb.njit(parallel=True)
 def get_weights(weights):
@@ -90,7 +77,7 @@ def apply_delay(arr, newarr, delay, freqs):
     # freqs should correspond to the columns of the nspec x nchan array
     nspec = arr.shape[0]
     nchan = arr.shape[1]
-    for i in range(nspec):
+    for i in nb.prange(nspec):
         for j in range(nchan):
             newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay[i])
 
@@ -185,6 +172,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     n_avg = np.empty(2 * Nsmall, dtype="float64")
     vstack_zeros_transpose(f1, bigf1)
     vstack_zeros_transpose(f2, bigf2)
+    # print("bigf1",bigf1)
     get_weights(n_avg)
 
     n_workers = min(40, len(chans))
@@ -197,6 +185,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
         # print("bigf2 fx\n", bigf1)
         # print("conj mult\n", xcorr)
         xcorr = fft.ifft(xcorr, axis=1, workers=n_workers)
+    # print(xcorr[0,0:5])
     get_normalized_stamp(xcorr, xcorr_stamp, n_avg, Npfb)
     return xcorr_stamp
 

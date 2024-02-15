@@ -534,9 +534,7 @@ class BasebandFileIterator:
         # )
         if self.nchunks and self.chunksread == self.nchunks:
             raise StopIteration
-        pol0 = numpy.zeros(
-            (self.acclen, self.ncols), dtype=self.dtype, order="c"
-        )  # for now take all channels. will modify to accept chanstart, chanend
+        pol0 = numpy.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
         pol1 = numpy.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
         specnums = numpy.array(
             [], dtype="int64"
@@ -545,7 +543,7 @@ class BasebandFileIterator:
         i = 0
         while rem:
             # print("Rem is", rem)
-            if self.spec_num_start < self.obj.spec_num[0]:
+            if self.spec_num_start < self.obj.spec_num[0]: #wont be triggered for the first file, since we need to start somewhere
                 # we are in a gap between the files
                 print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0] - self.spec_num_start, rem)
@@ -555,7 +553,7 @@ class BasebandFileIterator:
             else:
                 l = (
                     self.obj.spec_idx[-1] - self.spec_num_start + 1
-                )  # length to end from the point in file we're starting from
+                )  # this file spans this many spectra. not all of them may be present, if l > len(spec_idx). files are size limited.
                 # print("dist to end is", l, "rem is", rem)
                 if rem >= l:
                     # spillover to next file.
@@ -573,7 +571,7 @@ class BasebandFileIterator:
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
                     # print("len specnum from new file", rowend-rowstart)
-                    rem -= l
+                    rem -= l #we've consumed l spectra, whether or not l were present is a different question. nrows <= l
                     (
                         pol0[i : i + rowend - rowstart],
                         pol1[i : i + rowend - rowstart],
