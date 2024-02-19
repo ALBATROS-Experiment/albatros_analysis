@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from albatros_analysis.correlations import unpacking as unpk
+from src.correlations import unpacking as unpk
 
 
 def str_to_bits(str):

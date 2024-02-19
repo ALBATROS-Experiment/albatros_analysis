@@ -18,7 +18,7 @@ T_ACCLEN = 393216 * T_SPECTRA
 
 # get a list of all direct spectra files between two timestamps
 
-ts1 = 1627454647
+ts1 = 1627453681
 # t2 = int(t1 + 560*T_SPECTRA)
 ts2 = ts1 + 50
 start_file = butils.get_file_from_timestamp(
@@ -61,8 +61,8 @@ for i, satnum in enumerate(satlist):
 # print(satmap)
 
 # for each file get the risen sats and divide them up into unique transits
-a1_coords = [51.4646065, -68.2352594, 341.052]  # north antenna
-a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna
+a1_coords = [51.4646065, -68.2352594, 341.052]  # north antenna -> snap4 on 20221026
+a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna -> snap3 on 20221026
 
 sat_data = {}
 profiler = cProfile.Profile()
@@ -72,20 +72,32 @@ for file in direct_files:
     # tstart = ts1
     # nrows = 50
     sat_data[tstart] = []
-    tle_path = "/home/s/sievers/mohanagr/albatros_analysis/scripts/orbcomm/orbcomm_28July21.txt"
+    # tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
+    tle_path = "./orbcomm_28July21.txt"
+    print("USING TLE PATH", tle_path)
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, niter=nrows)
-    fig, ax = plt.subplots(1, 1)
-    plt.title(f"Risen sats for file {tstart}")
-    ax.plot(rsats)
-    ax.set_xlabel("niter = nrows in file")
-    plt.savefig(f"/scratch/s/sievers/mohanagr/risen_sats_{tstart}.jpg")
+    num_sats_risen = [len(x) for x in rsats]
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10,4)
+    fig.suptitle(f"Risen sats for file {tstart}")
+    ax[0].plot(num_sats_risen)
+    ax[0].set_xlabel("niter = nrows in file (x 6.44 sec)")
     for i, row in enumerate(rsats):
         for satnum, satele in row:
             arr[i][satmap[satnum]] = 1
+    ax[1].set_ylabel("niter (x 6.44 sec)")
+    ax[1].set_xlabel("Sat ID")
+    ax[1].imshow(arr,aspect='auto',interpolation="none")
+    plt.tight_layout()
+    plt.savefig(f"/scratch/s/sievers/mohanagr/risen_sats_{tstart}.jpg")
     pulses = outils.get_simul_pulses(arr)
     print("Sat transits detected are:", pulses)
-    for (pstart, pend), sats in pulses:
+    fig, ax = plt.subplots(np.ceil(len(pulses)/2).astype(int), 2)
+    fig.set_size_inches(10, np.ceil(len(pulses)/2)*4)
+    fig.suptitle(str(tstart))
+    ax=ax.flatten()
+    for pnum, [(pstart, pend), sats] in enumerate(pulses):
         print(pstart, pend, sats)
         pulse_data = {}
         pulse_data["start"] = pstart
@@ -106,7 +118,7 @@ for file in direct_files:
         print(bdc.get_header(files_a1[0]))
         channels = bdc.get_header(files_a1[0])["channels"]
         chanstart = np.where(channels == 1834)[0][0]
-        chanend = np.where(channels == 1854)[0][0]
+        chanend = np.where(channels == 1852)[0][0]
         nchans = chanend - chanstart
         # #a1 = antenna 1 = SNAP3
         # #a2 = antenna 2 = SNAP1
@@ -148,7 +160,7 @@ for file in direct_files:
             d = outils.get_sat_delay(
                 a1_coords,
                 a2_coords,
-                "/home/s/sievers/mohanagr/albatros_analysis/scripts/orbcomm/orbcomm_28July21.txt",
+                tle_path,
                 t1,
                 niter,
                 satmap[satID],
@@ -164,7 +176,7 @@ for file in direct_files:
             perc_missing_a1 = (1 - len(chunk1["specnums"]) / size) * 100
             perc_missing_a2 = (1 - len(chunk2["specnums"]) / size) * 100
             print("missing a1", perc_missing_a1, "missing a2", perc_missing_a2)
-            if perc_missing_a1 > 5 or perc_missing_a2 > 5:
+            if perc_missing_a1 > 10 or perc_missing_a2 > 10:
                 # a1_start = ant1.spec_num_start
                 # a2_start = ant2.spec_num_start
                 continue
@@ -202,8 +214,8 @@ for file in direct_files:
         cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
         temp_satmap.append("default")  # zeroth row is always "no phase"
         # get beamformed visibilities for each satellite
-        freqs = 250e6 * (1 - np.arange(1834, 1854) / 4096)
-        profiler.enable()
+        freqs = 250e6 * (1 - np.arange(1834, 1852) / 4096)
+        # profiler.enable()
         for i, satID in enumerate(sats):
             print("processing satellite:", satmap[satID])
             temp_satmap.append(satmap[satID])
@@ -215,11 +227,11 @@ for file in direct_files:
                         p0_a1, p0_a2_delayed, dN
                     )
             )
-        profiler.disable()
-        sstats = pstats.Stats(profiler)
-        sstats.strip_dirs()
-        sstats.sort_stats("tottime")
-        sstats.print_stats(15)
+        # profiler.disable()
+        # sstats = pstats.Stats(profiler)
+        # sstats.strip_dirs()
+        # sstats.sort_stats("tottime")
+        # sstats.print_stats(15)
             # print("CX values", cx[i+1][5, 1:5])
         snr_arr = np.zeros(
             (len(sats) + 1, nchans), dtype="float64"
@@ -227,18 +239,13 @@ for file in direct_files:
         detected_sats = np.zeros(nchans, dtype="int")
         # save the SNR for each channel for each satellite
         # cx[0] is the default "dont do anything" xcorr
-
-        fig, ax = plt.subplots(1, 1)
-        plt.title(f"Pulse {pstart} to {pend} in file {tstart}")
+        ax[pnum].set_title(f"Pulse {pstart} to {pend}.")
         for i in range(len(sats) + 1):
             snr_arr[i, :] = np.max(np.abs(cx[i]), axis=1) / stats.median_abs_deviation(
                 np.abs(cx[i]), axis=1
             )
-            ax.plot(snr_arr[i, 5:15], label=f"{temp_satmap[i]}")
-        plt.legend()
-        plt.savefig(
-            f"/scratch/s/sievers/mohanagr/debug_snr_{pstart}_{pend}_{tstart}.jpg"
-        )
+            ax[pnum].plot(snr_arr[i, :], label=f"{temp_satmap[i]}")
+        ax[pnum].legend()
         # for each channel, update the detected satellite for that channel
         print(snr_arr)
         for chan in range(nchans):
@@ -271,7 +278,10 @@ for file in direct_files:
             )  # make sure it's serializable with json. numpy array wont work
         print(detected_sats)
         sat_data[tstart].append(pulse_data)
-json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{int(time.time())}.json"
+    plt.savefig(
+            f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}_{int(time.time())}.jpg"
+        )
+json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}_{int(time.time())}.json"
 with open(json_output, "w") as file:
     json.dump(sat_data, file, indent=4)
 print(sat_data)

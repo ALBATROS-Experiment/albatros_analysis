@@ -57,7 +57,6 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
         capture_output=True,
     ).stdout.decode("utf-8")
     # print(op)
-    # print(op)
     files = op.split()
     files.sort()  # files need to be in the same order as the timestamps, so we can simply pick the correct file later
     tstamps = np.asarray(
@@ -80,12 +79,10 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     # print(tstamps  < ts)
     # xx=(tstamps < ts).astype(int)
     # print(xx)
-    # print(np.diff(int(tstamps > ts)))
     if len(tstamps) == 1:
         flip = 0
     else:
         flip = np.where(np.diff(tstamps > ts) != 0)[0][0]
-    # print(delta, flip)
     # plt.plot(tstamps>ts)
     if ts - tstamps[flip] <= delta:
         return files[flip], np.round((ts - tstamps[flip]) / dt).astype(
