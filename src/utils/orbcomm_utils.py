@@ -7,6 +7,8 @@ import numba as nb
 from scipy.interpolate import CubicSpline
 import skyfield.api as sf
 from scipy import fft
+import datetime
+import os
 
 
 def ctime2mjd(tt=None, type="Dublin"):
@@ -25,6 +27,14 @@ def ctime2mjd(tt=None, type="Dublin"):
             "Unsupported Julian date type requested. Options are JD, MJD, Dublin"
         )
 
+def get_tle_file(tstamp, dir_parent):
+    date=datetime.datetime.fromtimestamp(tstamp).strftime("%Y-%m-%d")
+    yyyy,mm,dd = date.split("-")
+    fname = os.path.join(dir_parent, yyyy, yyyy+mm, yyyy+mm+dd+".txt")
+    if os.path.isfile(fname):
+        return fname
+    else:
+        raise FileNotFoundError(f"No TLE file found for requested date {date}.")
 
 @nb.njit(parallel=True)
 def make_continuous(newarr, arr, spec_idx):

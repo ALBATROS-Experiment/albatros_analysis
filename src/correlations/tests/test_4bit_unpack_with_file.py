@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from albatros_analysis.correlations import baseband_data_classes as bdc
-from albatros_analysis.correlations.tests.mars2019 import albatrostools as tools
+from src.correlations import baseband_data_classes as bdc
+from src.correlations.tests.mars2019 import albatrostools as tools
 import os
 
 # fpath=os.path.join(os.path.dirname(os.path.abspath(__file__)),'data/baseband/SNAP4/16668/1666886964.raw')
