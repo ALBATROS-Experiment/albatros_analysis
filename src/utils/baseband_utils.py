@@ -7,6 +7,23 @@ import datetime
 import glob
 import re
 
+def _find(dir_parent, search_type, search_tag, min_depth):
+    return subprocess.run(
+        [
+            "find",
+            dir_parent,
+            "-type",
+            search_type,
+            "-regextype",
+            "posix-extended",
+            "-regex",
+            search_tag,
+            "-mindepth",
+            min_depth,
+        ],
+        capture_output=True,
+    ).stdout.decode("utf-8")
+
 
 def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=393216):
     """Given a timestamp, return the file inside of which that timestamp lies.
@@ -34,31 +51,19 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
         If there is no matching file, the user is required to start their integration
         from the next available timestamp that's helpfully suggested.
     """
+    assert(search_type in ["f", "d"])
     if isinstance(ts, int) or isinstance(ts, float):
         ts = str(ts)
+    stamps = [int(ts[:5]), int(ts[:5])-1]
+    search_tags = [f".*\/{stamp}[0-9]{{5}}" for stamp in stamps]
     if search_type == "f":
-        stamp = ts[:6]
-    elif search_type == "d":
-        stamp = ts[:5]
-    else:
-        raise RuntimeError("invalid search type passed. Can only be 'f' or 'd' ")
+        search_tags = [tag + "\.raw" for tag in search_tags]
+    search_tag = "|".join(search_tags)
     ts = float(ts)
-    op = subprocess.run(
-        [
-            "find",
-            dir_parent,
-            "-type",
-            search_type,
-            "-name",
-            f"{stamp}*",
-            "-mindepth",
-            "2",
-        ],
-        capture_output=True,
-    ).stdout.decode("utf-8")
-    # print(op)
+    op = _find(dir_parent, search_type, search_tag, "2")
     files = op.split()
     files.sort()  # files need to be in the same order as the timestamps, so we can simply pick the correct file later
+    # print("FROM UTILS_______:",files)
     tstamps = np.asarray(
         [int(s.split("/")[-1].split(".")[0]) for s in files]
     )  # will work with both tstamp.raw (bband) and 5digit/tstamp/ (direct)
@@ -70,12 +75,14 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     else:
         delta = np.median(
             np.diff(tstamps)
-        )  # find the time period. assumption: usually there will be several files in an hour.
+        )  + 1 # find the time period. assumption: usually there will be several files in an hour.
+        # + 1 because tstamp accuracy is only 1 s. if something happens to system, file gap >> 1 s.
         dt = 4096 / 250e6
     # print(tstamps>ts)
     # if len(tstamps) == 1:
     #     flip = tstamps >= ts
     tstamps = np.hstack([tstamps, tstamps[-1] + delta])
+    # print(tstamps)
     # print(tstamps  < ts)
     # xx=(tstamps < ts).astype(int)
     # print(xx)
@@ -84,6 +91,8 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     else:
         flip = np.where(np.diff(tstamps > ts) != 0)[0][0]
     # plt.plot(tstamps>ts)
+    print(flip,delta,tstamps[flip])
+    print(ts - tstamps[flip])
     if ts - tstamps[flip] <= delta:
         return files[flip], np.round((ts - tstamps[flip]) / dt).astype(
             int
@@ -107,57 +116,78 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     # force_ts = True  may be?
 
 
-def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
-    """Gets a list of filenames within specified time-rage.
+# def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
+#     """Gets a list of filenames within specified time-rage.
 
-    Given a start and stop ctime, retrieve list of corresponding files.
-    This function assumes that the parent directory has the directory
-    structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
-    fine time stamp>.
+#     Given a start and stop ctime, retrieve list of corresponding files.
+#     This function assumes that the parent directory has the directory
+#     structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
+#     fine time stamp>.
 
-    Paramaters
-    -----------
-    time_start: int
-        start time in ctime
-    time_stop: int
-        stop time in ctime
-    dir_parent: str
-        parent directory, e.g. /path/to/data_100MHz
-    fraglen: int
-        number of digits in coarse time fragments
+#     Paramaters
+#     -----------
+#     time_start: int
+#         start time in ctime
+#     time_stop: int
+#         stop time in ctime
+#     dir_parent: str
+#         parent directory, e.g. /path/to/data_100MHz
+#     fraglen: int
+#         number of digits in coarse time fragments
 
-    Returns
-    -------
-    list of str
-        List of files in specified time range.
-    """
-    times_coarse = os.listdir(dir_parent)
-    times_coarse.sort()
-    s = re.compile(r"(\d{10})")  # We'll use this to search for 10-digit time strings
-    fnames = []
-    for time_coarse in times_coarse:
-        try:
-            # Include +-1 coarse directory on endpoints because
-            # sometimes the fine time stamp rolls over to the coarse
-            # time within the same directory
-            if (int(time_coarse) < int(str(time_start)[:fraglen]) - 1) or (
-                int(time_coarse) > int(str(time_stop)[:fraglen]) + 1
-            ):
-                continue
+#     Returns
+#     -------
+#     list of str
+#         List of files in specified time range.
+#     """
+#     times_coarse = os.listdir(dir_parent)
+#     times_coarse.sort()
+#     s = re.compile(r"(\d{10})")  # We'll use this to search for 10-digit time strings
+#     fnames = []
+#     for time_coarse in times_coarse:
+#         try:
+#             # Include +-1 coarse directory on endpoints because
+#             # sometimes the fine time stamp rolls over to the coarse
+#             # time within the same directory
+#             if (int(time_coarse) < int(str(time_start)[:fraglen]) - 1) or (
+#                 int(time_coarse) > int(str(time_stop)[:fraglen]) + 1
+#             ):
+#                 continue
 
-            all_fnames = os.listdir("{}/{}".format(dir_parent, time_coarse))
-            all_fnames.sort()
+#             all_fnames = os.listdir("{}/{}".format(dir_parent, time_coarse))
+#             all_fnames.sort()
 
-            for f in all_fnames:
-                if s.search(f):
-                    tstamp = int(s.search(f).groups()[0])
-                    if tstamp >= time_start and tstamp <= time_stop:
-                        # fnames.append(dir_parent+'/'+time_coarse+'/'+f)
-                        fnames.append(os.path.join(dir_parent, time_coarse, f))
-        except:
-            pass
-    fnames.sort()
-    return fnames
+#             for f in all_fnames:
+#                 if s.search(f):
+#                     tstamp = int(s.search(f).groups()[0])
+#                     if tstamp >= time_start and tstamp <= time_stop:
+#                         # fnames.append(dir_parent+'/'+time_coarse+'/'+f)
+#                         fnames.append(os.path.join(dir_parent, time_coarse, f))
+#         except:
+#             pass
+#     fnames.sort()
+#     return fnames
+
+def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5):
+    assert(search_type in ["f", "d"])
+    assert(time_stop > time_start)
+    time_start, time_stop = [str(t) for t in [time_start, time_stop]]
+    stamps = np.arange(int(time_start[:5]), int(time_stop[:5])+1)
+    search_tags = [f".*\/{stamp}[0-9]{{5}}" for stamp in stamps]
+    if search_type == "f":
+        search_tags = [tag + "\.raw" for tag in search_tags]
+    search_tag = "|".join(search_tags)
+    op = _find(dir_parent, search_type, search_tag, "2")
+    files = op.split()
+    files.sort()
+    tstamps = np.asarray(
+        [int(s.split("/")[-1].split(".")[0]) for s in files]
+    )
+    idx = np.where(np.bitwise_and(tstamps>=int(time_start),tstamps<=int(time_stop)))[0]
+    if len(idx) == 0:
+        raise FileNotFoundError("No files found between the requested timestamps")
+    return [files[i] for i in idx]
+
 
 
 def get_tstamp_from_filename(f):
@@ -205,7 +235,7 @@ def get_init_info(init_t, end_t, dir_parent):
     """
     f1,idx=get_file_from_timestamp(init_t,dir_parent,'f')
     f2,_=get_file_from_timestamp(end_t,dir_parent,'f')
-    files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent)
+    files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent,'f')
     return files,idx
 
 

@@ -1,6 +1,5 @@
 import sys
 import time
-import os
 #status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
 #                           sat delay values match, coarse xcorr values match, SNR matches
 sys.path.insert(0, "/home/s/sievers/mohanagr/")
@@ -11,26 +10,42 @@ import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
 import json
-import cProfile, pstats
+# import cProfile, pstats
+from os import path
 
 T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 393216 * T_SPECTRA
+DEBUG=False
 
+# deployment_yyyymm = "202210"
+deployment_yyyymm="202107"
+ant1_snap = "snap3"
+# ant2_snap = "snap4"
+ant2_snap = "snap1"
+base_path = path.join("/project/s/sievers/albatros/uapishka",deployment_yyyymm)
+out_path = "/scratch/s/sievers/mohanagr/oldFEE3"
+num_files_to_process = None
 # get a list of all direct spectra files between two timestamps
-
-ts1 = 1627453681
-# t2 = int(t1 + 560*T_SPECTRA)
-ts2 = ts1 + 50
-start_file = butils.get_file_from_timestamp(
-    ts1, "/project/s/sievers/albatros/uapishka/202107/data_auto_cross/snap3", "d"
-)[0]
-start_file_tstamp = butils.get_tstamp_from_filename(start_file)
+print(base_path, path.join(base_path,"data_auto_cross", ant1_snap))
+# ts1 = 1667000000 #newFee job
+ts1 = 1627700000
+# ts1=1667077364
+# ts1 = 1667145976
+# ts2 = int(ts1 + 560*T_ACCLEN)
+# ts2 = ts1 + 50
+ts2 = 1627735000
+# start_file = butils.get_file_from_timestamp(
+#     ts1, path.join(base_path,"data_auto_cross", ant1_snap), "d"
+# )[0]
+# start_file_tstamp = butils.get_tstamp_from_filename(start_file)
+print(f"requested {ts1} to {ts2}")
 direct_files = butils.time2fnames(
-    start_file_tstamp,
+    ts1,
     ts2,
-    "/project/s/sievers/albatros/uapishka/202107/data_auto_cross/snap3",
+    path.join(base_path,"data_auto_cross", ant1_snap),
+    "d"
 )
-print(direct_files)
+# print(direct_files)
 
 # all the sats we track
 satlist = [
@@ -65,15 +80,17 @@ a1_coords = [51.4646065, -68.2352594, 341.052]  # north antenna -> snap4 on 2022
 a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna -> snap3 on 20221026
 
 sat_data = {}
-profiler = cProfile.Profile()
-for file in direct_files:
+# profiler = cProfile.Profile()
+for file_num, file in enumerate(direct_files):
+    if file_num == num_files_to_process:
+        break
     tstart = butils.get_tstamp_from_filename(file)
     nrows=560
     # tstart = ts1
     # nrows = 50
     sat_data[tstart] = []
-    # tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
-    tle_path = "./orbcomm_28July21.txt"
+    tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
+    # tle_path = "./orbcomm_28July21.txt"
     print("USING TLE PATH", tle_path)
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, niter=nrows)
@@ -90,7 +107,7 @@ for file in direct_files:
     ax[1].set_xlabel("Sat ID")
     ax[1].imshow(arr,aspect='auto',interpolation="none")
     plt.tight_layout()
-    plt.savefig(f"/scratch/s/sievers/mohanagr/risen_sats_{tstart}.jpg")
+    fig.savefig(path.join(out_path,f"risen_sats_{tstart}.jpg"))
     pulses = outils.get_simul_pulses(arr)
     print("Sat transits detected are:", pulses)
     fig, ax = plt.subplots(np.ceil(len(pulses)/2).astype(int), 2)
@@ -105,17 +122,22 @@ for file in direct_files:
         pulse_data["sats"] = {}
         numsats_in_pulse = len(sats)
         t1 = tstart + pstart * T_ACCLEN
-        t2 = tstart + pend * T_ACCLEN
+        t2 = tstart + pend * T_ACCLEN  #probably do something about this. 
+        # dont need files for the entire pulse. some 50 sec chunk within the pulse will work
         # t2 = t1 + 50
         print("t1 t2 for the pulse are:", t1, t2)
-        files_a1, idx1 = butils.get_init_info(
-            t1, t2, "/project/s/sievers/albatros/uapishka/202107/baseband/snap3/"
-        )
-        files_a2, idx2 = butils.get_init_info(
-            t1, t2, "/project/s/sievers/albatros/uapishka/202107/baseband/snap1/"
-        )
-        print(files_a1)
-        print(bdc.get_header(files_a1[0]))
+        try:
+            files_a1, idx1 = butils.get_init_info(
+                t1, t2, path.join(base_path,"baseband", ant1_snap)
+            )
+            files_a2, idx2 = butils.get_init_info(
+                t1, t2,path.join(base_path,"baseband", ant2_snap)
+            )
+        except Exception as e:
+            print(e)
+            print(f"skipping pulse {pstart}:{pend} in {tstart} as some file discontinuity was encountered.")
+            continue
+        # print(files_a1,files_a2)
         channels = bdc.get_header(files_a1[0])["channels"]
         chanstart = np.where(channels == 1834)[0][0]
         chanend = np.where(channels == 1852)[0][0]
@@ -153,7 +175,7 @@ for file in direct_files:
         #     -1, nchans
         # )  # get actual freq from aliasedprint("FREQ",freq/1e6," MHz")
         niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
-        print("niter is", niter)
+        print("niter for delay is", niter)
         delays = np.zeros((size, len(sats)))
         # get geo delay for each satellite from Skyfield
         for i, satID in enumerate(sats):
@@ -168,7 +190,7 @@ for file in direct_files:
             delays[:, i] = np.interp(
                 np.arange(0, size) * T_SPECTRA, np.arange(0, niter), d
             )
-            print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
+            # print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
         # get baseband chunk for the duration of required transit. Take the first chunk `size` long that satisfies missing packet requirement
         a1_start = ant1.spec_num_start
         a2_start = ant2.spec_num_start
@@ -177,41 +199,38 @@ for file in direct_files:
             perc_missing_a2 = (1 - len(chunk2["specnums"]) / size) * 100
             print("missing a1", perc_missing_a1, "missing a2", perc_missing_a2)
             if perc_missing_a1 > 10 or perc_missing_a2 > 10:
-                # a1_start = ant1.spec_num_start
-                # a2_start = ant2.spec_num_start
+                a1_start = ant1.spec_num_start
+                a2_start = ant2.spec_num_start
                 continue
-            print(chunk1["pol0"])
-            print(chunk2["pol0"])
+            # print(chunk1["pol0"])
+            # print(chunk2["pol0"])
             outils.make_continuous(
-                p0_a1, chunk1["pol0"], chunk1["specnums"] - chunk1["specnums"][0]
+                p0_a1, chunk1["pol0"], chunk1["specnums"] - a1_start
             )
             outils.make_continuous(
-                p0_a2, chunk2["pol0"], chunk2["specnums"] - chunk2["specnums"][0]
+                p0_a2, chunk2["pol0"], chunk2["specnums"] - a2_start
             )
-            # outils.make_continuous(
-            #     p0_a1, chunk1["pol0"], chunk1["specnums"] - a1_start
-            # )
-            # outils.make_continuous(
-            #     p0_a2, chunk2["pol0"], chunk2["specnums"] - a2_start
-            # )
             break
-        print(p0_a1, p0_a2)
+        # print(p0_a1, p0_a2)
         cx = []  # store coarse xcorr for each satellite
         N = 2 * size
         dN = min(100000, int(0.3 * N))
         print("2*N and 2*dN", N, dN)
         temp_satmap = []  # will need to map the row number to satID later
 
-        # profiler.enable()
-        # for ii in range(0, 10):
-            # testvar = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2)
-        # profiler.disable()
-        # stats = pstats.Stats(profiler)
-        # # stats.strip_dirs()
-        # stats.sort_stats("tottime")
-        # stats.print_stats(15)
-        # exit(1)
         cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
+
+        if DEBUG:
+            fig2, ax2 = plt.subplots(np.ceil(cx[0].shape[0]/3).astype(int), 3)
+            fig2.set_size_inches(12, np.ceil(cx[0].shape[0]/3)*3)
+            ax2=ax2.flatten()
+            fig2.suptitle(f"for pulse {pstart}:{pend}")
+            for i in range(cx[0].shape[0]):
+                ax2[i].set_title(f"chan {1834+i} max: {np.argmax(np.abs(np.abs(cx[0][i,:])))}")
+                ax2[i].plot(np.abs(cx[0][i,:]))
+            plt.tight_layout()
+            fig2.savefig(path.join(out_path,f"debug_cxcorr_{tstart}_{int(time.time())}.jpg"))
+
         temp_satmap.append("default")  # zeroth row is always "no phase"
         # get beamformed visibilities for each satellite
         freqs = 250e6 * (1 - np.arange(1834, 1852) / 4096)
@@ -221,18 +240,12 @@ for file in direct_files:
             temp_satmap.append(satmap[satID])
             # phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
             # print("phase delay shape", phase_delay.shape)
-            outils.apply_delay(p0_a2, p0_a2_delayed, delays[:,i], freqs)
+            outils.apply_delay(p0_a2, p0_a2_delayed, -delays[:,i], freqs)
             cx.append(
                     outils.get_coarse_xcorr_fast(
                         p0_a1, p0_a2_delayed, dN
                     )
             )
-        # profiler.disable()
-        # sstats = pstats.Stats(profiler)
-        # sstats.strip_dirs()
-        # sstats.sort_stats("tottime")
-        # sstats.print_stats(15)
-            # print("CX values", cx[i+1][5, 1:5])
         snr_arr = np.zeros(
             (len(sats) + 1, nchans), dtype="float64"
         )  # rows = sats, cols = channels
@@ -245,17 +258,17 @@ for file in direct_files:
                 np.abs(cx[i]), axis=1
             )
             ax[pnum].plot(snr_arr[i, :], label=f"{temp_satmap[i]}")
+        ax[pnum].set_xlabel("channels")
+        ax[pnum].set_ylabel("SNR")
         ax[pnum].legend()
         # for each channel, update the detected satellite for that channel
         print(snr_arr)
         for chan in range(nchans):
             sortidx = np.argsort(snr_arr[:, chan])
-            print(sortidx)
             if (
                 sortidx[-1] == 0
             ):  # no sat was detected, idx 0 is the default "no phase" value
                 continue
-            print("not continuing")
             if (snr_arr[sortidx[-1], chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(
                 2
             ) > 5:  # if SNR 1 = a1/sigma, SNR 2 = a2/sigma.
@@ -276,12 +289,11 @@ for file in direct_files:
             ] = (
                 where_sat.tolist()
             )  # make sure it's serializable with json. numpy array wont work
-        print(detected_sats)
         sat_data[tstart].append(pulse_data)
-    plt.savefig(
-            f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}_{int(time.time())}.jpg"
+    fig.savefig(
+            path.join(out_path,f"debug_snr_{tstart}_{int(time.time())}.jpg")
         )
-json_output = f"/scratch/s/sievers/mohanagr/debug_snr_{tstart}_{int(time.time())}.json"
+json_output = path.join(out_path,f"debug_snr_{tstart}_{int(time.time())}.json")
 with open(json_output, "w") as file:
     json.dump(sat_data, file, indent=4)
 print(sat_data)
