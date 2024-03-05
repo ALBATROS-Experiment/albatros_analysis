@@ -105,6 +105,8 @@ print("osamp is", osamp)
 block_xcorr = np.zeros((block_len, dN_interp*4096*osamp),dtype='complex128')
 tot_noise = 0
 jj=-1
+a1_start = ant1.spec_num_start
+a2_start = ant2.spec_num_start
 for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     print(f"Processing block {ii} and filling block {jj+1}...")
     # print(chunk2['specnums'], len(chunk2['specnums']))
@@ -115,14 +117,16 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     perc_missing_a2 = (1 - len(chunk2["specnums"]) / size) * 100
     print(f"perc missing ant1 and ant2: {perc_missing_a1:.3f}%, {perc_missing_a2:.3f}%")
     if perc_missing_a1 > 10 or perc_missing_a2 > 10:
+        a1_start = ant1.spec_num_start
+        a2_start = ant2.spec_num_start
         print("TOO MUCH MISSING, CONTINUING")
         continue
     jj+=1
     outils.make_continuous(
-        p0_a1, chunk1["pol0"], chunk1["specnums"] - chunk1["specnums"][0]
+        p0_a1, chunk1["pol0"], chunk1["specnums"] - a1_start
     )
     outils.make_continuous(
-        p0_a2, chunk2["pol0"], chunk2["specnums"] - chunk2["specnums"][0]
+        p0_a2, chunk2["pol0"], chunk2["specnums"] - a2_start
     )
     all_xcorrs = []
     corr_chans = []

@@ -528,8 +528,9 @@ class BasebandFileIterator:
     def __next__(self):
         t1 = time.time()
         # print(
-        #     "Current obj first spec vs acc start",
+        #     "Current obj first spec, last spec, and acc spec start",
         #     self.obj.spec_idx[0],
+        #     self.obj.spec_idx[-1],
         #     self.spec_num_start,
         # )
         if self.nchunks and self.chunksread == self.nchunks:
@@ -542,15 +543,18 @@ class BasebandFileIterator:
         rem = self.acclen
         i = 0
         while rem:
+            # print("-----------------------------------------------------------")
             # print("Rem is", rem)
             if self.spec_num_start < self.obj.spec_num[0]: #wont be triggered for the first file, since we need to start somewhere
                 # we are in a gap between the files
-                print("IN A GAP BETWEEN FILES")
+                # print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0] - self.spec_num_start, rem)
                 rem -= step
                 # i+=self.acclen-rem
                 self.spec_num_start += step
             else:
+                # print("calculating ell: ", self.obj.spec_idx[-1], self.obj.spec_idx[0], self.spec_num_start)
+                # print("status of overflow", self.obj._overflowed, self._OVERFLOW_CTR)
                 l = (
                     self.obj.spec_idx[-1] - self.spec_num_start + 1
                 )  # this file spans this many spectra. not all of them may be present, if l > len(spec_idx). files are size limited.
@@ -570,7 +574,6 @@ class BasebandFileIterator:
                     specnums = numpy.append(
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
-                    # print("len specnum from new file", rowend-rowstart)
                     rem -= l #we've consumed l spectra, whether or not l were present is a different question. nrows <= l
                     (
                         pol0[i : i + rowend - rowstart],
@@ -587,10 +590,10 @@ class BasebandFileIterator:
                         unpack=False,
                     )
                     # print(
-                    #     "My specnum pointer at",
+                    #     "Current obj first spec, last spec, and acc spec start",
+                    #     self.obj.spec_idx[0],
+                    #     self.obj.spec_idx[-1],
                     #     self.spec_num_start,
-                    #     "first specnum of new obj",
-                    #     self.obj.spec_num[0],
                     # )
                 else:
                     rowstart, rowend = get_rows_from_specnum(
