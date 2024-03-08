@@ -14,11 +14,39 @@ ctrans_c.argtypes = [
     ctypes.c_int,
     ctypes.c_int
 ]
+ctrans_zero_c = mylib.ctrans_zero
+ctrans_zero_c.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_int,
+    ctypes.c_int
+]
 
 def transpose(x):
+    if x.shape[0]%x.shape[1]!=0 or x.shape[0] < x.shape[1]:
+        raise ValueError("rows must be divisible by columns and rows>columns")
     xT = np.empty((x.shape[1], x.shape[0]),dtype=x.dtype)
     ctrans_c(x.ctypes.data,xT.ctypes.data,x.shape[0],x.shape[1])
     return xT
+
+def transpose_zero_pad(x):
+    if x.shape[0]%x.shape[1]!=0 or x.shape[0] < x.shape[1]:
+        raise ValueError("rows must be divisible by columns and rows>columns")
+    xT = np.empty((x.shape[1], 2*x.shape[0]),dtype=x.dtype)
+    ctrans_zero_c(x.ctypes.data,xT.ctypes.data,x.shape[0],x.shape[1])
+    return xT
+
+@nb.njit(parallel=True)
+def vstack_zeros_transpose(x):
+    Nrows = x.shape[0]
+    Ncols = x.shape[1]
+    bigx = np.empty((x.shape[1],x.shape[0]*2),dtype=x.dtype)
+    for j in nb.prange(0, Ncols):
+        for i in range(0, Nrows):
+            bigx[j, i] = x[i, j]
+        for i in range(Nrows, 2 * Nrows):
+            bigx[j, i] = 0
+    return bigx
 
 @nb.njit(parallel=True)
 def linear_interp(xnew,x,y):
