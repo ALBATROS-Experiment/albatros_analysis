@@ -152,17 +152,17 @@ void hist_1bit(uint8_t * data, uint64_t * hist, int rowstart, int rowend, int nc
   }
 }
 
-void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int chanstart, int chanend, int nchan)
+void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int64_t * channels, int ncols, int nchan)
 {
   /*
-  nspec: number of spectra = no. of rows
-  nchan: number of channels = no. of columns
+  ncols: number of channels you want to unpack
+  nchan: total number of channels in the original baseband data
+  channels: list of channel indicies you're unpacking
 
   Byte structure
   chan1-pol0 (rrrriiii) chan1-pol1 (rrrriiii)
   */
   int nrows = rowend-rowstart;
-  int ncols = chanend - chanstart;
   int nn=nrows*ncols;
   uint8_t imask=15;
   uint8_t rmask=255-15;
@@ -177,12 +177,12 @@ void unpack_4bit_float(uint8_t *data, float *pol0, float *pol1, int rowstart, in
   int c1 = 2*nchan;
   int c2 = 2*ncols;
   #pragma omp parallel for
-  for(int i = 0; i<nrows; i++)  //this nspec is < nrows (as defined on python side), but corresponds to rowstart->rowend. fix the convention.
+  for(int i = 0; i<nrows; i++)
   {
     for(int k=0; k<ncols; k++)
     {
       int polidx = i*c2+2*k;
-      int dataidx = (i+rowstart)*c1 + 2*(k+chanstart);
+      int dataidx = (i+rowstart)*c1 + 2*(channels[k]);
 
       uint8_t im=data[dataidx]&imask;
       uint8_t r=(data[dataidx]&rmask)>>4;

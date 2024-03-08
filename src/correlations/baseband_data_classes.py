@@ -282,6 +282,7 @@ class BasebandFloat(Baseband):
         readlen=-1,
         rowstart=None,
         rowend=None,
+        channels=None,
         chanstart=0,
         chanend=None,
         unpack=True,
@@ -301,18 +302,25 @@ class BasebandFloat(Baseband):
             Defaults to -1, in which case all packets are read.
         fixoverflow: bool
             Defaults to True. ?? *warning: not passed to super*
+        channels: array like
+            List of channel indices that must be unpacked. If passed, chanstart and chanend ignored.
         chanstart: int
             Index of channel at which to start selection. Default is 0.
+            Used to instantiate `channels` if `channels` is None.
         chanend: int or None
             Index of channel at which to end selection. Default is None
-            in which case select up to highest frequency channel.
+            in which case select up to highest available frequency channel.
+            Used to instantiate `channels` if `channels` is None.
         """
-        super().__init__(file_name, readlen)  # why not pass fixoverflow too??
-        self.chanstart = chanstart
-        if chanend == None:
-            self.chanend = self.length_channels
+        super().__init__(file_name, readlen)
+        if channels:
+            if not isinstance(channels, np.ndarray) :
+                self.channels = np.asarray(self.channels, dtype="int64")
         else:
-            self.chanend = chanend
+            if chanend == None:
+                chanend = self.length_channels
+            self.channels = np.arange(chanstart, chanend, dtype="int64")
+            
         if unpack:
             if rowstart and rowend:
                 self.pol0, self.pol1 = self._unpack(rowstart, rowend)
@@ -329,10 +337,9 @@ class BasebandFloat(Baseband):
                 self.length_channels,
                 rowstart,
                 rowend,
-                self.chanstart,
-                self.chanend,
+                self.channels
             )
-        elif self.bit_mode == 1:
+        elif self.bit_mode == 1: #TODO: fix the function call
             return unpk.unpack_1bit(
                 self.raw_data,
                 self.length_channels,
