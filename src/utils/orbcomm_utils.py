@@ -68,6 +68,27 @@ def vstack_zeros_transpose(arr, bigarr):
         for i in range(Nrows, 2 * Nrows):
             bigarr[j, i] = 0
 
+# @nb.njit(parallel=True)
+# def vstack_zeros_transpose2(arr, bigarr):
+#     Nrows = arr.shape[0]
+#     Ncols = arr.shape[1]
+#     for j in range(0, Ncols):
+#         for i in nb.prange(0, Nrows):
+#             bigarr[j, i] = arr[i, j]
+#         for i in nb.prange(Nrows, 2 * Nrows):
+#             bigarr[j, i] = 0
+            
+@nb.njit(parallel=True)
+def vstack_zeros_transpose2(arr, bigarr, columns):
+    Nrows = arr.shape[0]
+    Ncols = len(columns)
+    for j in nb.prange(0, Ncols):
+        for i in range(0, Nrows):
+            bigarr[j, i] = arr[i, columns[j]]
+        for i in range(Nrows, 2 * Nrows):
+            bigarr[j, i] = 0
+
+
 @nb.njit(parallel=True)
 def get_weights(weights):
     # get weights to normalize a zero-padded FFT
@@ -185,7 +206,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     # print("bigf1",bigf1)
     get_weights(n_avg)
 
-    n_workers = min(40, len(chans))
+    n_workers = 40
     # print("n_avg is", n_avg)
     with fft.set_workers(n_workers):
         bigf1 = fft.fft(bigf1, axis=1, workers=n_workers)
