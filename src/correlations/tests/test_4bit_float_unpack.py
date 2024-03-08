@@ -78,10 +78,10 @@ def packed_4bit(real_im_4bit_pol0, real_im_4bit_pol1):
     packed[0, 1::2] = np.ravel(packed_pol1)
     return packed
 
-
 def test_unpack_4bit(packed_4bit, expected_complex_4bit):
-    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, 0, 10)
+    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, channels=np.arange(0,10))
     truepol0, truepol1 = expected_complex_4bit
+    print(pol0,"\n", truepol0)
     assert pol0.shape == truepol0.shape
     pol0diff = pol0 - truepol0
     pol1diff = pol1 - truepol1
@@ -90,7 +90,7 @@ def test_unpack_4bit(packed_4bit, expected_complex_4bit):
 
 
 def test_unpack_4bit_1chan(packed_4bit, expected_complex_4bit):
-    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, 3, 4)
+    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, channels=np.arange(3,4))
     # print(pol0,pol1)
     truepol0, truepol1 = expected_complex_4bit
     truepol0 = truepol0[0:2, 3:4]
@@ -101,9 +101,20 @@ def test_unpack_4bit_1chan(packed_4bit, expected_complex_4bit):
     assert np.all(np.abs(pol0diff) < 1e-15)
     assert np.all(np.abs(pol1diff) < 1e-15)
 
+def test_unpack_4bit_2chans(packed_4bit, expected_complex_4bit):
+    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, channels=np.asarray([2,5],dtype="int64"))
+    # print(pol0,pol1)
+    truepol0, truepol1 = expected_complex_4bit
+    truepol0 = truepol0[0:2, [2,5]]
+    truepol1 = truepol1[0:2, [2,5]]
+    assert pol0.shape == truepol0.shape
+    pol0diff = pol0 - truepol0
+    pol1diff = pol1 - truepol1
+    assert np.all(np.abs(pol0diff) < 1e-15)
+    assert np.all(np.abs(pol1diff) < 1e-15)
 
 def test_against_jon(packed_4bit):
-    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, 0, 10)
+    pol0, pol1 = unpk.unpack_4bit(packed_4bit, 10, 0, 2, channels=np.arange(0,10))
     truepol0, truepol1 = unpack_packet(packed_4bit.flatten(), 4, 2)
     # print(packed_4bit,"packed passing")
     # print(truepol0,truepol1, "true stuff")
