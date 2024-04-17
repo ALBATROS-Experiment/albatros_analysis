@@ -67,6 +67,10 @@ class Baseband:
                 # self.spec_idx = self.spec_idx - self.spec_idx[0]
 
                 specdiff=numpy.diff(self.spec_num)
+                where_change = numpy.where(specdiff < 0)[0]
+                print(where_change)
+                if len(where_change) > 0:
+                    raise RuntimeError("specnum wrap detected.")
                 idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
                 self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
                 self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
@@ -184,6 +188,8 @@ class BasebandFileIterator():
                 
                 l = self.obj.spec_idx[-1]-self.spec_num_start+1 #length to end from the point in file we're starting from
                 # print("dist to end is", l, "rem is", rem)
+                if l <=0 :
+                    raise RuntimeError("specnum wrap?")
                 if(rem>=l):
                     #spillover to next file. 
                     
