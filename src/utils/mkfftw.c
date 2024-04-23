@@ -3,6 +3,8 @@
 #include <math.h>
 #include <fftw3.h>
 #include <omp.h>
+#define MKFFTW_FLAG FFTW_ESTIMATE
+// module load python/3.9.10 gcc/11.3.0 fftw/3.3.10
 // gcc -std=c99 -O3 -march=native -shared -o libfftw.so -fPIC -fopenmp mkfftw.c -lfftw3_omp -lm
 int set_threads(int nthreads)
 {
@@ -17,8 +19,6 @@ int set_threads(int nthreads)
     printf("something went wrong during thread init");
   }
 }
-
-#define MKFFTW_FLAG FFTW_ESTIMATE
 
 //gcc-4.9 -I/Users/sievers/local/include -fopenmp -std=c99 -O3 -shared -fPIC -o libmkfftw.so mkfftw.c -L/Users/sievers/local/lib -lfftw3f_threads -lfftw3f -lfftw3_threads -lfftw3  -lm -lgomp
 //gcc-9 -I/usr/local/include -fopenmp -std=c99 -O3 -shared -fPIC -o libmkfftw.so mkfftw.c -L/usr/local/lib -lfftw3f_threads -lfftw3f -lfftw3_threads -lfftw3  -lm -lgomp
@@ -61,8 +61,8 @@ void read_wisdom(char *double_file, char *single_file)
 {
   printf("files are: .%s. and .%s.\n",double_file,single_file);
   int dd=fftw_import_wisdom_from_filename(double_file);
-  int ss=fftwf_import_wisdom_from_filename(single_file);
-  printf("return values are %d %d\n",dd,ss);
+  //int ss=fftwf_import_wisdom_from_filename(single_file);
+  printf("return value is %d\n",dd);
 }
 
 /*--------------------------------------------------------------------------------*/
@@ -70,8 +70,8 @@ void write_wisdom(char *double_file, char *single_file)
 {
   printf("files are: .%s. and .%s.\n",double_file,single_file);
   int dd=fftw_export_wisdom_to_filename(double_file);
-  int ss=fftwf_export_wisdom_to_filename(single_file);
-  printf("return values are %d %d\n",dd,ss);
+  //int ss=fftwf_export_wisdom_to_filename(single_file);
+  printf("return value is %d\n",dd);
 }
 
 void cleanup_threads()

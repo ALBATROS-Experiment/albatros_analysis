@@ -10,7 +10,7 @@ import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
 import json
-# import cProfile, pstats
+import cProfile, pstats
 from os import path
 
 T_SPECTRA = 4096 / 250e6
@@ -23,15 +23,20 @@ ant1_snap = "snap3"
 # ant2_snap = "snap4"
 ant2_snap = "snap1"
 base_path = path.join("/project/s/sievers/albatros/uapishka",deployment_yyyymm)
-out_path = "/scratch/s/sievers/mohanagr/oldFEE3"
-num_files_to_process = None
+out_path = "/scratch/s/sievers/mohanagr/"
+
 # get a list of all direct spectra files between two timestamps
 print(base_path, path.join(base_path,"data_auto_cross", ant1_snap))
 # ts1 = 1667000000 #newFee job
-ts1 = 1627700000
+# ts1 = 1627700000
+
+ts1 = 1627454647 # this is the default test input
+ts2 = int(ts1 + 560*T_ACCLEN)
+num_files_to_process = 1
+
 # ts1=1667077364
 # ts1 = 1667145976
-# ts2 = int(ts1 + 560*T_ACCLEN)
+
 # ts2 = ts1 + 50
 ts2 = 1627735000
 # start_file = butils.get_file_from_timestamp(
@@ -80,17 +85,17 @@ a1_coords = [51.4646065, -68.2352594, 341.052]  # north antenna -> snap4 on 2022
 a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna -> snap3 on 20221026
 
 sat_data = {}
-# profiler = cProfile.Profile()
+profiler = cProfile.Profile()
 for file_num, file in enumerate(direct_files):
     if file_num == num_files_to_process:
         break
-    tstart = butils.get_tstamp_from_filename(file)
-    nrows=560
-    # tstart = ts1
-    # nrows = 50
+    # tstart = butils.get_tstamp_from_filename(file)
+    # nrows=560
+    tstart = ts1
+    nrows = 50
     sat_data[tstart] = []
-    tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
-    # tle_path = "./orbcomm_28July21.txt"
+    # tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
+    tle_path = "./orbcomm_28July21.txt"
     print("USING TLE PATH", tle_path)
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, niter=nrows)
@@ -175,7 +180,7 @@ for file_num, file in enumerate(direct_files):
         #     -1, nchans
         # )  # get actual freq from aliasedprint("FREQ",freq/1e6," MHz")
         niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
-        print("niter for delay is", niter)
+        print("niter for delay is", niter, "t1 is", t1)
         delays = np.zeros((size, len(sats)))
         # get geo delay for each satellite from Skyfield
         for i, satID in enumerate(sats):
@@ -192,6 +197,8 @@ for file_num, file in enumerate(direct_files):
             )
             # print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
         # get baseband chunk for the duration of required transit. Take the first chunk `size` long that satisfies missing packet requirement
+        # print(delays[0:10,1], delays[-10:,1])
+        # print(delays[0:10,0], delays[-10:,0])
         a1_start = ant1.spec_num_start
         a2_start = ant2.spec_num_start
         for i, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
@@ -217,7 +224,24 @@ for file_num, file in enumerate(direct_files):
         dN = min(100000, int(0.3 * N))
         print("2*N and 2*dN", N, dN)
         temp_satmap = []  # will need to map the row number to satID later
-
+        cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
+        print("RUNNING SPEED TEST")
+        tottime=0
+        profiler.enable()
+        for i in range(20):
+            t1=time.time()
+            cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
+            t2=time.time()
+            tottime+=t2-t1
+            print("current impl taking", t2-t1)
+        profiler.disable()
+        stats = pstats.Stats(profiler)
+        stats.sort_stats(pstats.SortKey.CUMULATIVE)
+        # with open(path.join(out_path, "stats.txt"), 'w') as f:
+        #     stats.stream = f
+        #     stats.print_stats(15)
+        print("average time taken", tottime/20)
+        exit(1)
         cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
 
         if DEBUG:
@@ -234,13 +258,13 @@ for file_num, file in enumerate(direct_files):
         temp_satmap.append("default")  # zeroth row is always "no phase"
         # get beamformed visibilities for each satellite
         freqs = 250e6 * (1 - np.arange(1834, 1852) / 4096)
-        # profiler.enable()
+
         for i, satID in enumerate(sats):
             print("processing satellite:", satmap[satID])
             temp_satmap.append(satmap[satID])
             # phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
             # print("phase delay shape", phase_delay.shape)
-            outils.apply_delay(p0_a2, p0_a2_delayed, -delays[:,i], freqs)
+            outils.apply_delay(p0_a2, p0_a2_delayed, delays[:,i], freqs)
             cx.append(
                     outils.get_coarse_xcorr_fast(
                         p0_a1, p0_a2_delayed, dN

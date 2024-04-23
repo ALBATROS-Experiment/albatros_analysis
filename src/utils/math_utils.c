@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <complex.h>
 #include <omp.h>
-
+// module load python/3.9.10 gcc/11.3.0 fftw/3.3.10
 // gcc -std=c99 -O3 -march=native -shared -o libmath.so -fPIC -fopenmp math_utils.c
 void ctrans(complex * x, complex * xT, int nrows, int ncols)
 {
     int nblocks = nrows/ncols;
+    int rem = nrows%ncols;
     // printf("size of the temp arrays going to be %d\n", ncols*ncols*sizeof(complex));
     #pragma omp parallel
     {
@@ -39,12 +40,36 @@ void ctrans(complex * x, complex * xT, int nrows, int ncols)
         free(temp1);
         free(temp2);
     }
+    if(rem>0){
+        int ii=nblocks*ncols*ncols;
+        complex * temp1 = malloc(rem*ncols*sizeof(complex));
+        complex * temp2 = malloc(rem*ncols*sizeof(complex));
+        for(int a = 0;a<rem;a++){
+            for(int b = 0;b<ncols;b++){
+                temp1[a*ncols+b]=x[ii+a*ncols+b];
+            }
+        }
+        for(int a = 0;a<rem;a++){
+            for(int b = 0;b<ncols;b++){
+                temp2[b*rem+a]=temp1[a*ncols+b];
+            }
+        }
+        ii = nblocks*ncols;
+        for(int a = 0;a<ncols;a++){
+            for(int b = 0;b<rem;b++){
+                xT[nrows*a+ii+b]=temp2[a*rem+b];
+            }
+        }
+        free(temp1);
+        free(temp2);
+    }
     
 }
 
 void ctrans_zero(complex * x, complex * xT, int nrows, int ncols)
 {   
     int nblocks = nrows/ncols;
+    int rem = nrows%ncols;
     // int nrows2 = 2*nrows;
     long int nn = nrows*ncols*2; // xT has zeros at the end
     // printf("size of the temp arrays going to be %d\n", ncols*ncols*sizeof(complex));
@@ -79,6 +104,29 @@ void ctrans_zero(complex * x, complex * xT, int nrows, int ncols)
                 }
             }
 
+        }
+        free(temp1);
+        free(temp2);
+    }
+    if(rem>0){
+        int ii=nblocks*ncols*ncols;
+        complex * temp1 = malloc(rem*ncols*sizeof(complex));
+        complex * temp2 = malloc(rem*ncols*sizeof(complex));
+        for(int a = 0;a<rem;a++){
+            for(int b = 0;b<ncols;b++){
+                temp1[a*ncols+b]=x[ii+a*ncols+b];
+            }
+        }
+        for(int a = 0;a<rem;a++){
+            for(int b = 0;b<ncols;b++){
+                temp2[b*rem+a]=temp1[a*ncols+b];
+            }
+        }
+        ii = nblocks*ncols;
+        for(int a = 0;a<ncols;a++){
+            for(int b = 0;b<rem;b++){
+                xT[2*nrows*a+ii+b]=temp2[a*rem+b];
+            }
         }
         free(temp1);
         free(temp2);
