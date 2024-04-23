@@ -9,6 +9,7 @@ from src.correlations import baseband_data_classes as bdc
 # from albatros_analysis.correlations import correlations as cr
 from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
+from src.utils import mkfftw as mk
 import numpy as np
 import datetime
 from matplotlib import pyplot as plt
@@ -38,7 +39,8 @@ a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna
 satnorads = [40087, 41187]
 sat2chan = {41187: [1840, 1844], 40087: [1846, 1847]}
 chan2sat = {1840: 41187, 1844: 41187, 1846: 40087, 1847: 40087}
-corr_chans = np.asarray([1840, 1844, 1846, 1847], dtype=int)
+# corr_chans = np.asarray([1840, 1844, 1846, 1847], dtype=int)
+corr_chans = np.asarray([1846, 1847], dtype=int)
 channel_idx = corr_chans - 1839 + chan_1839_idx
 niter = int(tt2 - tt1) + 2  # run it for an extra second to avoid edge effects
 delays = {}
@@ -47,7 +49,7 @@ times = np.arange(0, niter)  # time in seconds
 # -----------------------------------------------------------------------------#
 # ----------------AVERAGING SETTINGS-------------------------------------------#
 size_micro_chunk = 10000
-num_micro_chunks_per_block = 61
+num_micro_chunks_per_block = 300
 num_blocks = 1
 num_micro_chunks = num_blocks * num_micro_chunks_per_block
 if (num_micro_chunks * size_micro_chunk * T_SPECTRA) > (tt2-tt1):
@@ -61,14 +63,14 @@ N = 2 * size_micro_chunk
 dN = min(
     100000, int(0.3 * N)
 )  # size of coarse xcorr stamp returned will be -dN to dN, total size 2*dN
-dN_interp1 = 100  # stamp size for calculating upsampled xcorr for each chan.
+dN_interp1 = 10  # stamp size for calculating upsampled xcorr for each chan.
 dN_interp2 = 10  # stamp size for storing final summed-all-chans upsampled xcorr.
 sample_no = np.arange(0, (2 * dN_interp1 - 1) * 4096 * osamp, dtype="float64")
 coarse_sample_no = np.arange(0, 2 * dN_interp1, dtype="float64") * 4096 * osamp
 UPSAMP_CENTER = len(sample_no)//2
 UPSAMP_dN = dN_interp2 * 4096 * osamp
 interp_xcorr = np.empty((len(corr_chans), len(sample_no)), dtype="complex128")
-block_xcorr = np.zeros((num_micro_chunks, 2 * UPSAMP_dN), dtype="complex128")
+block_xcorr = np.zeros((num_micro_chunks, len(sample_no)), dtype="complex128")
 block_noise = np.zeros(num_micro_chunks, dtype="float64")
 idx1, idx2 = outils.delay_corrector(idx1, idx2, 40429, 100000)  # 150 => 40429 180 => 43980
 
@@ -81,16 +83,15 @@ print(
     nchunks: {num_micro_chunks:d}"
 )
 print("channel indices", channel_idx)
-tle_file = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
 for i, num in enumerate(satnorads):
     print(i, num)
     og_delays[num] = outils.get_sat_delay(
-        a1_coords, a2_coords, tle_file, tt1, niter, num
+        a1_coords, a2_coords, "orbcomm_28July21.txt", tt1, niter, num
     )
     delays[num] = np.interp(
         np.arange(num_micro_chunks) * size_micro_chunk * T_SPECTRA,
         times,
-        og_delays[num]
+        og_delays[num],
     )
 print(f"loaded TLEs")
 
@@ -169,17 +170,19 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     for i, chan in enumerate(corr_chans):
         sat = chan2sat[chan]
         # shift = -int(delays[sat][ii] * 250e6 * osamp) #get delay for chunk num ii
-        shift = delays[sat][ii] * 250e6 * osamp
-        shifted_samples = sample_no + shift
+        real_freq = 1-chan/4096
+        alia_freq = chan/4096
+        shift = delays[sat][ii] * 250e6 * osamp * real_freq/alia_freq
+        shifted_samples = sample_no - shift
         # print("shift is ", shift, "for sat", sat)
         noise_real = np.std(np.real(xcorr_stamp[i, COARSE_CENTER + 500 :]))
         # print("chan is", chan, "using max at ", COARSE_CENTER, "noise ", noise_real)
-        temp = xcorr_stamp[
-            i, COARSE_CENTER - dN_interp1 : COARSE_CENTER + dN_interp1
-        ].copy()
+        # temp = xcorr_stamp[
+        #     i, COARSE_CENTER - dN_interp1 : COARSE_CENTER + dN_interp1
+        # ].copy()
         tot_noise += noise_real**2
         outils.get_interp_xcorr_fast(
-            temp,
+            xcorr_stamp[i,COARSE_CENTER - dN_interp1 : COARSE_CENTER + dN_interp1],
             chan,
             shifted_samples,
             coarse_sample_no,
@@ -190,16 +193,40 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     # block_xcorr[ii, :] = interp_xcorr[2,UPSAMP_CENTER-UPSAMP_dN:UPSAMP_CENTER+UPSAMP_dN]
     # t1=time.time()
     # print("size of upsampled arr//2 vs UPSAMP_CENTER is", interp_xcorr.shape[1]//2, UPSAMP_CENTER)
-    block_xcorr[ii, :] = np.sum(interp_xcorr[:,
-        UPSAMP_CENTER - UPSAMP_dN : UPSAMP_CENTER + UPSAMP_dN
-    ], axis=0)
-    # t2=time.time()
+    # block_xcorr[ii, :] = np.sum(interp_xcorr[:,
+    #     UPSAMP_CENTER - UPSAMP_dN : UPSAMP_CENTER + UPSAMP_dN
+    # ], axis=0)
+    block_xcorr[ii, :] = np.sum(interp_xcorr, axis=0)
+    # tg2=time.time()
+    # print(block_xcorr[ii,dN_interp1-10:dN_interp1+10])
     # print("summing and assigning", t2-t1)
     block_noise[ii] = np.sqrt(tot_noise)
-    print(f"mu-chunk {ii} noise = {block_noise[ii]}")
+    # print(f"mu-chunk {ii} noise = {block_noise[ii]}")
     # tg2=time.time()
     # print("loop took", tg2-tg1)
-np.savez(os.path.join(out_path, f"debug_genph_{tstart}_{num_micro_chunks_per_block}_{int(time.time())}.npz"),chunks=block_xcorr)
+# fname=os.path.join(out_path, f"debug_genph_{tstart}_{num_micro_chunks_per_block}_{int(time.time())}.npz")
+# np.savez(fname,chunks=block_xcorr)
+# print("wrote", fname)
+# fit a parabola to consecutive xcorrs' xcorr
+bigdat = np.hstack([block_xcorr, np.zeros(block_xcorr.shape, dtype=block_xcorr.dtype)])
+print("hstack done")
+bigft = mk.many_fft_c2c_1d(bigdat,axis=1)
+center2=block_xcorr.shape[1]
+n_avg = outils.get_weights(center2)
+maxvals=[]
+for i in range(0,block_xcorr.shape[0]-1):
+    t1=time.time()
+    xcorr = outils.complex_mult_conj(bigft[i:i+1,:], bigft[i+1:i+2,:])
+    xcorr1 = mk.many_fft_c2c_1d(xcorr,axis=1,backward=True)
+    xc = outils.get_normalized_stamp(xcorr1, n_avg, 50, 1)
+    t2=time.time()
+    print(i)
+    m=np.argmax(xc[0,:].real)
+    params=np.polyfit(np.arange(10),xc[0,50-5:50+5].real,2)
+    maxvals.append(-params[1]/params[0]/2)
+    # maxvals.append(m)
+    # print(f"max at {m}, taking {t2-t1}")
+print(maxvals)
 exit(1)
 avg_xcorr = np.zeros((num_blocks, 2 * UPSAMP_dN), dtype="complex128")
 avg_xcorr_noise = np.zeros(num_blocks, dtype="float64")

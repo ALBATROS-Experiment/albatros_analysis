@@ -249,6 +249,34 @@ class Baseband:
         return unpk.hist(
             self.raw_data, rowstart, rowend, self.length_channels, self.bit_mode, mode
         )
+    
+    def _assign_channels(self,channels=None,chanstart=None,chanend=None):
+        """
+        Helper function for child classes
+        """
+        if isinstance(channels, np.ndarray):
+                channels.sort()
+                if channels.dtype == "int64":
+                    self.channel_idxs = channels
+                    self.chanstart = channels[0]
+                    self.chanend = len(channels) + channels[0] #numpy slice convention
+                else:
+                    raise ValueError("channels should be integers!")
+        elif isinstance(channels, list) or isinstance(channels, tuple):
+            channels.sort()
+            self.channel_idxs = np.asarray(channels,dtype="int64")
+            self.chanstart = channels[0]
+            self.chanend = len(channels) + channels[0]
+        else:
+            if chanstart == None:
+                self.chanstart = 0
+            else:
+                self.chanstart = chanstart
+            if chanend == None:
+                self.chanend = self.length_channels
+            else:
+                self.chanend = chanend
+            self.channel_idxs = np.arange(chanstart, chanend, dtype="int64")
 
 
 def get_header(file_name, verbose=False):
@@ -313,13 +341,7 @@ class BasebandFloat(Baseband):
             Used to instantiate `channels` if `channels` is None.
         """
         super().__init__(file_name, readlen)
-        if channels:
-            if not isinstance(channels, np.ndarray) :
-                self.channels = np.asarray(self.channels, dtype="int64")
-        else:
-            if chanend == None:
-                chanend = self.length_channels
-            self.channels = np.arange(chanstart, chanend, dtype="int64")
+        self._assign_channels(channels=channels,chanstart=chanstart,chanend=chanend)
             
         if unpack:
             if rowstart and rowend:
@@ -337,7 +359,7 @@ class BasebandFloat(Baseband):
                 self.length_channels,
                 rowstart,
                 rowend,
-                self.channels
+                self.channel_idxs
             )
         elif self.bit_mode == 1: #TODO: fix the function call
             return unpk.unpack_1bit(
@@ -358,6 +380,7 @@ class BasebandPacked(Baseband):
         readlen=-1,
         rowstart=None,
         rowend=None,
+        channels=None,
         chanstart=0,
         chanend=None,
         unpack=True,
@@ -385,14 +408,8 @@ class BasebandPacked(Baseband):
         """
 
         super().__init__(file_name, readlen)  # why not pass fixoverflow too??
-
+        self._assign_channels(channels=channels,chanstart=chanstart,chanend=chanend)
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
-        self.chanstart = chanstart
-        if chanend == None:
-            self.chanend = self.length_channels
-        else:
-            self.chanend = chanend
-
         if unpack:
             if rowstart and rowend:
                 self.pol0, self.pol1 = self._unpack(rowstart, rowend)
@@ -450,6 +467,7 @@ class BasebandFileIterator:
         idxstart,
         acclen,
         nchunks=None,
+        channels=None,
         chanstart=0,
         chanend=None,
         type="packed",
@@ -487,32 +505,29 @@ class BasebandFileIterator:
         self.fileidx = fileidx
         self.nchunks = nchunks
         self.chunksread = 0
-        self.chanstart = chanstart
-        self.chanend = chanend
         self.type = type
         self.file_loader = self.get_file_loader() #NB: this is technically not a bound method, but it's OK b/c we don't need self to be passed to file_loader.
         self.obj = self.file_loader(
-            file_paths[fileidx], chanstart=chanstart, chanend=chanend, unpack=False
+            file_paths[fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
-        self.spec_num_start = (
-            idxstart + self.obj.spec_idx[0]
-        )  # REPLACE SPEC_IDX to be SPEC_NUM, not 0 indexed
+        self.channel_idxs = self.obj.channel_idxs
+        self.spec_num_start = idxstart + self.obj.spec_idx[0]
         print(
             "START SPECNUM IS",
             self.spec_num_start,
             "obj start at",
             self.obj.spec_num[0],
         )
-        if self.obj.bit_mode == 1 and self.type == "packed":
+        if self.obj.bit_mode == 1 and self.type == "packed": #TODO: update for the new channel array format
             if self.obj.chanstart % 2 > 0:
                 raise ValueError("ERROR: Start channel index must be even.")
             self.ncols = numpy.ceil((self.obj.chanend - self.obj.chanstart) / 4).astype(
                 int
             )
         else:
-            self.ncols = (
-                self.obj.chanend - self.obj.chanstart
-            )  # for 4 bits ncols = nchans regardless of packed or float, only dtype changes. For 1 bit, we want one col for each chan if float.
+            self.ncols = len(self.channel_idxs)
+            # for 4 bits ncols = nchans regardless of packed or float, only dtype changes. 
+            # For 1 bit, we want one col for each chan if float.
     
     def get_file_loader(self):
         if self.type == 'float':
@@ -592,8 +607,7 @@ class BasebandFileIterator:
                     self.fileidx += 1
                     self.obj = self.file_loader(
                         self.file_paths[self.fileidx],
-                        chanstart=self.chanstart,
-                        chanend=self.chanend,
+                        channels=self.channel_idxs,
                         unpack=False,
                     )
                     # print(

@@ -44,6 +44,13 @@ def csplev(x,coeffs):
         out[i]=tot
     return out
 
+def temp_func(x,coeffs):
+    a=1
+    b=2
+    c=3
+    o=csplev(x,coeffs)
+    return o
+
 n=10
 # y=np.random.randn(n)
 # spl=interpolate.splrep(np.arange(n),y)
@@ -60,15 +67,15 @@ y1=interpolate.splev(xnew,spl)
 y2=csplev(xnew,coeffs)
 
 print("error",np.std(y2-y1))
-# m=int(32e6)
-# x=np.random.rand(m)*n
-# t1=time.time()
-# y1=interpolate.splev(x,spl)
-# t2=time.time()
-# print('splev: ',t2-t1)
+m=int(32e6)
+x=np.random.rand(m)*n
+t1=time.time()
+y1=interpolate.splev(x,spl)
+t2=time.time()
+print('splev: ',t2-t1)
 
-# for i in range(20):
-#     t1=time.time()
-#     y2=csplev(x,coeffs)
-#     t2=time.time()
-#     print('csplev: ',t2-t1)
+for i in range(20):
+    t1=time.time()
+    y2=csplev(x,coeffs)
+    t2=time.time()
+    print('csplev: ',t2-t1)
