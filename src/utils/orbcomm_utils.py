@@ -9,8 +9,8 @@ import skyfield.api as sf
 from scipy import fft
 import datetime
 import os
-#from . import math_utils as mutils
-#from . import mkfftw as mk
+# from . import math_utils as mutils
+# from . import mkfftw as mk
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -607,6 +607,6 @@ def delay_corrector(idx1, idx2, delay, dN):
 
 def chan2freq(chan,alias=False,samp=250e6,fftlen=4096):
     if alias:
-        return samp*chan/fftlen
-    else:
         return samp*(1-chan/fftlen)
+    else:
+        return samp*chan/fftlen
