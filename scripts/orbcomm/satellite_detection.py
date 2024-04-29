@@ -224,24 +224,24 @@ for file_num, file in enumerate(direct_files):
         dN = min(100000, int(0.3 * N))
         print("2*N and 2*dN", N, dN)
         temp_satmap = []  # will need to map the row number to satID later
-        cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
-        print("RUNNING SPEED TEST")
-        tottime=0
-        profiler.enable()
-        for i in range(20):
-            t1=time.time()
-            cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
-            t2=time.time()
-            tottime+=t2-t1
-            print("current impl taking", t2-t1)
-        profiler.disable()
-        stats = pstats.Stats(profiler)
-        stats.sort_stats(pstats.SortKey.CUMULATIVE)
-        # with open(path.join(out_path, "stats.txt"), 'w') as f:
-        #     stats.stream = f
-        #     stats.print_stats(15)
-        print("average time taken", tottime/20)
-        exit(1)
+        # cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
+        # print("RUNNING SPEED TEST")
+        # tottime=0
+        # profiler.enable()
+        # for i in range(20):
+        #     t1=time.time()
+        #     cx0 = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
+        #     t2=time.time()
+        #     tottime+=t2-t1
+        #     print("current impl taking", t2-t1)
+        # profiler.disable()
+        # stats = pstats.Stats(profiler)
+        # stats.sort_stats(pstats.SortKey.CUMULATIVE)
+        # # with open(path.join(out_path, "stats.txt"), 'w') as f:
+        # #     stats.stream = f
+        # #     stats.print_stats(15)
+        # print("average time taken", tottime/20)
+        # exit(1)
         cx.append(outils.get_coarse_xcorr_fast(p0_a1, p0_a2, dN))  # no correction
 
         if DEBUG:
