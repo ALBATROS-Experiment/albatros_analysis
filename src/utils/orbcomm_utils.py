@@ -9,8 +9,8 @@ import skyfield.api as sf
 from scipy import fft
 import datetime
 import os
-# from . import math_utils as mutils
-# from . import mkfftw as mk
+from . import math_utils as mutils
+from . import mkfftw as mk
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -123,6 +123,16 @@ def apply_delay(arr, newarr, delay, freqs):
     for i in nb.prange(nspec):
         for j in range(nchan):
             newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay[i])
+
+@nb.njit(parallel=True)
+def apply_sat_delay(arr, newarr, col2sat, delays, freqs):
+    nspec = arr.shape[0]
+    nchan = arr.shape[1]
+    for i in nb.prange(nspec):
+        for j in range(nchan):
+            delay = delays[i,col2sat[j]]
+            # print(f"delay {i},{j} is", delay )
+            newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay)
 
 @nb.njit(parallel=True)
 def get_normalized_stamp(cxcorr, weights, dN, Npfb):
@@ -296,7 +306,7 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
 
-def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, out=None):
+def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift, out=None):
     """Get a upsampled xcorr from coarse_xcorr by adding back the carrier frequency.
 
     Parameters
@@ -321,10 +331,11 @@ def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, out=N
     else:
         final_xcorr_cwave = np.empty(sample_no.shape[0], dtype="complex128")
     # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
+    shifted_sample_no = sample_no + shift
     uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
     newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
     newphase = mutils.linear_interp(sample_no, coarse_sample_no, newphase)
-    newmag = mutils.cubic_spline(sample_no, coarse_sample_no, np.abs(coarse_xcorr))
+    newmag = mutils.cubic_spline(shifted_sample_no, coarse_sample_no, np.abs(coarse_xcorr))
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
 
