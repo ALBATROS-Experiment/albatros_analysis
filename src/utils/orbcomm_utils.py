@@ -50,6 +50,13 @@ def make_continuous_rand(newarr, arr, spec_idx):
     for i in nb.prange(n):
         newarr[spec_idx[i], :] = arr[i, :]
 
+@nb.njit(parallel=True)
+def add_1d(x,y):
+    n=len(x)
+    z = np.empty(n, dtype=x.dtype)
+    for i in nb.prange(n):
+        z[i] = x[i] + y[i]
+    return z
 
 @nb.njit(parallel=True)
 def make_complex(cmpl, mag, phase):
@@ -331,7 +338,7 @@ def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift
     else:
         final_xcorr_cwave = np.empty(sample_no.shape[0], dtype="complex128")
     # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
-    shifted_sample_no = sample_no + shift
+    shifted_sample_no = add_1d(sample_no, shift)
     uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
     newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
     newphase = mutils.linear_interp(sample_no, coarse_sample_no, newphase)

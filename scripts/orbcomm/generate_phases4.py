@@ -19,30 +19,40 @@ import datetime
 from matplotlib import pyplot as plt
 from os import path
 import toml
-
+from scipy.signal import find_peaks
 
 def xcorr_parab(arr1, arr2):
-    xc = outils.get_coarse_xcorr_fast2(arr1, arr2, 50, Npfb=1)
+    xc = outils.get_coarse_xcorr_fast2(arr1, arr2, 65, Npfb=1)
     # print(xc.shape)
-    m = np.argmax(xc[0, :].real)
-    params = np.polyfit(np.arange(10), xc[0, m - 5 : m + 5].real, 2)
-    print("arr max", m, -params[1] / params[0] / 2 + m - 50)
-    return -params[1] / params[0] / 2 + m - 50
+    # m = np.argmax(xc[0, :].real)
+    peaks = []
+    locs = find_peaks(xc[0,:].real,distance=80)[0]
+    for m in locs:
+        left = max(m-5,0)
+        right = min(m+5,100)
+        x = np.arange(left,right)
+        y = xc[0, left : right].real
+        if len(y) < 4:
+            continue
+        params = np.polyfit(x, y , 2)
+        # print("arr max", m, -params[1] / params[0] / 2 + m - 50)
+        peaks.append( -params[1] / params[0] / 2 - 50 )
+    return peaks
 
 
 T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 393216 * T_SPECTRA
 DEBUG = False
 
-with open("./sat_data.toml", "r") as file:
+with open("./sat_transits.toml", "r") as file:
     sat_data = toml.load(file)
 
-transit = sat_data["transits"]["T001"]  # pass the transit ID
+transit = sat_data["transits"]["T003"]  # pass the transit ID
 
 deployment_yyyymm = transit["yyyymm"]
 ant1_snap = transit["ant1"]
 ant2_snap = transit["ant2"]
-base_path = path.join("/project/s/sievers/albatros/uapishka", deployment_yyyymm)
+base_path = path.join("/project/s/sievers/albatros/uapishka", str(deployment_yyyymm))
 out_path = "/scratch/s/sievers/mohanagr/"
 
 
@@ -68,7 +78,7 @@ a2_coords = [51.46418956, -68.23487849, 338.32526665]  # south antenna
 satnorads = sorted([int(key) for key in transit["satellites"]])
 sat2chan = {int(key): transit["satellites"][key] for key in transit["satellites"]}
 chan2sat = {
-    chan: key for key in transit["satellites"] for chan in transit["satellites"][key]
+    chan: int(key) for key in transit["satellites"] for chan in transit["satellites"][key]
 }
 corr_chans = np.asarray(
     sorted(
@@ -76,6 +86,10 @@ corr_chans = np.asarray(
     ),
     dtype=int,
 )
+print(satnorads)
+print(sat2chan)
+print(chan2sat)
+print(corr_chans)
 col2sat = np.zeros(len(corr_chans), dtype=int)
 channel_idx = corr_chans - 1839 + chan_1839_idx  # for passing to BDC unpacking
 niter = (
@@ -85,8 +99,8 @@ times = np.arange(0, niter)  # time in seconds
 
 # -----------------------------------------------------------------------------#
 # ----------------AVERAGING SETTINGS-------------------------------------------#
-size_micro_chunk = 1000000
-num_micro_chunks_per_block = 41
+size_micro_chunk = 100000
+num_micro_chunks_per_block = 500
 num_blocks = 1
 num_micro_chunks = num_blocks * num_micro_chunks_per_block
 if (num_micro_chunks * size_micro_chunk * T_SPECTRA) > (tt2 - tt1):
@@ -100,7 +114,7 @@ N = 2 * size_micro_chunk
 dN = min(
     100000, int(0.3 * N)
 )  # size of coarse xcorr stamp returned will be -dN to dN, total size 2*dN
-dN_interp = 10  # stamp size for calculating upsampled xcorr for each chan.
+dN_interp = 13  # stamp size for calculating upsampled xcorr for each chan.
 sample_no = np.arange(0, (2 * dN_interp - 1) * 4096 * osamp, dtype="float64")
 coarse_sample_no = np.arange(0, 2 * dN_interp, dtype="float64") * 4096 * osamp
 UPSAMP_dN = dN_interp * 4096 * osamp
@@ -110,17 +124,17 @@ chunk_nums = np.zeros(
 )  # store the block num for xcorr xcorr
 cur_xcorr_num = 0
 maxvals = []
-idx1, idx2 = outils.delay_corrector(idx1, idx2, 106628, 100000)  # 150 => 40429 106628
-block_xcorr = np.empty((num_micro_chunks, len(sample_no)), dtype="complex128")
-print(
-    f"Start channel: {1839:d} at index {chan_1839_idx:d}.\n\
-    Num channels: {len(channel_idx):d}.\n\
-    Block length: {size_micro_chunk:d}.\n\
-    len coarse xcorr: {2*N}'\n\
-    len stamp: {2*dN}\n\
-    nchunks: {num_micro_chunks:d}\n\
-    channels:",
-    hdr1["channels"][channel_idx],
+idx1, idx2 = outils.delay_corrector(idx1, idx2, transit["offset"], 100000)  # 150 => 40429 106628
+# block_xcorr = np.empty((num_micro_chunks, len(sample_no)), dtype="complex128")
+print(f"Start channel: {1839:d} at index {chan_1839_idx:d}.\n\
+Num channels: {len(channel_idx):d}\n\
+Block length: {size_micro_chunk:d}\n\
+len coarse xcorr: {2*N}\n\
+len stamp: {2*dN}\n\
+coarse offset: {transit['offset']}\n\
+nchunks: {num_micro_chunks:d}\n\
+channels:",
+hdr1["channels"][channel_idx],
 )
 print("channel indices", channel_idx)
 tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
@@ -206,7 +220,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     )
     xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2_delayed, dN)
 
-    if True:
+    if False:
         fig2, ax2 = plt.subplots(np.ceil(xcorr_stamp.shape[0] / 3).astype(int), 3)
         fig2.set_size_inches(12, np.ceil(xcorr_stamp.shape[0] / 3) * 3)
         ax2 = ax2.flatten()
@@ -249,11 +263,13 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     else:
         cur_xcorr = np.sum(interp_xcorr, axis=0)
         peak = xcorr_parab(prev_xcorr, cur_xcorr)
+        if len(peak) == 0: #no peaks found because they are too close to the edges
+            continue
         maxvals.append(peak)
         chunk_nums[cur_xcorr_num] = ii
         cur_xcorr_num += 1
-        prev_xcorr = cur_xcorr
-    block_xcorr[cur_xcorr_num, :] = prev_xcorr
+        # prev_xcorr = cur_xcorr #Uncomment to do consecutive chunks' xcorr
+    # block_xcorr[cur_xcorr_num, :] = prev_xcorr
 
 tg2 = time.time()
 print("total time", tg2 - tg1)
@@ -262,7 +278,7 @@ print("avg time", (tg2 - tg1) / num_micro_chunks)
 print(maxvals)
 print(chunk_nums[:cur_xcorr_num].tolist())
 
-fname = os.path.join(out_path, f"genph4_{int(time.time())}.npz")
-np.savez(fname, chunks=block_xcorr, nums=chunk_nums[:cur_xcorr_num])
-print("wrote", fname)
+# fname = os.path.join(out_path, f"genph4_{int(time.time())}.npz")
+# np.savez(fname, chunks=block_xcorr, nums=chunk_nums[:cur_xcorr_num])
+# print("wrote", fname)
 # fit a parabola to consecutive xcorrs' xcorr

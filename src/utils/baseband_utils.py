@@ -91,8 +91,8 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     else:
         flip = np.where(np.diff(tstamps > ts) != 0)[0][0]
     # plt.plot(tstamps>ts)
-    print(flip,delta,tstamps[flip])
-    print(ts - tstamps[flip])
+    # print(flip,delta,tstamps[flip])
+    # print(ts - tstamps[flip])
     if ts - tstamps[flip] <= delta:
         return files[flip], np.round((ts - tstamps[flip]) / dt).astype(
             int
