@@ -276,7 +276,7 @@ class Baseband:
                 self.chanend = self.length_channels
             else:
                 self.chanend = chanend
-            self.channel_idxs = np.arange(chanstart, chanend, dtype="int64")
+            self.channel_idxs = np.arange(self.chanstart, self.chanend, dtype="int64")
 
 
 def get_header(file_name, verbose=False):
