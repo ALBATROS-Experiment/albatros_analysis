@@ -102,7 +102,7 @@ void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int 
 
     int nn = nrows * ncol;
     uint8_t imask=15;
-      uint8_t rmask=255-15;
+    uint8_t rmask=255-15;
 
     #pragma omp parallel for
     for(int i = 0; i<nn; i++)

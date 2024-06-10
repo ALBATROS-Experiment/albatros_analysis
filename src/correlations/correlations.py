@@ -97,7 +97,6 @@ mylib.avg_xcorr_1bit_vanvleck_2ant.argtypes = [
 ]
 avg_xcorr_1bit_vanvleck_2ant_c = mylib.avg_xcorr_1bit_vanvleck_2ant
 
-
 # TODO: standardise naming, here it's called 'pol', later it's called 'data'
 def autocorr_4bit(pol):
     """Compute autocorrelations of 4bit data.
@@ -185,7 +184,7 @@ def xcorr_4bit(data0, data1):
     return xcorr
 
 
-def avg_xcorr_4bit(data0, data1, specnums):
+def avg_xcorr_4bit(data0, data1, specnums, phase=None):
     """Compute time-averaged cross-correlation.
 
     Parameters
@@ -196,6 +195,9 @@ def avg_xcorr_4bit(data0, data1, specnums):
         2d baseband array.
     specnums: np.ndarray
         ??
+    phase: np.ndarray
+        optional 2d array of phase that should be applied to the visibility
+        before averaging
     Returns
     -------
     corr: np.ndarray
@@ -211,9 +213,14 @@ def avg_xcorr_4bit(data0, data1, specnums):
         xcorr = np.nan
         return xcorr
     t1 = time.time()
-    avg_xcorr_4bit_c(
-        data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, rowcount, data0.shape[1]
-    )
+    if phase is None:
+        avg_xcorr_4bit_c(
+            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, None, rowcount, data0.shape[1]
+        )
+    else:
+        avg_xcorr_4bit_c(
+            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, phase.ctypes.data, rowcount, data0.shape[1]
+        )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
     return xcorr / rowcount
