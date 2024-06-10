@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <omp.h>
+#include <complex.h>
+#include <math.h>
+
+#define PI 3.14159265358979323846
 
 void autocorr_4bit(uint8_t * data, uint8_t * corr, uint32_t nspec, uint32_t ncol)
 {
@@ -92,48 +96,80 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
     // }
 }
 
-void avg_autocorr_4bit_raw()
+void apply_phase(double complex * xcorr_in, double complex * xcorr_out, double * delay, double * freqs, int nrows, int ncols)
 {
-    // something that can average whole files, both pols from raw data without any unpacking/sortpol
+    double complex * out;
+    out = (xcorr_out == NULL) ? xcorr_in : xcorr_out;
+    #pragma omp parallel for
+    for(int i=0; i<nrows; i++)
+    {
+        int skip=ncols*i;
+        for(int j=0; j<ncols; j++)
+        {
+            out[skip+i] = xcorr_in[skip+i] * exp(2*PI*I*freqs[j]*delay[i]);
+        }
+    }
 }
-
-void xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int ncol)
+void xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, int * rownums0, int * rownums1, int nrows, int ncols)
 {
-
-    int nn = nrows * ncol;
     uint8_t imask=15;
     uint8_t rmask=255-15;
-
-    #pragma omp parallel for
-    for(int i = 0; i<nn; i++)
+    if((rownums0 != NULL) && (rownums1 != NULL))
     {
-        int8_t im0=data0[i]&imask;
-        int8_t r0=(data0[i]&rmask)>>4;
-        if (r0 > 8){r0 = r0 - 16;}
-        if (im0 > 8){im0 = im0 - 16;}
+        // 2 antenna case. not all rows from data0 and data1 will go into the xcorr
+        #pragma omp parallel for
+        for(int i=0; i<nrows; i++)
+        {
+            int skip = i*ncols;
+            for(int j=0; j<ncols; j++)
+            {
+                int8_t im0=data0[rownums0[i]*ncols+j]&imask;
+                int8_t r0=(data0[rownums0[i]*ncols+j]&rmask)>>4;
+                if (r0 > 8){r0 = r0 - 16;}
+                if (im0 > 8){im0 = im0 - 16;}
+            
+                int8_t im1=data1[rownums1[i]*ncols+j]&imask;
+                int8_t r1=(data1[rownums1[i]*ncols+j]&rmask)>>4;
+                if (r1 > 8){r1 = r1 - 16;}
+                if (im1 > 8){im1 = im1 - 16;}
+                // printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
+                xcorr[skip+j] = r0*r1 + im0*im1 + I * (r1*im0 - r0*im1);
+            }
+        }
+    }
+    else
+    {
+        int nn = nrows * ncols;
+        #pragma omp parallel for
+        for(int i = 0; i<nn; i++)
+        {
+            int8_t im0=data0[i]&imask;
+            int8_t r0=(data0[i]&rmask)>>4;
+            if (r0 > 8){r0 = r0 - 16;}
+            if (im0 > 8){im0 = im0 - 16;}
 
-        int8_t im1=data1[i]&imask;
-        int8_t r1=(data1[i]&rmask)>>4;
-        if (r1 > 8){r1 = r1 - 16;}
-        if (im1 > 8){im1 = im1 - 16;}
+            int8_t im1=data1[i]&imask;
+            int8_t r1=(data1[i]&rmask)>>4;
+            if (r1 > 8){r1 = r1 - 16;}
+            if (im1 > 8){im1 = im1 - 16;}
 
-        //printf("data %d, r %d, im %d\n", data[i], r, im);
-        //printf("r %d, im %d", r, im);
-        xcorr[2*i] = r0*r1 + im0*im1;
-        xcorr[2*i+1] = r1*im0 - r0*im1;
-        //printf("corr[i]=%d\n", corr[i]);
+            //printf("data %d, r %d, im %d\n", data[i], r, im);
+            //printf("r %d, im %d", r, im);
+            xcorr[i] = r0*r1 + im0*im1 + I * (r1*im0 - r0*im1);
+        }
     }
 }
 
-void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, int ncol)
+void xcorr_acc_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, int nrows, int ncol)
 {
     /*
+        CROSS-CORRELATE AND ACCUMULATE
         Returns an array of nchan elements. Sum over all spectra for each channel. 
         Division by appropriate spectra count will be taken care by python frontend.
     */
 
     uint8_t imask=15;
-      uint8_t rmask=255-15;
+    uint8_t rmask=255-15;
     //+2.1bil to -2.4bil, should be enough, and compatible with float32
     int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
 
@@ -184,6 +220,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nrows, 
         }
     }
 }
+
 
 int avg_xcorr_4bit_2ant(uint8_t * data0, uint8_t * data1, float * xcorr, int64_t* specnum0, int64_t* specnum1, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1, int ncol)
 {
