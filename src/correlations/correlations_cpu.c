@@ -96,71 +96,78 @@ void avg_autocorr_4bit(uint8_t * data, int64_t * corr, int nrows, int ncol)
     // }
 }
 
-void apply_phase(double complex * xcorr_in, double complex * xcorr_out, double * delay, double * freqs, int nrows, int ncols)
+void apply_phase(double complex * xcorr_in, double complex * xcorr_out, double * delay, double * freqs, int * idx, int nrows, int ncols)
 {
-    double complex * out;
-    out = (xcorr_out == NULL) ? xcorr_in : xcorr_out;
+    double complex * out = (xcorr_out == NULL) ? xcorr_in : xcorr_out;
     #pragma omp parallel for
     for(int i=0; i<nrows; i++)
     {
         int skip=ncols*i;
+        int index = (idx != NULL) ? idx[i] : i; // move IF outside and duplicate for 2% more performance
         for(int j=0; j<ncols; j++)
         {
-            out[skip+i] = xcorr_in[skip+i] * exp(2*PI*I*freqs[j]*delay[i]);
+            out[skip+i] = xcorr_in[skip+i] * cexp(2*PI*I*freqs[j]*delay[index]); // might be slow
         }
     }
 }
+
 void xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, int * rownums0, int * rownums1, int nrows, int ncols)
 {
+    // nrows = row_count if 2 antenna case. we already know how many common rows. just gotta xcorr them.
     uint8_t imask=15;
     uint8_t rmask=255-15;
-    if((rownums0 != NULL) && (rownums1 != NULL))
+    #pragma omp parallel for
+    for(int i=0; i<nrows; i++)
     {
-        // 2 antenna case. not all rows from data0 and data1 will go into the xcorr
-        #pragma omp parallel for
-        for(int i=0; i<nrows; i++)
+        int skip = i*ncols;
+        int row0 = (rownums0 != NULL) ? rownums0[i] * ncols : i * ncols; // move IF outside and duplicate code for 10% more perf
+        int row1 = (rownums1 != NULL) ? rownums1[i] * ncols : i * ncols;
+        for(int j=0; j<ncols; j++)
         {
-            int skip = i*ncols;
-            for(int j=0; j<ncols; j++)
-            {
-                int8_t im0=data0[rownums0[i]*ncols+j]&imask;
-                int8_t r0=(data0[rownums0[i]*ncols+j]&rmask)>>4;
-                if (r0 > 8){r0 = r0 - 16;}
-                if (im0 > 8){im0 = im0 - 16;}
-            
-                int8_t im1=data1[rownums1[i]*ncols+j]&imask;
-                int8_t r1=(data1[rownums1[i]*ncols+j]&rmask)>>4;
-                if (r1 > 8){r1 = r1 - 16;}
-                if (im1 > 8){im1 = im1 - 16;}
-                // printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
-                xcorr[skip+j] = r0*r1 + im0*im1 + I * (r1*im0 - r0*im1);
-            }
+            int8_t im0=data0[row0*ncols+j]&imask;
+            int8_t r0=(data0[row0*ncols+j]&rmask)>>4;
+            if (r0 > 8){r0 = r0 - 16;}
+            if (im0 > 8){im0 = im0 - 16;}
+        
+            int8_t im1=data1[row1*ncols+j]&imask;
+            int8_t r1=(data1[row1*ncols+j]&rmask)>>4;
+            if (r1 > 8){r1 = r1 - 16;}
+            if (im1 > 8){im1 = im1 - 16;}
+            // printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
+            xcorr[skip+j] = r0*r1 + im0*im1 + I * (r1*im0 - r0*im1);
         }
+    }
+}
+int get_common_rows(int64_t* specnum0, int64_t* specnum1, int * rownums0, int* rownums1, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1)
+{
+    int row_count = 0;
+    if(specnum0 == specnum1)
+    {
+        rownums0 = NULL;
+        rownums1 = NULL;
+        row_count = nrows0;
     }
     else
     {
-        int nn = nrows * ncols;
-        #pragma omp parallel for
-        for(int i = 0; i<nn; i++)
+        int i=0,j=0;
+        while((i<nrows0)&&(j<nrows1))
         {
-            int8_t im0=data0[i]&imask;
-            int8_t r0=(data0[i]&rmask)>>4;
-            if (r0 > 8){r0 = r0 - 16;}
-            if (im0 > 8){im0 = im0 - 16;}
-
-            int8_t im1=data1[i]&imask;
-            int8_t r1=(data1[i]&rmask)>>4;
-            if (r1 > 8){r1 = r1 - 16;}
-            if (im1 > 8){im1 = im1 - 16;}
-
-            //printf("data %d, r %d, im %d\n", data[i], r, im);
-            //printf("r %d, im %d", r, im);
-            xcorr[i] = r0*r1 + im0*im1 + I * (r1*im0 - r0*im1);
+            
+            if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
+            {
+                rownums0[row_count]=i;
+                rownums1[row_count]=j;
+                row_count=row_count+1;
+                i=i+1;
+                j=j+1;
+            }
+            else if((specnum0[i]-idxstart0)>(specnum1[j]-idxstart1)) {j=j+1;}
+            else {i=i+1;}
         }
     }
+    return row_count;
 }
-
-void xcorr_acc_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, int nrows, int ncol)
+void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr, int64_t* specnum0, int64_t* specnum1, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1, int ncols)
 {
     /*
         CROSS-CORRELATE AND ACCUMULATE
@@ -170,53 +177,52 @@ void xcorr_acc_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, in
 
     uint8_t imask=15;
     uint8_t rmask=255-15;
-    //+2.1bil to -2.4bil, should be enough, and compatible with float32
-    int32_t sum_r_pvt[ncol], sum_im_pvt[ncol];
+    int row_count, rownums0[nrows0], rownums1[nrows1]; // max(nrows0)=max(nrows1)=acclen
+    row_count = get_common_rows(specnum0, specnum1, rownums0, rownums1, idxstart0, idxstart1, nrows0, nrows1);
 
-    for(int i=0; i<ncol; i++)
+    //+2.1bil to -2.4bil, should be enough, and compatible with float32
+    double complex sum_pvt[ncols];
+
+    for(int i=0; i<ncols; i++)
     {
-        xcorr[2*i]=0;
-        xcorr[2*i+1]=0;
+        avg_xcorr[i] = 0 + I*0;
     }
 
     #pragma omp parallel private(sum_r_pvt,sum_im_pvt)
     {
         //init
-        for(int i=0;i<ncol;i++)
+        for(int i=0;i<ncols;i++)
         {
-            sum_r_pvt[i]=0;
-            sum_im_pvt[i]=0;
+            sum_pvt[i]=0;
         }
 
         #pragma omp for nowait
-        for(int i=0; i<nrows; i++)
+        for(int i=0; i<row_count; i++)
         {
-            for(int j=0; j<ncol; j++)
+            int row0 = (rownums0 != NULL) ? rownums0[i] * ncols : i * ncols; // move IF outside and duplicate code for 10% more perf
+            int row1 = (rownums1 != NULL) ? rownums1[i] * ncols : i * ncols;
+            for(int j=0; j<ncols; j++)
             {
-                int8_t im0=data0[i*ncol+j]&imask;
-                int8_t r0=(data0[i*ncol+j]&rmask)>>4;
+                int8_t im0=data0[row0*ncols+j]&imask;
+                int8_t r0=(data0[row0*ncols+j]&rmask)>>4;
                 if (r0 > 8){r0 = r0 - 16;}
                 if (im0 > 8){im0 = im0 - 16;}
-                
 
-                int8_t im1=data1[i*ncol+j]&imask;
-                int8_t r1=(data1[i*ncol+j]&rmask)>>4;
+                int8_t im1=data1[row1*ncols+j]&imask;
+                int8_t r1=(data1[row1*ncols+j]&rmask)>>4;
                 if (r1 > 8){r1 = r1 - 16;}
                 if (im1 > 8){im1 = im1 - 16;}
                 // printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
-
-                sum_r_pvt[j] = sum_r_pvt[j] + r0*r1 + im0*im1;
-                sum_im_pvt[j] = sum_im_pvt[j] + r1*im0 - r0*im1;
+                // can use Kahan summation here
+                // include phasing before summing
+                sum_pvt[j] = sum_pvt[j] + r0*r1 + im0*im1 + I*(r1*im0 - r0*im1);
+                
             }
         }
-        #pragma omp critical
+        for(int k=0; k<ncols; k++)
         {
-            for(int k=0; k<ncol; k++)
-            {
-                // printf("setting real xcorr of k=%d as %d\n",k, sum_r_pvt[k]);
-                xcorr[2*k] = xcorr[2*k] + sum_r_pvt[k];
-                xcorr[2*k+1] = xcorr[2*k+1] + sum_im_pvt[k];
-            }
+            #pragma omp atomic
+            avg_xcorr[k] = avg_xcorr[k] + sum_pvt[k];
         }
     }
 }
