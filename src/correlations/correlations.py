@@ -32,29 +32,24 @@ mylib.xcorr_4bit.argtypes = [
     ctypes.c_uint32,
 ]
 mylib.avg_xcorr_4bit.argtypes = [
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_int,
-    ctypes.c_int,
+    ctypes.c_void_p,    #data0
+    ctypes.c_void_p,    #data1
+    ctypes.c_void_p,    #avg_xcorr
+    ctypes.c_void_p,    #specnum0
+    ctypes.c_void_p,    #specnum1
+    ctypes.c_int64,     #idxstart0
+    ctypes.c_int64,     #idxstart1
+    ctypes.c_int,       #nrows0
+    ctypes.c_int,       #nrows1
+    ctypes.c_int,       #ncols
+    ctypes.c_void_p,    #delay
+    ctypes.c_void_p,    #freqs
 ]
-mylib.avg_xcorr_4bit_2ant.argtypes = [
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_int64,
-    ctypes.c_int64,
-    ctypes.c_int,
-    ctypes.c_int,
-    ctypes.c_int,
-]
+
 autocorr_4bit_c = mylib.autocorr_4bit
 avg_autocorr_4bit_c = mylib.avg_autocorr_4bit
 xcorr_4bit_c = mylib.xcorr_4bit
 avg_xcorr_4bit_c = mylib.avg_xcorr_4bit
-avg_xcorr_4bit_2ant_c = mylib.avg_xcorr_4bit_2ant
 
 mylib.avg_xcorr_1bit.argtypes = [
     ctypes.c_void_p,
@@ -184,7 +179,7 @@ def xcorr_4bit(data0, data1):
     return xcorr
 
 
-def avg_xcorr_4bit(data0, data1, specnums, phase=None):
+def avg_xcorr_4bit(data0, data1, specnum0, specnum1, start_idx0, start_idx1, delay=None,freqs=None):
     """Compute time-averaged cross-correlation.
 
     Parameters
@@ -205,82 +200,17 @@ def avg_xcorr_4bit(data0, data1, specnums, phase=None):
     """
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
-    rowcount = len(specnums)
-    # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
-    xcorr = np.empty(data0.shape[1], dtype="complex64", order="c")
-    if rowcount == 0:
-        print("empty block")
-        xcorr = np.nan
-        return xcorr
+    nrows0=len(specnum0)
+    nrows1=len(specnum1)
+    xcorr = np.empty(data0.shape[1], dtype="complex128", order="c")
     t1 = time.time()
-    if phase is None:
-        avg_xcorr_4bit_c(
-            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, None, rowcount, data0.shape[1]
-        )
-    else:
-        avg_xcorr_4bit_c(
-            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, phase.ctypes.data, rowcount, data0.shape[1]
-        )
-    t2 = time.time()
-    print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return xcorr / rowcount
-
-
-def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1):
-    """Compute cross correlation between two antennas, for 4bit data.
-
-    ??
-
-    Parameters
-    ----------
-    data0: np.ndarray
-        2d baseband data for antenna #0.
-    data1: np.ndarray
-        2d baseband data for antenna #1
-    specnum0: ??
-        ??
-    specnum1: ??
-        ??
-    start_idx0: int
-        ??
-    start_idx1: int
-        ??
-
-    Returns
-    -------
-    xcorr: np.ndarray
-        ??
-    """
-    assert data0.shape[1] == data1.shape[1]
-    xcorr = np.empty(data0.shape[1], dtype="complex64", order="c")
-    if len(specnum0) == 0 or len(specnum1) == 0:
-        xcorr = np.nan
-        return xcorr
-    # print("Start idx recieved in python", start_idx0, start_idx1)
-    # print(specnum0.shape, specnum1.shape)
-    # print("First specnums", specnum0[0],specnum1[0])
-    # print(specnum0-start_idx0, specnum1-start_idx1)
-    t1 = time.time()
-    rowcount = avg_xcorr_4bit_2ant_c(
-        data0.ctypes.data,
-        data1.ctypes.data,
-        xcorr.ctypes.data,
-        specnum0.ctypes.data,
-        specnum1.ctypes.data,
-        start_idx0,
-        start_idx1,
-        len(specnum0),
-        len(specnum1),
-        data0.shape[1],
+    avg_xcorr_4bit_c(
+        data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, specnum0.ctypes.data, specnum1.ctypes.data, start_idx0, start_idx1,
+        nrows0, nrows1, data0.shape[1], delay, freqs
     )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    print("ROW COUNT IS ", rowcount)
-    if rowcount == 0:
-        xcorr = np.nan
-        return xcorr
-    return xcorr / rowcount
-
+    return xcorr
 
 def avg_xcorr_1bit(data0, data1, specnums, nchannels):
     # nchannels = num of channels contained in packed pol0/pol1 data

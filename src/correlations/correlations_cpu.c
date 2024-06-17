@@ -182,7 +182,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
     uint8_t imask=15;
     uint8_t rmask=255-15;
     int row_count, rownums0[nrows0], rownums1[nrows1], rowidx[min(nrows0, nrows1)]; // max(nrows0)=max(nrows1)=acclen
-    row_count = get_common_rows(specnum0, specnum1, rowidx, rownums0, rownums1, rowidx, idxstart0, idxstart1, nrows0, nrows1);
+    row_count = get_common_rows(specnum0, specnum1, rownums0, rownums1, rowidx, idxstart0, idxstart1, nrows0, nrows1);
 
     //+2.1bil to -2.4bil, should be enough, and compatible with float32
     double complex sum_pvt[ncols];
@@ -191,7 +191,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
     {
         avg_xcorr[i] = 0 + I*0;
     }
-    #pragma omp parallel private(sum_r_pvt,sum_im_pvt)
+    #pragma omp parallel private(sum_pvt)
     {
         //init
         for(int i=0;i<ncols;i++)
@@ -229,11 +229,14 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
                 }
             }
         }
-        for(int k=0; k<ncols; k++)
+        #pragma omp critical
         {
-            #pragma omp atomic
-            avg_xcorr[k] = avg_xcorr[k] + sum_pvt[k];
+            for(int k=0; k<ncols; k++)
+            {
+                avg_xcorr[k] += sum_pvt[k];
+            }
         }
+        
     }
 }
 
