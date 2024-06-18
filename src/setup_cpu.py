@@ -65,7 +65,7 @@ def build():
                 raise Exception(mac_error_message)
         else:
             # Linux/Windows
-            system(f'gcc -std=c99 -O3 -march=native -shared -o "{path_so}" -fPIC -fopenmp "{path_c}"')
+            system(f'gcc -g -std=c99 -O0 -march=native -shared -o "{path_so}" -fPIC -fopenmp "{path_c}"')
 
 
 if __name__ == "__main__":

@@ -198,16 +198,26 @@ def avg_xcorr_4bit(data0, data1, specnum0, specnum1, start_idx0, start_idx1, del
     corr: np.ndarray
         1d array, time averaged cross correlation in each channel.
     """
+    print("ENTERED")
     assert data0.shape[1] == data1.shape[1]
     assert data0.shape[0] == data1.shape[0]
     nrows0=len(specnum0)
     nrows1=len(specnum1)
     xcorr = np.empty(data0.shape[1], dtype="complex128", order="c")
     t1 = time.time()
-    avg_xcorr_4bit_c(
-        data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, specnum0.ctypes.data, specnum1.ctypes.data, start_idx0, start_idx1,
-        nrows0, nrows1, data0.shape[1], delay, freqs
-    )
+    print("WAY BEFORE")
+    if delay and freqs:
+        print("here Going to C")
+        avg_xcorr_4bit_c(
+            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, specnum0.ctypes.data, specnum1.ctypes.data, start_idx0, start_idx1,
+            nrows0, nrows1, data0.shape[1], delay.ctypes.data, freqs.ctypes.data
+        )
+    else:
+        print("there Going to C")
+        avg_xcorr_4bit_c(
+            data0.ctypes.data, data1.ctypes.data, xcorr.ctypes.data, specnum0.ctypes.data, specnum1.ctypes.data, start_idx0, start_idx1,
+            nrows0, nrows1, data0.shape[1], None, None
+        )
     t2 = time.time()
     print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
     return xcorr

@@ -139,27 +139,30 @@ void xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * xcorr, int * 
         }
     }
 }
-int get_common_rows(int64_t* specnum0, int64_t* specnum1, int * rownums0, int* rownums1, int * rowidx, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1)
+int get_common_rows(int64_t* specnum0, int64_t* specnum1, int ** rownums0, int** rownums1, int ** rowidx, int64_t idxstart0, int64_t idxstart1, int nrows0, int nrows1)
 {
     int row_count = 0;
     if(specnum0 == specnum1)
     {
-        rownums0 = NULL;
-        rownums1 = NULL;
-        rowidx = NULL;
+        *rownums0 = NULL;
+        *rownums1 = NULL;
+        *rowidx = NULL;
         row_count = nrows0; //both arrays are from same antenna. same no. of valid spectra
     }
     else
     {
+        *rownums0 = malloc(sizeof(int)*min(nrows0, nrows1));
+        *rownums1 = malloc(sizeof(int)*min(nrows0, nrows1));
+        *rowidx = malloc(sizeof(int)*min(nrows0, nrows1));
         int i=0,j=0;
         while((i<nrows0)&&(j<nrows1))
         {
             
             if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
             {
-                rownums0[row_count]=i;
-                rownums1[row_count]=j;
-                rowidx[row_count]=specnum0[i]-idxstart0; //calculation in int64, downcast to int
+                *rownums0[row_count]=i;
+                *rownums1[row_count]=j;
+                *rowidx[row_count]=specnum0[i]-idxstart0; //calculation in int64, downcast to int
                 row_count=row_count+1;
                 i=i+1;
                 j=j+1;
@@ -181,8 +184,8 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
 
     uint8_t imask=15;
     uint8_t rmask=255-15;
-    int row_count, rownums0[nrows0], rownums1[nrows1], rowidx[min(nrows0, nrows1)]; // max(nrows0)=max(nrows1)=acclen
-    row_count = get_common_rows(specnum0, specnum1, rownums0, rownums1, rowidx, idxstart0, idxstart1, nrows0, nrows1);
+    int row_count, *rownums0, *rownums1, *rowidx; // max(nrows0)=max(nrows1)=acclen
+    row_count = get_common_rows(specnum0, specnum1, &rownums0, &rownums1, &rowidx, idxstart0, idxstart1, nrows0, nrows1);
 
     //+2.1bil to -2.4bil, should be enough, and compatible with float32
     double complex sum_pvt[ncols];
@@ -191,28 +194,28 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
     {
         avg_xcorr[i] = 0 + I*0;
     }
-    #pragma omp parallel private(sum_pvt)
+    //#pragma omp parallel private(sum_pvt)
     {
         //init
         for(int i=0;i<ncols;i++)
         {
             sum_pvt[i]=0;
         }
-        #pragma omp for nowait
+        //#pragma omp for nowait
         for(int i=0; i<row_count; i++)
         {
-            int row0 = (rownums0 != NULL) ? rownums0[i] * ncols : i * ncols; // move IF outside and duplicate code for 10% more perf
-            int row1 = (rownums1 != NULL) ? rownums1[i] * ncols : i * ncols;
+            int skip0 = (rownums0 != NULL) ? rownums0[i] * ncols : i * ncols; // move IF outside and duplicate code for 10% more perf
+            int skip1 = (rownums1 != NULL) ? rownums1[i] * ncols : i * ncols;
             int didx = (rowidx != NULL) ? rowidx[i] : i; //delay index.
             for(int j=0; j<ncols; j++)
             {
-                int8_t im0=data0[row0*ncols+j]&imask;
-                int8_t r0=(data0[row0*ncols+j]&rmask)>>4;
+                int8_t im0=data0[skip0+j]&imask;
+                int8_t r0=(data0[skip0+j]&rmask)>>4;
                 if (r0 > 8){r0 = r0 - 16;}
                 if (im0 > 8){im0 = im0 - 16;}
 
-                int8_t im1=data1[row1*ncols+j]&imask;
-                int8_t r1=(data1[row1*ncols+j]&rmask)>>4;
+                int8_t im1=data1[skip1+j]&imask;
+                int8_t r1=(data1[skip1+j]&rmask)>>4;
                 if (r1 > 8){r1 = r1 - 16;}
                 if (im1 > 8){im1 = im1 - 16;}
                 // printf("%d J%d ... %d J%d\n",r0,im0, r1,im1);
@@ -229,7 +232,7 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
                 }
             }
         }
-        #pragma omp critical
+        //#pragma omp critical
         {
             for(int k=0; k<ncols; k++)
             {
@@ -238,6 +241,9 @@ void avg_xcorr_4bit(uint8_t * data0, uint8_t * data1, double complex * avg_xcorr
         }
         
     }
+    free(rownums0);
+    free(rownums1);
+    free(rowidx);
 }
 
 void avg_xcorr_1bit(uint8_t * data0, uint8_t * data1, float * xcorr, int nchan, const uint32_t nspec, const uint32_t ncol)
