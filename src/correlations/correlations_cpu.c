@@ -151,18 +151,19 @@ int get_common_rows(int64_t* specnum0, int64_t* specnum1, int ** rownums0, int**
     }
     else
     {
-        *rownums0 = malloc(sizeof(int)*min(nrows0, nrows1));
-        *rownums1 = malloc(sizeof(int)*min(nrows0, nrows1));
-        *rowidx = malloc(sizeof(int)*min(nrows0, nrows1));
-        int i=0,j=0;
+	int size = min(nrows0,nrows1);
+	int i=0,j=0;
+        *rownums0 = malloc(sizeof(int)*size);
+        *rownums1 = malloc(sizeof(int)*size);
+        *rowidx = malloc(sizeof(int)*size);
         while((i<nrows0)&&(j<nrows1))
         {
             
             if((specnum0[i]-idxstart0)==(specnum1[j]-idxstart1))
             {
-                *rownums0[row_count]=i;
-                *rownums1[row_count]=j;
-                *rowidx[row_count]=specnum0[i]-idxstart0; //calculation in int64, downcast to int
+                (*rownums0)[row_count]=i;
+                (*rownums1)[row_count]=j;
+                (*rowidx)[row_count]=specnum0[i]-idxstart0; //calculation in int64, downcast to int
                 row_count=row_count+1;
                 i=i+1;
                 j=j+1;
