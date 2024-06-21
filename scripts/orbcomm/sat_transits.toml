@@ -37,3 +37,16 @@ comment = "Old FEE long chunk 1"
 
     [transits.T003.satellites]
     40087 = [1846, 1847]
+
+[transits.T004]
+tstart = 1667019579
+start = 298
+end = 430
+ant1 = "snap3"
+ant2 = "snap4"
+yyyymm = 202210
+offset = 84297
+comment = "New FEE long chunk 2"
+
+    [transits.T004.satellites]
+    41187 = [1840, 1844]

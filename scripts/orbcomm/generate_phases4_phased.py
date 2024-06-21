@@ -47,8 +47,8 @@ DEBUG = False
 with open("./sat_transits.toml", "r") as file:
     sat_data = toml.load(file)
 
-transit = sat_data["transits"]["T001"]  # pass the transit ID
-sat_id = '40087'
+transit = sat_data["transits"]["T004"]  # pass the transit ID
+sat_id = '41187'
 print(transit["satellites"])
 for sat in transit["satellites"].copy(): #can't remove keys while iterating over the dict
     if sat != sat_id:
@@ -90,10 +90,10 @@ corr_chans = np.asarray(
     ),
     dtype=int,
 )
-print(satnorads)
-print(sat2chan)
-print(chan2sat)
-print(corr_chans)
+print("satnorads", satnorads)
+print("sat2chan", sat2chan)
+print("chan2sat", chan2sat)
+print("corr_chans", corr_chans)
 col2sat = np.zeros(len(corr_chans), dtype=int)
 channel_idx = corr_chans - 1839 + chan_1839_idx  # for passing to BDC unpacking
 niter = (
@@ -103,8 +103,8 @@ times = np.arange(0, niter)  # time in seconds
 
 # -----------------------------------------------------------------------------#
 # ----------------AVERAGING SETTINGS-------------------------------------------#
-size_micro_chunk = 10000
-num_micro_chunks_per_block = 400
+size_micro_chunk = 1000000
+num_micro_chunks_per_block = 45
 num_blocks = 1
 num_micro_chunks = num_blocks * num_micro_chunks_per_block
 if (num_micro_chunks * size_micro_chunk * T_SPECTRA) > (tt2 - tt1):
@@ -143,9 +143,9 @@ hdr1["channels"][channel_idx],
 print("channel indices", channel_idx)
 tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
 print(tle_path)
-# delays = np.zeros((size_micro_chunk, len(satnorads)), dtype="float64")
+delays = np.zeros((size_micro_chunk, len(satnorads)), dtype="float64")
 og_delays = {}
-delays = {}
+# delays = {}
 # for i, chan in enumerate(corr_chans):
 #     col2sat[i] = satnorads.index(chan2sat[chan])
 # print("col to sat index", col2sat)
@@ -154,11 +154,11 @@ for i, num in enumerate(satnorads):
     og_delays[num] = outils.get_sat_delay(
         a1_coords, a2_coords, tle_path, tt1, niter, num
     )
-    delays[num] = np.interp(
-        np.arange(num_micro_chunks) * size_micro_chunk * T_SPECTRA,
-        times,
-        og_delays[num],
-    )
+    # delays[num] = np.interp(
+    #     np.arange(num_micro_chunks) * size_micro_chunk * T_SPECTRA,
+    #     times,
+    #     og_delays[num],
+    # )
 print(f"loaded TLEs")
 
 ant1 = bdc.BasebandFileIterator(
@@ -211,19 +211,19 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     a1_start = ant1.spec_num_start
     a2_start = ant2.spec_num_start
 
-    # for ss, num in enumerate(satnorads):
-    #     delays[:, ss] = mutils.linear_interp(
-    #         np.arange(ii * size_micro_chunk, (ii + 1) * size_micro_chunk) * T_SPECTRA,
-    #         times,
-    #         og_delays[num],
-    #     )
+    for ss, num in enumerate(satnorads):
+        delays[:, ss] = mutils.linear_interp(
+            np.arange(ii * size_micro_chunk, (ii + 1) * size_micro_chunk) * T_SPECTRA,
+            times,
+            og_delays[num],
+        )
         # print(delays[:,ss]-test_delay)
     # print("delays outside are:", delays)
-    # outils.apply_sat_delay(
-    #     p0_a2, p0_a2_delayed, col2sat, delays, outils.chan2freq(corr_chans, alias=True)
-    # )
-    # xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2_delayed, dN)
-    xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
+    outils.apply_sat_delay(
+        p0_a2, p0_a2_delayed, col2sat, delays, outils.chan2freq(corr_chans, alias=True)
+    )
+    xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2_delayed, dN)
+    # xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
 
     if False:
         fig2, ax2 = plt.subplots(np.ceil(xcorr_stamp.shape[0] / 3).astype(int), 3)
@@ -247,10 +247,10 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
 
     for i, chan in enumerate(corr_chans):
         sat = chan2sat[chan]
-        real_freq = 1-chan/4096
-        alia_freq = chan/4096
-        shift = -delays[sat][ii] * 250e6 * osamp * real_freq/alia_freq
-        # shift = -np.mean(delays[:, col2sat[i]]) * 250e6 * osamp
+        # real_freq = 1-chan/4096
+        # alia_freq = chan/4096
+        # shift = -delays[sat][ii] * 250e6 * osamp * real_freq/alia_freq
+        shift = -np.mean(delays[:, col2sat[i]]) * 250e6 * osamp
         # shifted_samples = sample_no - shift
         # print("shift is ", shift, "for sat", sat)
         outils.get_interp_xcorr_fast(
@@ -260,7 +260,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
             coarse_sample_no,
             shift,
             out=interp_xcorr[i, :],
-            shift_phase=True
+            shift_phase=False
         )
 
     if prev_xcorr is None:
@@ -273,7 +273,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
         maxvals.append(peak)
         chunk_nums[cur_xcorr_num] = ii
         cur_xcorr_num += 1
-        prev_xcorr = cur_xcorr #Uncomment to do consecutive chunks' xcorr
+        #prev_xcorr = cur_xcorr #Uncomment to do consecutive chunks' xcorr
     # block_xcorr[cur_xcorr_num, :] = prev_xcorr
 
 tg2 = time.time()
