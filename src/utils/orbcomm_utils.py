@@ -9,8 +9,8 @@ import skyfield.api as sf
 from scipy import fft
 import datetime
 import os
-from . import math_utils as mutils
-from . import mkfftw as mk
+# from . import math_utils as mutils
+# from . import mkfftw as mk
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -51,11 +51,11 @@ def make_continuous_rand(newarr, arr, spec_idx):
         newarr[spec_idx[i], :] = arr[i, :]
 
 @nb.njit(parallel=True)
-def add_1d(x,y):
+def add_1d_scalar(x,y):
     n=len(x)
     z = np.empty(n, dtype=x.dtype)
     for i in nb.prange(n):
-        z[i] = x[i] + y[i]
+        z[i] = x[i] + y
     return z
 
 @nb.njit(parallel=True)
@@ -313,7 +313,7 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
 
-def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift, out=None):
+def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift, out=None, shift_phase=False):
     """Get a upsampled xcorr from coarse_xcorr by adding back the carrier frequency.
 
     Parameters
@@ -338,10 +338,13 @@ def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift
     else:
         final_xcorr_cwave = np.empty(sample_no.shape[0], dtype="complex128")
     # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
-    shifted_sample_no = add_1d(sample_no, shift)
+    shifted_sample_no = add_1d_scalar(sample_no, shift)
     uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
     newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
-    newphase = mutils.linear_interp(sample_no, coarse_sample_no, newphase)
+    if shift_phase:
+        newphase = mutils.linear_interp(shifted_sample_no, coarse_sample_no, newphase)
+    else:
+        newphase = mutils.linear_interp(sample_no, coarse_sample_no, newphase)
     newmag = mutils.cubic_spline(shifted_sample_no, coarse_sample_no, np.abs(coarse_xcorr))
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
