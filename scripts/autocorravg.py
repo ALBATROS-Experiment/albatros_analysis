@@ -35,15 +35,14 @@ By default `chanstart=0` and `chanend=None`, in order to process all channels. S
 import numpy as np
 import time
 import argparse
+import os
+import sys
+sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
 
 if __name__=="__main__":
-    from correlations import baseband_data_classes as bdc
-    from correlations import correlations as cr
-    from utils import baseband_utils as butils
-else:
-    from .correlations import baseband_data_classes as bdc
-    from .correlations import correlations as cr
-    from .utils import baseband_utils as butils
+    from src.correlations import baseband_data_classes as bdc
+    from src.correlations import correlations as cr
+    from src.utils import baseband_utils as butils
 
 # TODO: not sure about types going into and out of get_avg_fast
 # best guess out is tuple[ndarray x 3, list]
