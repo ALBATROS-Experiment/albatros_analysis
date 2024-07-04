@@ -2,6 +2,7 @@ from correlations import baseband_data_classes as bdc
 import numpy as np
 import argparse
 from matplotlib import pyplot as plt
+import time
 import os
 from palettable.colorbrewer.sequential import GnBu_9 as mycmap
 
@@ -12,11 +13,21 @@ if(__name__=='__main__'):
     parser.add_argument("-o", "--output_dir", type=str, default="./", help="Output directory for plots")
     parser.add_argument("-m", "--mode", type=int, default=-1, help="0 for pol0, 1 for pol1, -1 for both")
     parser.add_argument("-r", "--rescale", action="store_true", help="Map bit values (0-15 for 4 bit data) to -ve to +ve levels.")
-    parser.add_argument("-c", '--chans', type=int, nargs=2, help="Indices of start and end channels to print out.")
+    parser.add_argument("-c", '--chans', type=int, nargs=2, help="Channel numbers for start and end") 
     args = parser.parse_args()
 
     obj=bdc.Baseband(args.filepath)
     hist=obj.get_hist(mode=args.mode)
+    ch0 = obj.channels[0]
+    ch1 = obj.channels[-1]
+    assert args.chans[0] in obj.channels and args.chans[1] in obj.channels
+    if(args.chans): 
+        ch0 = args.chans[0]
+        ch1 = args.chans[1]
+        chidx0 = ch0 - obj.channels[0]
+        chidx1 = ch1 - obj.channels[0]
+        hist=hist[:,chidx0:chidx1]
+        channels=obj.channels[chidx0:chidx1]
     print('Hist vals shape: \n',hist.shape)
     # np.savetxt('./hist_dump_mohan_laptop.txt',hist) this was to check output against code on niagara. all match.
     nlevels=2**obj.bit_mode
@@ -40,9 +51,6 @@ if(__name__=='__main__'):
         tag='pol'+str(args.mode)
     else:
         tag='both_pols'
-    if(args.chans): 
-        hist=hist[:,args.chans[0]:args.chans[1]]
-        channels=obj.channels[args.chans[0]:args.chans[1]]
     start_chan = channels[0]
     end_chan = channels[-1]
     print(f"hist.shap {hist.shape}")
@@ -78,7 +86,7 @@ if(__name__=='__main__'):
 
     
     nowstamp = int(time.time())
-    fname = os.path.join(args.output_dir,f'hist_{snap}_{timestamp}_{tag}_{}.png')
+    fname = os.path.join(args.output_dir,f'hist_{snap}_{timestamp}_{tag}_{ch0}_{ch1}_{nowstamp}.png')
     plt.savefig(fname)
     print(fname)
 
