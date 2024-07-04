@@ -4,6 +4,10 @@
 *.wav
 *.png
 *.swp
+aaenv/
+*~
+.ipynb_checkpoints
+*.ipynb
 plots/
 usage.txt
 plot_one_file_scaled.py
