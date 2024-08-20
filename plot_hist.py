@@ -20,8 +20,9 @@ if(__name__=='__main__'):
     hist=obj.get_hist(mode=args.mode)
     ch0 = obj.channels[0]
     ch1 = obj.channels[-1]
-    assert args.chans[0] in obj.channels and args.chans[1] in obj.channels
+    channels = obj.channels
     if(args.chans): 
+        assert args.chans[0] in obj.channels and args.chans[1] in obj.channels
         ch0 = args.chans[0]
         ch1 = args.chans[1]
         chidx0 = ch0 - obj.channels[0]
@@ -54,7 +55,7 @@ if(__name__=='__main__'):
     start_chan = channels[0]
     end_chan = channels[-1]
     print(f"hist.shap {hist.shape}")
-    plt.suptitle(f'Histogram for {snap} {timestamp} {tag}')
+    plt.suptitle(f'Histogram for {args.filepath} {tag}')
     plt.subplot(121)
     print("Per chan hist is:\n", hist)
     print(f"Min:\n{np.min(hist,axis=1)}\nMax:\n{np.max(hist,axis=1)}\nStd:\n{np.std(hist,axis=1)}\nMean:\n{np.mean(hist,axis=1)}\n")
@@ -66,7 +67,7 @@ if(__name__=='__main__'):
     locs=np.arange(0,len(channels))
     labels=[str(x) for x in channels]
     # osamp=len(channels)//64
-    osamp=max(int(len(channels)//32),1)
+    osamp=max(int(len(channels)//20),1)
     print("OSAMP IS ", osamp, locs[::osamp])
     plt.xticks(locs[::osamp],labels[::osamp],rotation=-50)
     # print(locs,labels)
