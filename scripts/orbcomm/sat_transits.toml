@@ -10,7 +10,8 @@ comment = "These are satellites in the Old FEE data originally used for testing"
 
     [transits.T001.satellites]
     41187 = [1840, 1844]
-    40087 = [1846, 1847]
+    #40087 = [1846, 1847]
+    40087 = [1847]
 
 [transits.T002]
 tstart = 1667015968

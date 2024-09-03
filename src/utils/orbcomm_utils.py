@@ -9,8 +9,8 @@ import skyfield.api as sf
 from scipy import fft
 import datetime
 import os
-# from . import math_utils as mutils
-# from . import mkfftw as mk
+from . import math_utils as mutils
+from . import mkfftw as mk
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -49,6 +49,28 @@ def make_continuous_rand(newarr, arr, spec_idx):
     nchan = arr.shape[1]
     for i in nb.prange(n):
         newarr[spec_idx[i], :] = arr[i, :]
+
+
+@nb.njit(parallel=True)
+def generate_window(N:int, type='hann'):
+    win=np.empty(N,dtype='float64')
+    if type=='hann':
+        for i in nb.prange(N):
+            win[i] = np.sin(np.pi*i/N)**2
+    elif type=='hamming':
+        for i in nb.prange(N):
+            win[i] = 0.5434782 - (1- 0.5434782)*np.cos(2*np.pi*i/N)
+    return win
+
+@nb.njit()
+def apply_window(arr,win):
+    # assumes a thin horizontal rectangle for arr
+    newarr = np.empty(arr.shape,dtype=arr.dtype)
+    nr,nc=arr.shape
+    for i in range(nr):
+        for j in range(nc):
+            newarr[i,j] = arr[i,j]*win[j]
+    return newarr
 
 @nb.njit(parallel=True)
 def add_1d_scalar(x,y):
@@ -255,7 +277,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     return xcorr_stamp
 
 
-def get_coarse_xcorr_fast2(f1, f2, dN, chans=None, Npfb=4096):
+def get_coarse_xcorr_fast2(f1, f2, dN, chans=None, Npfb=4096,window=None):
     if len(f1.shape) == 1:
         f1 = f1.reshape(-1, 1)
     if len(f2.shape) == 1:
@@ -265,9 +287,12 @@ def get_coarse_xcorr_fast2(f1, f2, dN, chans=None, Npfb=4096):
     Nsmall = f1.shape[0]
     # print("Shape of passed channelized timestream =", f1.shape)
     # xcorr = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
-
     bigf1=mutils.transpose_zero_pad(f1)
     bigf2=mutils.transpose_zero_pad(f2)
+    if window is not None:
+        win=generate_window(2*Nsmall,window)
+        bigf1=apply_window(bigf1,win)
+        bigf2=apply_window(bigf2,win)
     # print("bigf1",bigf1)
     n_avg = get_weights(Nsmall)
     # print("n_avg is", n_avg)
