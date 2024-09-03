@@ -1,4 +1,4 @@
-import orbcomm_utils as ou
+import src.utils.orbcomm_utils as ou
 import numpy as np
 
 def test_apply_sat_delay():
@@ -25,5 +25,14 @@ def test_apply_sat_delay():
     assert(np.allclose(newarr[:,1], -1))
     assert(np.allclose(newarr[:,2], -1j))
     assert(np.allclose(newarr[:,3], 1))
+
+def test_apply_window():
+    N=4096
+    win=ou.generate_window(N,type='hann')
+    x=np.ones(N,dtype='complex64').reshape(1,N)
+    y=ou.apply_window(x,win)
+    assert(np.allclose(y.real,win))
+    assert(np.allclose(y.imag,0.))
+
 if __name__ == "__main__":
     test_apply_sat_delay()

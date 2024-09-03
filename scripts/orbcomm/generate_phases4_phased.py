@@ -21,22 +21,23 @@ from os import path
 import toml
 from scipy.signal import find_peaks
 
-def xcorr_parab(arr1, arr2):
-    xc = outils.get_coarse_xcorr_fast2(arr1, arr2, 65, Npfb=1)
+def xcorr_parab(arr1, arr2, stamp_size=65, peak_distance=80):
+    xc = outils.get_coarse_xcorr_fast2(arr1, arr2, stamp_size, Npfb=1)
     # print(xc.shape)
     # m = np.argmax(xc[0, :].real)
     peaks = []
-    locs = find_peaks(xc[0,:].real,distance=80)[0]
+    locs = find_peaks(xc[0,:].real,distance=peak_distance)[0]
+    print("peaks found at", locs)
     for m in locs:
         left = max(m-5,0)
-        right = min(m+5,100)
+        right = min(m+5,2*stamp_size)
         x = np.arange(left,right)
         y = xc[0, left : right].real
         if len(y) < 4:
             continue
         params = np.polyfit(x, y , 2)
         # print("arr max", m, -params[1] / params[0] / 2 + m - 50)
-        peaks.append( -params[1] / params[0] / 2 - 65 )
+        peaks.append( -params[1] / params[0] / 2 - stamp_size )
     return peaks
 
 
@@ -47,8 +48,8 @@ DEBUG = False
 with open("./sat_transits.toml", "r") as file:
     sat_data = toml.load(file)
 
-transit = sat_data["transits"]["T004"]  # pass the transit ID
-sat_id = '41187'
+transit = sat_data["transits"]["T001"]  # pass the transit ID
+sat_id = '40087'
 print(transit["satellites"])
 for sat in transit["satellites"].copy(): #can't remove keys while iterating over the dict
     if sat != sat_id:
@@ -103,8 +104,8 @@ times = np.arange(0, niter)  # time in seconds
 
 # -----------------------------------------------------------------------------#
 # ----------------AVERAGING SETTINGS-------------------------------------------#
-size_micro_chunk = 1000000
-num_micro_chunks_per_block = 45
+size_micro_chunk = 100000
+num_micro_chunks_per_block = 314
 num_blocks = 1
 num_micro_chunks = num_blocks * num_micro_chunks_per_block
 if (num_micro_chunks * size_micro_chunk * T_SPECTRA) > (tt2 - tt1):
@@ -199,7 +200,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     perc_missing_a2 = (1 - len(chunk2["specnums"]) / size_micro_chunk) * 100
 
     print(f"perc missing ant1 and ant2: {perc_missing_a1:.3f}%, {perc_missing_a2:.3f}%")
-    if perc_missing_a1 > 10 or perc_missing_a2 > 10:
+    if perc_missing_a1 > 21 or perc_missing_a2 > 21:
         a1_start = ant1.spec_num_start
         a2_start = ant2.spec_num_start
         print("TOO MUCH MISSING, CONTINUING")
@@ -222,6 +223,7 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
     outils.apply_sat_delay(
         p0_a2, p0_a2_delayed, col2sat, delays, outils.chan2freq(corr_chans, alias=True)
     )
+
     xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2_delayed, dN)
     # xcorr_stamp = outils.get_coarse_xcorr_fast2(p0_a1, p0_a2, dN)
 
@@ -245,12 +247,15 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
 
     COARSE_CENTER = xcorr_stamp.shape[1] // 2
 
+    # for cc in range(xcorr_stamp.shape[0]):
+    #     print(f"xcorr stamp @ center for chan {cc}", xcorr_stamp[cc, COARSE_CENTER])
+
     for i, chan in enumerate(corr_chans):
         sat = chan2sat[chan]
         # real_freq = 1-chan/4096
         # alia_freq = chan/4096
         # shift = -delays[sat][ii] * 250e6 * osamp * real_freq/alia_freq
-        shift = -np.mean(delays[:, col2sat[i]]) * 250e6 * osamp
+        shift = np.mean(delays[:, col2sat[i]]) * 250e6 * osamp
         # shifted_samples = sample_no - shift
         # print("shift is ", shift, "for sat", sat)
         outils.get_interp_xcorr_fast(
@@ -267,13 +272,13 @@ for ii, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
         prev_xcorr = np.sum(interp_xcorr, axis=0)
     else:
         cur_xcorr = np.sum(interp_xcorr, axis=0)
-        peak = xcorr_parab(prev_xcorr, cur_xcorr)
+        peak = xcorr_parab(prev_xcorr, cur_xcorr,stamp_size=65,peak_distance=65)
         if len(peak) == 0: #no peaks found because they are too close to the edges
             continue
         maxvals.append(peak)
         chunk_nums[cur_xcorr_num] = ii
         cur_xcorr_num += 1
-        #prev_xcorr = cur_xcorr #Uncomment to do consecutive chunks' xcorr
+        prev_xcorr = cur_xcorr #Uncomment to do consecutive chunks' xcorr
     # block_xcorr[cur_xcorr_num, :] = prev_xcorr
 
 tg2 = time.time()
