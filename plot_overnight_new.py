@@ -397,6 +397,8 @@ def main():
     timezone = args.timezone
     vmin = args.vmin
     vmax = args.vmax
+    vmin2=vmin
+    vmax2=vmax
     logplot=args.logplot
     blocksize = args.blocksize
     outdir = args.outdir
