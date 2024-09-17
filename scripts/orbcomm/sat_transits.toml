@@ -1,0 +1,53 @@
+[transits.T001]
+tstart = 1627453681
+start = 150
+end = 230
+ant1 = "snap3"
+ant2 = "snap1"
+yyyymm = 202107
+offset = 40429
+comment = "These are satellites in the Old FEE data originally used for testing"
+
+    [transits.T001.satellites]
+    41187 = [1840, 1844]
+    #40087 = [1846, 1847]
+    40087 = [1847]
+
+[transits.T002]
+tstart = 1667015968
+start = 372
+end = 504
+ant1 = "snap3"
+ant2 = "snap4"
+yyyymm = 202210
+offset = 106628
+comment = "This transit is from new v2 FEE, first long-chunk tested."
+
+    [transits.T002.satellites]
+    41188 = [1840, 1844]
+
+[transits.T003]
+tstart = 1627446458
+start = 280
+end = 412
+ant1 = "snap3"
+ant2 = "snap1"
+yyyymm = 202107
+offset = 68525
+comment = "Old FEE long chunk 1"
+
+    [transits.T003.satellites]
+    40087 = [1846, 1847]
+
+[transits.T004]
+tstart = 1667019579
+start = 298
+end = 430
+ant1 = "snap3"
+ant2 = "snap4"
+yyyymm = 202210
+offset = 84297
+comment = "New FEE long chunk 2"
+
+    [transits.T004.satellites]
+    41187 = [1840, 1844]
