@@ -9,7 +9,8 @@ import skyfield.api as sf
 from scipy import fft
 import datetime
 import os
-
+from . import math_utils as mutils
+from . import mkfftw as mk
 
 def ctime2mjd(tt=None, type="Dublin"):
     """Return Various Julian Dates given ctime.  Options include Dublin, MJD, JD"""
@@ -42,6 +43,42 @@ def make_continuous(newarr, arr, spec_idx):
     for i in nb.prange(n):
         newarr[spec_idx[i], :] = arr[i, :]
 
+@nb.njit(parallel=True)
+def make_continuous_rand(newarr, arr, spec_idx):
+    n = len(spec_idx)
+    nchan = arr.shape[1]
+    for i in nb.prange(n):
+        newarr[spec_idx[i], :] = arr[i, :]
+
+
+@nb.njit(parallel=True)
+def generate_window(N:int, type='hann'):
+    win=np.empty(N,dtype='float64')
+    if type=='hann':
+        for i in nb.prange(N):
+            win[i] = np.sin(np.pi*i/N)**2
+    elif type=='hamming':
+        for i in nb.prange(N):
+            win[i] = 0.5434782 - (1- 0.5434782)*np.cos(2*np.pi*i/N)
+    return win
+
+@nb.njit()
+def apply_window(arr,win):
+    # assumes a thin horizontal rectangle for arr
+    newarr = np.empty(arr.shape,dtype=arr.dtype)
+    nr,nc=arr.shape
+    for i in range(nr):
+        for j in range(nc):
+            newarr[i,j] = arr[i,j]*win[j]
+    return newarr
+
+@nb.njit(parallel=True)
+def add_1d_scalar(x,y):
+    n=len(x)
+    z = np.empty(n, dtype=x.dtype)
+    for i in nb.prange(n):
+        z[i] = x[i] + y
+    return z
 
 @nb.njit(parallel=True)
 def make_complex(cmpl, mag, phase):
@@ -51,12 +88,14 @@ def make_complex(cmpl, mag, phase):
 
 
 @nb.njit(parallel=True)
-def complex_mult_conj(arr1, arr2, newarr):
+def complex_mult_conj(arr1, arr2):
+    newarr = np.empty(arr1.shape,dtype=arr1.dtype)
     Nrows = arr1.shape[0]
     Ncols = arr1.shape[1]
     for i in nb.prange(Nrows):
         for j in range(Ncols):
             newarr[i, j] = arr1[i, j] * np.conj(arr2[i, j])
+    return newarr
 
 @nb.njit(parallel=True)
 def vstack_zeros_transpose(arr, bigarr):
@@ -68,16 +107,39 @@ def vstack_zeros_transpose(arr, bigarr):
         for i in range(Nrows, 2 * Nrows):
             bigarr[j, i] = 0
 
+# @nb.njit(parallel=True)
+# def vstack_zeros_transpose2(arr, bigarr):
+#     Nrows = arr.shape[0]
+#     Ncols = arr.shape[1]
+#     for j in range(0, Ncols):
+#         for i in nb.prange(0, Nrows):
+#             bigarr[j, i] = arr[i, j]
+#         for i in nb.prange(Nrows, 2 * Nrows):
+#             bigarr[j, i] = 0
+            
 @nb.njit(parallel=True)
-def get_weights(weights):
+def vstack_zeros_transpose2(arr, bigarr, columns):
+    Nrows = arr.shape[0]
+    Ncols = len(columns)
+    for j in nb.prange(0, Ncols):
+        for i in range(0, Nrows):
+            bigarr[j, i] = arr[i, columns[j]]
+        for i in range(Nrows, 2 * Nrows):
+            bigarr[j, i] = 0
+
+
+@nb.njit(parallel=True)
+def get_weights(Nsmall):
     # get weights to normalize a zero-padded FFT
     # shape of weights is N -> EVEN = 2 * Nsmall.
-    N = weights.shape[0]
+    N = 2*Nsmall
+    weights = np.empty(N,dtype="float64")
     weights[0] = N // 2
     weights[N // 2] = np.nan
     for i in nb.prange(1, N // 2):
         weights[i] = N // 2 - i
         weights[N - i] = N // 2 - i
+    return weights
 
 
 @nb.njit(parallel=True)
@@ -92,8 +154,19 @@ def apply_delay(arr, newarr, delay, freqs):
             newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay[i])
 
 @nb.njit(parallel=True)
-def get_normalized_stamp(cxcorr, stamp, weights, Npfb):
+def apply_sat_delay(arr, newarr, col2sat, delays, freqs):
+    nspec = arr.shape[0]
+    nchan = arr.shape[1]
+    for i in nb.prange(nspec):
+        for j in range(nchan):
+            delay = delays[i,col2sat[j]]
+            # print(f"delay {i},{j} is", delay )
+            newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay)
+
+@nb.njit(parallel=True)
+def get_normalized_stamp(cxcorr, weights, dN, Npfb):
     nchans = cxcorr.shape[0]
+    stamp = np.empty((nchans, 2*dN), dtype=cxcorr.dtype)
     N = cxcorr.shape[1]  # = len(weights)
     M = stamp.shape[1]  # = dN*2
     M2 = M // 2
@@ -101,9 +174,9 @@ def get_normalized_stamp(cxcorr, stamp, weights, Npfb):
         for j in range(M2):
             stamp[i, j] = cxcorr[i, -M2 + j] / weights[-M2 + j] / Npfb
             stamp[i, M2 + j] = cxcorr[i, j] / weights[j] / Npfb
+    return stamp
 
-
-def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
+def get_coarse_xcorr(f1, f2, Npfb=4096):
     """Get coarse xcorr of each channel of two channelized timestreams.
     The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
 
@@ -123,31 +196,35 @@ def get_coarse_xcorr(f1, f2, chans=None, Npfb=4096):
         f1 = f1.reshape(-1, 1)
     if len(f2.shape) == 1:
         f2 = f2.reshape(-1, 1)
-    if chans == None:
-        chans = np.arange(f1.shape[1])
+    chans = f1.shape[1]
     Nsmall = f1.shape[0]
-    # print("Shape of passed channelized timestream =", f1.shape)
-    xcorr = np.zeros((len(chans), 2 * Nsmall), dtype="complex128")
     wt = np.zeros(2 * Nsmall)
     wt[:Nsmall] = 1
     n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
     n_avg[Nsmall] = np.nan
-    # print("n_avg is", n_avg)
-    for i, chan in enumerate(chans):
-        # print("processing chan", chan)
-        xcorr[i, :] = np.fft.ifft(
-            np.fft.fft(
-                np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
-            )
-            * np.conj(
-                np.fft.fft(
-                    np.hstack(
-                        [f2[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")]
-                    )
-                )
-            )
-        )
-        xcorr[i, :] = xcorr[i, :] / n_avg / Npfb
+    n_avg = np.tile(n_avg, chans).reshape(chans, 2*Nsmall)
+    print(n_avg)
+    print(f1, "\n", f2)
+    bigf1 = np.vstack([f1, np.zeros(f1.shape, dtype="complex128")])
+    bigf2 = np.vstack([f2, np.zeros(f2.shape, dtype="complex128")])
+    bigf1 = bigf1.T.copy()
+    bigf2 = bigf2.T.copy()
+    bigf1f = np.fft.fft(bigf1,axis=1)
+    bigf2f = np.fft.fft(bigf2,axis=1)
+    # print("bigf1 fx old\n", bigf1)
+    # print("bigf2 fx old\n", bigf2)
+    xx = bigf1f * np.conj(bigf2f)
+    xcorr = np.fft.ifft(xx,axis=1)
+    # # print("n_avg is", n_avg)
+    # for i, chan in enumerate(chans):
+    #     # print("processing chan", chan)
+    #     bigf1 = np.hstack([f1[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
+    #     bigf2 = np.hstack([f2[:, chan].flatten(), np.zeros(Nsmall, dtype="complex128")])
+    #     bigf1f = np.fft.fft(bigf1)
+    #     bigf2f = np.fft.fft(bigf2)
+    #     xx = bigf1f*np.conj(bigf2f)
+    #     xcorr[i, :] = np.fft.ifft(xx)
+    xcorr[:] = xcorr / n_avg / Npfb
     return xcorr
 
 
@@ -185,7 +262,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     # print("bigf1",bigf1)
     get_weights(n_avg)
 
-    n_workers = min(40, len(chans))
+    n_workers = 40
     # print("n_avg is", n_avg)
     with fft.set_workers(n_workers):
         bigf1 = fft.fft(bigf1, axis=1, workers=n_workers)
@@ -200,22 +277,7 @@ def get_coarse_xcorr_fast(f1, f2, dN, chans=None, Npfb=4096):
     return xcorr_stamp
 
 
-def get_coarse_xcorr_fast_old(f1, f2, chans=None, Npfb=4096):
-    """Get coarse xcorr of each channel of two channelized timestreams.
-    The xcorr is 0-padded, so length of output is twice the original length (shape[0]).
-
-    Parameters
-    ----------
-    f1, f2 : ndarray of complex64
-        First and second timestreams. Both n_spectrum x n_channel complex array.
-    chans: tuple of int
-        Channels (columns) of f1 and f2 that should be correlated.
-
-    Returns
-    -------
-    ndarray of complex128
-        xcorr of each channel's timestream. 2*n_spectrum x n_channel complex array.
-    """
+def get_coarse_xcorr_fast2(f1, f2, dN, chans=None, Npfb=4096,window=None):
     if len(f1.shape) == 1:
         f1 = f1.reshape(-1, 1)
     if len(f2.shape) == 1:
@@ -224,28 +286,28 @@ def get_coarse_xcorr_fast_old(f1, f2, chans=None, Npfb=4096):
         chans = np.arange(f1.shape[1])
     Nsmall = f1.shape[0]
     # print("Shape of passed channelized timestream =", f1.shape)
-    bigf1 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
-    bigf2 = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
-    xcorr = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
-    vstack_zeros_transpose(f1, bigf1)
-    vstack_zeros_transpose(f2, bigf2)
-    wt = np.zeros(2 * Nsmall, dtype="float64")
-    wt[:Nsmall] = 1
-    n_avg = np.fft.irfft(np.fft.rfft(wt) * np.conj(np.fft.rfft(wt)))
-    n_avg[Nsmall] = np.nan
-    norm = np.outer(np.ones((len(chans))), n_avg) * Npfb
-    # print(norm, norm.shape)
-    n_workers = min(40, len(chans))
+    # xcorr = np.empty((len(chans), 2 * Nsmall), dtype="complex128")
+    bigf1=mutils.transpose_zero_pad(f1)
+    bigf2=mutils.transpose_zero_pad(f2)
+    if window is not None:
+        win=generate_window(2*Nsmall,window)
+        bigf1=apply_window(bigf1,win)
+        bigf2=apply_window(bigf2,win)
+    # print("bigf1",bigf1)
+    n_avg = get_weights(Nsmall)
     # print("n_avg is", n_avg)
-    with fft.set_workers(n_workers):
-        bigf1 = fft.fft(bigf1, axis=1, workers=n_workers)
-        bigf2 = fft.fft(bigf2, axis=1, workers=n_workers)
-        complex_mult_conj(bigf1, bigf2, xcorr)
-        # print("bigf1 fx\n", bigf1)
-        # print("bigf2 fx\n", bigf1)
-        # print("conj mult\n", xcorr)
-        xcorr = fft.ifft(xcorr, axis=1, workers=n_workers) / norm
-    return xcorr
+    # with mk.parallelize_fft():
+    bigf1f = mk.many_fft_c2c_1d(bigf1,axis=1)
+    bigf2f = mk.many_fft_c2c_1d(bigf2,axis=1)
+    # print("bigf1 fx new\n", bigf1)
+    # print("bigf2 fx new\n", bigf2)
+    xcorr = complex_mult_conj(bigf1f, bigf2f)
+
+    # print("conj mult\n", xcorr)
+    xcorr1 = mk.many_fft_c2c_1d(xcorr,axis=1,backward=True)
+    # print("FT of xcorr is", xcorr1[0,0:5])
+    xcorr_stamp = get_normalized_stamp(xcorr1, n_avg, dN, Npfb)
+    return xcorr_stamp
 
 
 def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
@@ -273,6 +335,42 @@ def get_interp_xcorr(coarse_xcorr, chan, sample_no, coarse_sample_no):
     newphase = np.interp(sample_no, coarse_sample_no, newphase)
     cs = CubicSpline(coarse_sample_no, np.abs(coarse_xcorr))
     newmag = cs(sample_no)
+    make_complex(final_xcorr_cwave, newmag, newphase)
+    return final_xcorr_cwave
+
+def get_interp_xcorr_fast(coarse_xcorr, chan, sample_no, coarse_sample_no, shift, out=None, shift_phase=False):
+    """Get a upsampled xcorr from coarse_xcorr by adding back the carrier frequency.
+
+    Parameters
+    ----------
+    coarse_xcorr: ndarray
+        1-D array of coarse xcorr of one channel.
+    chan : int
+        Channel for the passed coarse xcorr.
+    osamp: int
+        Number of times to over sample over the default 4 ns time-resolution. E.g. osamp=4 means 1 ns time-resolution.
+
+    Returns
+    -------
+    final_xcorr_cwave: ndarray
+        Complex upsampled xcorr.
+    """
+    # print("coarse shape", coarse_xcorr.shape)
+    # print("sample no", sample_no)
+    # print("coarse sample", coarse_sample_no)
+    if isinstance(out, np.ndarray):
+        final_xcorr_cwave = out
+    else:
+        final_xcorr_cwave = np.empty(sample_no.shape[0], dtype="complex128")
+    # print("Total upsampled timestream samples in this coarse chunk =", sample_no.shape)
+    shifted_sample_no = add_1d_scalar(sample_no, shift)
+    uph = np.unwrap(np.angle(coarse_xcorr))  # uph = unwrapped phase
+    newphase = 2 * np.pi * chan * np.arange(0, coarse_xcorr.shape[0]) + uph
+    if shift_phase:
+        newphase = mutils.linear_interp(shifted_sample_no, coarse_sample_no, newphase)
+    else:
+        newphase = mutils.linear_interp(sample_no, coarse_sample_no, newphase)
+    newmag = mutils.cubic_spline(shifted_sample_no, coarse_sample_no, np.abs(coarse_xcorr))
     make_complex(final_xcorr_cwave, newmag, newphase)
     return final_xcorr_cwave
 
@@ -540,3 +638,21 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
         sim_delay[iter] = (range2 - range1) / c
         tt += 1
     return sim_delay
+
+def delay_corrector(idx1, idx2, delay, dN):
+    # convetion is xcorr = <a(t)b(t-delay)>
+    # where a = antenna1 and b = antenna2
+    delay = delay - dN  # this is dN from the coarse xcorr
+    print("original", idx1, idx2)
+    if delay > 0:
+        idx1 += delay
+    else:
+        idx2 += np.abs(delay)
+    print("corrected", idx1, idx2)
+    return idx1, idx2
+
+def chan2freq(chan,alias=False,samp=250e6,fftlen=4096):
+    if alias:
+        return samp*(1-chan/fftlen)
+    else:
+        return samp*chan/fftlen

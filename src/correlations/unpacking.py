@@ -13,7 +13,7 @@ unpack_4bit_float_c.argtypes = [
     ctypes.c_void_p,
     ctypes.c_int,
     ctypes.c_int,
-    ctypes.c_int,
+    ctypes.c_void_p,
     ctypes.c_int,
     ctypes.c_int,
 ]
@@ -122,7 +122,7 @@ def hist(data, rowstart, rowend, length_channels, bit_depth, mode):
     return histvals
 
 
-def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
+def unpack_4bit(data, length_channels, rowstart, rowend, channels):
     """Unpacks 4-bit data from binary dump file. (??)
 
     ??
@@ -151,19 +151,20 @@ def unpack_4bit(data, length_channels, rowstart, rowend, chanstart, chanend):
     """
     # nspec = no. of spectra = no. of rows
     nrows = rowend - rowstart
-    ncols = chanend - chanstart
+    ncols = len(channels)
     pol0 = numpy.empty([nrows, ncols], dtype="complex64")
     pol1 = numpy.empty([nrows, ncols], dtype="complex64")
     # print("num spec being unpacked is", nrows)
     t1 = time.time()
+    # uint8_t *data, float *pol0, float *pol1, int rowstart, int rowend, int * channels, int ncols, int nchan
     unpack_4bit_float_c(
         data.ctypes.data,
         pol0.ctypes.data,
         pol1.ctypes.data,
         rowstart,
         rowend,
-        chanstart,
-        chanend,
+        channels.ctypes.data,
+        ncols,
         length_channels,
     )
     t2 = time.time()
