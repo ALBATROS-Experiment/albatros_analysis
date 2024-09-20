@@ -26,7 +26,8 @@ def fill_arr(arr, specnum, spec_per_packet):
     """
     n = len(specnum)
     for i in nb.prange(n):
-        for j in nb.prange(spec_per_packet):
+        for j in range(spec_per_packet):
+            # print(j, specnum[i], j+specnum[i])
             arr[i * spec_per_packet + j] = specnum[i] + j
 
 @nb.njit(parallel=True)
@@ -491,7 +492,7 @@ class BasebandFileIterator:
         nchunks: int
             Defaults to None. You need to pass nchunks if you are
             passing the iterator to zip(). Without nchunks, iteration
-            won't stop.
+            will stop once BFI runs out of files.
         chanstart: int
             Index of channel at which to start selection. Default is 0.
         chanend: int or None
@@ -499,7 +500,7 @@ class BasebandFileIterator:
             in which case select up to highest frequency channel.
         """
         print("ACCLEN RECEIVED IS", acclen)
-        self._OVERFLOW_CTR = 0
+        self._OVERFLOW_CTR = 0 #keeps track of overflows encounted in a very long averaging run
         self.acclen = acclen
         self.file_paths = file_paths
         self.fileidx = fileidx
@@ -541,6 +542,7 @@ class BasebandFileIterator:
                 if self._OVERFLOW_CTR > 0:
                     add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: self._OVERFLOW_CTR+=1
+                print("overflow counter is ",self._OVERFLOW_CTR)
                 return obj
         return file_loader
 

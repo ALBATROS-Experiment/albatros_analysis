@@ -1,0 +1,9 @@
+data/1627202039_1.raw filter=lfs diff=lfs merge=lfs -text
+data/1627202039.raw filter=lfs diff=lfs merge=lfs -text
+data/1667664784.raw filter=lfs diff=lfs merge=lfs -text
+data/specnum_wrap2.raw filter=lfs diff=lfs merge=lfs -text
+data/1627202039_2.raw filter=lfs diff=lfs merge=lfs -text
+data/1667664784_1.raw filter=lfs diff=lfs merge=lfs -text
+data/1682829267.raw filter=lfs diff=lfs merge=lfs -text
+data/specnum_wrap1.raw filter=lfs diff=lfs merge=lfs -text
+data/specnum_wrap3.raw filter=lfs diff=lfs merge=lfs -text
