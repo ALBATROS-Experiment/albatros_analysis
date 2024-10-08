@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -fPIC -O3 -std=c99 -march=native
+CFLAGS := -fPIC -O3 -std=c99 -mcpu=native
 LIBS := -lfftw3_omp -lm
 objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so
 all: $(objects)
