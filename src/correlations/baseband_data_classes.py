@@ -1,9 +1,11 @@
-import numpy
 import struct
 import time
 import numba as nb
 import numpy as np
+from src import xp
 import os
+
+print("BDC is using", xp.__name__)
 
 if __name__ == "__main__":
     import unpacking as unpk  # If loaded as top level script
@@ -11,29 +13,52 @@ else:
     from . import unpacking as unpk  # If loaded as a module
 
 @nb.njit(parallel=True)
-def fill_arr(arr, specnum, spec_per_packet):
+def fill_arr_cpu(specnum, spec_per_packet):
+    n = len(specnum)
+    arr = np.empty(n*spec_per_packet, dtype=specnum.dtype)
+    for i in nb.prange(n):
+        for j in range(spec_per_packet):
+            # print(j, specnum[i], j+specnum[i])
+            arr[i * spec_per_packet + j] = specnum[i] + j
+    return arr
+
+def fill_arr_gpu(specnum, spec_per_packet):
+    return (specnum[:,None] + xp.arange(spec_per_packet,dtype=specnum.dtype)).ravel() #broadcast magic
+
+def fill_arr(specnum, spec_per_packet):
     """Make the spectrum number array continuous. Raw spec_num has starting spectrum number of each packet.
     This function expands each packet. Array is required in x-corr computation for handling missing packets.
 
     Parameters
     ----------
-    arr: np.ndarray
-        1d array to fill with data, length is len(specnum) * spec_per_packet
-    specnum: array-like
-        Raw spectrum number array.
+    specnum: xp.ndarray
+        Raw spectrum number array. If GPU enabled, it resides on device
     spec_per_packet: int
         Number of spectrums in a single packet (stored in file header).
+    
+    Returns
+    ---------
+    xp.ndarray
+        Expanded array. If GPU enabled, it resides on device.
     """
-    n = len(specnum)
-    for i in nb.prange(n):
-        for j in range(spec_per_packet):
-            # print(j, specnum[i], j+specnum[i])
-            arr[i * spec_per_packet + j] = specnum[i] + j
+    if xp.__name__=='numpy': return fill_arr_cpu(specnum, spec_per_packet)
+    elif xp.__name__=='cupy': return fill_arr_gpu(specnum,spec_per_packet)
+
 
 @nb.njit(parallel=True)
-def add_constant_to_arr(arr,const):
-    """Add a constant to an array. Function typically used for handling spectrum number int32 wrapping.
-    Spectrum number array can be O(1e7) long.
+def add_constant_cpu(arr,const):
+    n = len(arr)
+    for i in nb.prange(n):
+        arr[i] += const
+
+def add_constant_gpu(arr,const):
+    return arr + const
+
+def add_constant(arr,const):
+    """Helper function to add a constant to an array. 
+    Function typically used for handling spectrum number int32 wrapping.
+    Parallelized since spectrum number array can be O(1e7) long, 
+    and addition needs to happen for each file after a wrap is encountered.
 
     Parameters
     ----------
@@ -42,13 +67,16 @@ def add_constant_to_arr(arr,const):
     const: int
         constant to add
     """
-    n = len(arr)
-    for i in nb.prange(n):
-        arr[i] += const
+    if xp.__name__=='numpy': add_constant_cpu(arr, const)
+    elif xp.__name__=='cupy': add_constant_gpu(arr,const)
 
 class Baseband:
     def __init__(self, file_name, readlen=-1):
-        """Create instance of Baseband.
+        """Create instance of Baseband object.
+        Headers and spec_num always stored on host memory.
+        Raw_data can be stored on either host/device depending on whether GPU is in use.
+        Storing raw data on GPU enables much faster IPFB->PFB->Correlation step.
+        Specnum can be passed to GPU when needed, no need to do so by default.
 
         TODO: Explain what the Baseband class is and what it does??
 
@@ -108,7 +136,7 @@ class Baseband:
             self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
             self.bit_mode = struct.unpack(">Q", file_data.read(8))[0]
             self.have_trimble = struct.unpack(">Q", file_data.read(8))[0]
-            self.channels = numpy.frombuffer(
+            self.channels = np.frombuffer(
                 file_data.read(self.header_bytes - 88),
                 ">%dQ" % (int((header_bytes - 8 * 10) / 8)),
             )[
@@ -123,8 +151,8 @@ class Baseband:
             self._spec_idx = None
 
             if self.bit_mode == 1:
-                self.channels = numpy.ravel(
-                    numpy.column_stack((self.channels, self.channels + 1))
+                self.channels = np.ravel(
+                    np.column_stack((self.channels, self.channels + 1))
                 )
                 self.length_channels = int(self.length_channels * 2)
             if self.bit_mode == 4:
@@ -151,7 +179,7 @@ class Baseband:
             if self.read_packets != 0:
                 file_data.seek(self.header_bytes)
                 t1 = time.time()
-                data = numpy.fromfile(
+                data = np.fromfile(
                     file_data,
                     count=self.read_packets,
                     dtype=[
@@ -161,8 +189,8 @@ class Baseband:
                 )
                 t2 = time.time()
                 print(f"took {t2-t1:5.3f} seconds to read raw data on ", file_name)
-                self.raw_data = numpy.array(data["spectra"], dtype="uint8")
-                self.spec_num = numpy.array(data["spec_num"], dtype="int64")
+                self.raw_data = xp.array(data["spectra"], dtype="uint8", order='c') #only raw data in GPU (if enabled)
+                self.spec_num = np.array(data["spec_num"], dtype="int64", order='c')
                 # check for specnum overflow in current file
                 self._wrap_loc = np.where(np.diff(self.spec_num) < 0)[0]
                 if len(self._wrap_loc) == 1:
@@ -178,12 +206,10 @@ class Baseband:
     def spec_idx(self):
         # Lazy initialization, since no need to spend time to compute this unless accessed by someone.
         if self._spec_idx is None:
-            self._spec_idx = numpy.zeros(
-                self.spec_num.shape[0] * self.spectra_per_packet, dtype="int64"
-            )  # keep dtype int64 otherwise numpy binary search becomes slow
-            fill_arr(self._spec_idx, self.spec_num, self.spectra_per_packet)
-            specdiff = numpy.diff(self.spec_num)
-            idx = numpy.where(specdiff != self.spectra_per_packet)[0]
+            self._spec_idx = fill_arr_cpu(self.spec_num, self.spectra_per_packet)
+            print("spec idx is", self._spec_idx)
+            specdiff = np.diff(self.spec_num)
+            idx = np.where(specdiff != self.spectra_per_packet)[0]
             self._missing_loc = (
                 self.spec_num[idx] + self.spectra_per_packet - self.spec_num[0]
             ).astype("int64")
@@ -357,10 +383,10 @@ class BasebandFloat(Baseband):
         if self.bit_mode == 4:
             return unpk.unpack_4bit(
                 self.raw_data,
-                self.length_channels,
                 rowstart,
                 rowend,
-                self.channel_idxs
+                self.channel_idxs,
+                self.length_channels
             )
         elif self.bit_mode == 1: #TODO: fix the function call
             return unpk.unpack_1bit(
@@ -371,7 +397,6 @@ class BasebandFloat(Baseband):
                 self.chanstart,
                 self.chanend,
             )
-
 
 class BasebandPacked(Baseband):
     # turn spec_selection to true and enter the range of spectra you want to save only part of the file
@@ -512,6 +537,7 @@ class BasebandFileIterator:
             file_paths[fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.channel_idxs = self.obj.channel_idxs
+
         self.spec_num_start = idxstart + self.obj.spec_idx[0]
         print(
             "START SPECNUM IS",
@@ -522,14 +548,15 @@ class BasebandFileIterator:
         if self.obj.bit_mode == 1 and self.type == "packed": #TODO: update for the new channel array format
             if self.obj.chanstart % 2 > 0:
                 raise ValueError("ERROR: Start channel index must be even.")
-            self.ncols = numpy.ceil((self.obj.chanend - self.obj.chanstart) / 4).astype(
+            self.ncols = np.ceil((self.obj.chanend - self.obj.chanstart) / 4).astype(
                 int
             )
         else:
             self.ncols = len(self.channel_idxs)
             # for 4 bits ncols = nchans regardless of packed or float, only dtype changes. 
             # For 1 bit, we want one col for each chan if float.
-    
+        # self.pol0 = np.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
+        # self.pol1 = np.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
     def get_file_loader(self):
         if self.type == 'float':
             myclass = BasebandFloat
@@ -540,7 +567,7 @@ class BasebandFileIterator:
         def file_loader(*args, **kwargs):
                 obj = myclass(*args, **kwargs)
                 if self._OVERFLOW_CTR > 0:
-                    add_constant_to_arr(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
+                    add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: self._OVERFLOW_CTR+=1
                 print("overflow counter is ",self._OVERFLOW_CTR)
                 return obj
@@ -558,12 +585,12 @@ class BasebandFileIterator:
         #     self.spec_num_start,
         # )
         if self.nchunks and self.chunksread == self.nchunks:
-            raise StopIteration
-        pol0 = numpy.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
-        pol1 = numpy.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
-        specnums = numpy.array(
+            raise StopIteration(f"{self.nchunks} chunks read!")
+        pol0 = xp.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c") #this can lead to a mem leak if ref to pol0 lies around in client code
+        pol1 = xp.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
+        specnums = np.array(
             [], dtype="int64"
-        )  # len of this array will control everything in corr, neeeeed the len.
+        )  # len of this array is required to know what % of requested spectrums are present. Could also keep a state variable.
         rem = self.acclen
         i = 0
         while rem:
@@ -595,7 +622,7 @@ class BasebandFileIterator:
                     #     rowend,
                     #     rowend - rowstart,
                     # )
-                    specnums = numpy.append(
+                    specnums = np.append(
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
                     rem -= l #we've consumed l spectra, whether or not l were present is a different question. nrows <= l
@@ -607,6 +634,8 @@ class BasebandFileIterator:
                     self.spec_num_start += l
                     # print("Reading new file")
                     self.fileidx += 1
+                    if len(self.file_paths) == self.fileidx:
+                        raise StopIteration("BFI Ran out of files!")
                     self.obj = self.file_loader(
                         self.file_paths[self.fileidx],
                         channels=self.channel_idxs,
@@ -630,7 +659,7 @@ class BasebandFileIterator:
                     #     rowend,
                     #     rowend - rowstart,
                     # )
-                    specnums = numpy.append(
+                    specnums = np.append(
                         specnums, self.obj.spec_idx[rowstart:rowend]
                     )
                     # print("len specnum from else", rowend-rowstart)
@@ -645,6 +674,7 @@ class BasebandFileIterator:
         # print(pol0[len(specnums),:])
         self.chunksread += 1
         data = {"pol0": pol0, "pol1": pol1, "specnums": specnums}
+        # data = {"specnums": specnums}
         t2 = time.time()
         # print("TIME TAKEN FOR RETURNING NEW OBJECT",t2-t1)
         return data
