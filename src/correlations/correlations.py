@@ -2,7 +2,7 @@ import ctypes
 import numpy as np
 import os
 import time
-
+from src import xp
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_correlations_cpu.so"
@@ -97,6 +97,41 @@ mylib.avg_xcorr_1bit_vanvleck_2ant.argtypes = [
 ]
 avg_xcorr_1bit_vanvleck_2ant_c = mylib.avg_xcorr_1bit_vanvleck_2ant
 
+def _split_mean(arr, ntotal):
+    if arr.shape[0]%1000==0:
+        arrv=arr.reshape(arr.shape[0]//1000,1000,arr.shape[1])
+        return arrv.sum(axis=0).sum(axis=0)/ntotal
+    else:
+        return xp.sum(arr,axis=0)/ntotal
+
+def avg_xcorr_4bit_float_gpu(data0, data1, specnum0, specnum1):
+    """Unified GPU-based 4bit correlation function for a SINGLE BASELINE.
+    If specnum0 and specnum1 are the same array i.e. point to the same location in the memory
+    function returns autocorrelation, else cross-correlation of electric fields
+
+    Parameters
+    ----------
+    data0 : np.ndarray
+        n_spectra x n_channels
+    data1 : np.ndarray
+        n_spectra x n_channels
+    specnum0 : list or np array int64
+        spectrum numbers associated with first dataset
+    specnum1 : list or np array int64
+        spectrum numbers associated with second dataset
+
+    Returns
+    -------
+    np array complex64
+        size n_channels
+    """
+    if specnum0.__array_interface__['data'][0] == specnum1.__array_interface__['data'][0]:
+        #same memory address for specnum =  same antenna
+        N = len(specnum0)
+        return _split_mean(data0[:N]*xp.conj(data1[:N]), N), N
+    else:
+        pass
+        # paste two antenna common specnum finding here
 
 # TODO: standardise naming, here it's called 'pol', later it's called 'data'
 def autocorr_4bit(pol):
