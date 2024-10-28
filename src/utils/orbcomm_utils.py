@@ -602,7 +602,7 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
     return transits
 
 
-def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
+def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False):
     obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
     obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
@@ -620,6 +620,8 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
             ind = i
             break
     print(sats[ind])
+    altaz1=np.zeros((num_iter,2),dtype="float64")
+    altaz2=altaz1.copy()
     diff1 = sats[ind] - obs1
     diff2 = sats[ind] - obs2
     ts = sf.load.timescale()
@@ -630,13 +632,17 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad):
         topo1 = diff1.at(t)
         alt, az, dist = topo1.altaz()
         range1 = dist.m
+        altaz1[iter]=alt.degrees,az.degrees
 
         topo2 = diff2.at(t)
         alt, az, dist = topo2.altaz()
         range2 = dist.m
+        altaz2[iter]=alt.degrees,az.degrees
 
         sim_delay[iter] = (range2 - range1) / c
         tt += 1
+    if altaz:
+        return sim_delay, altaz1, altaz2
     return sim_delay
 
 def delay_corrector(idx1, idx2, delay, dN):
