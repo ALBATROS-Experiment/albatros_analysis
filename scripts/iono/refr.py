@@ -14,8 +14,9 @@ pos1 = [51.4646065, -68.2352594, 341.052]  # north antenna
 pos2 = [51.46418956, -68.23487849, 338.32526665]  # south antenna
 satnorads = [40087, 41187]
 niter=int(t2-t1)+2
+tle_file = outils.get_tle_file(t1,'/project/s/sievers/mohanagr/OCOMM_TLES/')
 times=np.arange(0,niter)
-delay,altaz1,altaz2=outils.get_sat_delay(pos1, pos2, "/home/mohan/Projects/albatros_analysis/scripts/orbcomm/orbcomm_28July21.txt", t1, niter, satnorads[0],altaz=True)
+delay,altaz1,altaz2=outils.get_sat_delay(pos1, pos2, tle_file, t1, niter, satnorads[0],altaz=True)
 
 def get_true_alt(alt_tle, az_tle, freq, frame):
     old_alt=alt_tle.copy()

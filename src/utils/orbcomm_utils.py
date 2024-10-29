@@ -450,7 +450,7 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
                 # print(alt.degrees, az.degrees)
                 # if sat.name is None:
                 #     sat.name =
-                visible.append([sat.model.satnum, alt.degrees])
+                visible.append([sat.model.satnum, alt.degrees, az.degrees])
         #         if(alt_count in (1,)):
         #             print(iter,'have ',alt_count,' in beam -6 dB range', visible)
         risen_sats.append(visible)
