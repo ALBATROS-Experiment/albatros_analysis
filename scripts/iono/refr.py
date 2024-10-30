@@ -6,18 +6,29 @@ import sys
 sys.path.insert(0,'/home/mohan/Projects/')
 from albatros_analysis.src.utils import orbcomm_utils as outils
 import iricore as iri
+def extract_sat(num,passes):
+    altaz=[]
+    for i,p in enumerate(passes):
+        nums=[str(x[0]) for x in p]
+        if num in nums:
+            altaz.append(p[nums.index(num)][1:])
+    return i,np.asarray(altaz)
 T_SPECTRA = 4096/250e6
 T_ACCLEN = T_SPECTRA * 393216
-t1 = 1627453681 + 150 * T_ACCLEN
-t2 = 1627453681 + 180 * T_ACCLEN
-pos1 = [51.4646065, -68.2352594, 341.052]  # north antenna
-pos2 = [51.46418956, -68.23487849, 338.32526665]  # south antenna
-satnorads = [40087, 41187]
-niter=int(t2-t1)+2
-tle_file = outils.get_tle_file(t1,'/project/s/sievers/mohanagr/OCOMM_TLES/')
-times=np.arange(0,niter)
-delay,altaz1,altaz2=outils.get_sat_delay(pos1, pos2, tle_file, t1, niter, satnorads[0],altaz=True)
-
+t1=datetime.datetime(2024,1,26,17,0,0).timestamp()
+pos1=[79+23.308/60,-91-01.156/60,22]
+pos2=[79+25.033/60,-90-45.531/60,176]
+# pos1 = [51.4646065, -68.2352594, 341.052]  # north antenna
+# pos2 = [51.46418956, -68.23487849, 338.32526665]  # south antenna
+# niter=int(t2-t1)+2
+tle_file = outils.get_tle_file(t1,'/home/mohan/Projects/OCOMM_TLES/')
+# times=np.arange(0,niter)
+passes=outils.get_risen_sats(tle_file,pos1,t1,niter=500)
+start,satpos=extract_sat('40069',passes)
+t1=t1+start*6.44
+niter=int(satpos.shape[0]*6.44)
+print(t1,niter)
+delay,altaz1,altaz2=outils.get_sat_delay(pos1, pos2, tle_file, t1, niter, 40069,altaz=True)
 def get_true_alt(alt_tle, az_tle, freq, frame):
     old_alt=alt_tle.copy()
     for i in range(10):
