@@ -76,7 +76,7 @@ if __name__=="__main__":
 
     fname=f'pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
-    butils.plot_4bit(pol00,pol11,pol01,channels,args.acclen,args.time_start,args.vmin,args.vmax,fpath,minutes=True,logplot=args.logplot)
+    butils.plot_4bit(pol00,pol11,pol01,channels[args.chans[0]:args.chans[1]],args.acclen,args.time_start,args.vmin,args.vmax,fpath,minutes=True,logplot=args.logplot)
     print(fpath)
 
 
