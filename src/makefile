@@ -12,6 +12,8 @@ libmath.so: utils/math_utils.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^
 libfftw.so: utils/mkfftw.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^ $(LIBS)
+libpycufft.so: utils/pycufft.cu
+	nvcc -fPIC -shared -Xcompiler -o utils/$@ $^ -lgomp -lcufft
 
 clean:
 	rm -f $(wildcard */*.so)
