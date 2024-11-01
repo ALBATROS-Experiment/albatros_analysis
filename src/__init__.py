@@ -1,7 +1,7 @@
 
 import os
-use_gpu = os.getenv('USE_GPU', '0') == '1'
-if use_gpu:
+USE_GPU = os.getenv('USE_GPU', '0') == '1'
+if USE_GPU:
     os.environ["CUPY_CACHE_DIR"] = "/project/s/sievers/mohan/.cupy/kernel_cache/"
     try:
         import cupy as xp

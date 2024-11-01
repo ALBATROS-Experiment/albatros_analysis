@@ -44,6 +44,12 @@ def fill_arr(specnum, spec_per_packet):
     if xp.__name__=='numpy': return fill_arr_cpu(specnum, spec_per_packet)
     elif xp.__name__=='cupy': return fill_arr_gpu(specnum,spec_per_packet)
 
+def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
+    if out is None:
+        out=xp.zeros((nspec, nchans), dtype=spec.dtype)
+    out[xp.ix_(specnum,channels)] = spec
+    assert out.base is None
+    return out
 
 @nb.njit(parallel=True)
 def add_constant_cpu(arr,const):
