@@ -2,7 +2,7 @@ import numpy
 import ctypes
 import time
 import os
-from src import xp
+from .. import xp
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_unpacking.so"

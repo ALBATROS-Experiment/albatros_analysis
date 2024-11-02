@@ -1,6 +1,6 @@
 import numpy as np
 import cupy as cp
-import pycufft
+from . import pycufft
 import time
 
 def print_mem(str):
@@ -62,9 +62,9 @@ def sinc_hanning(ntap,lblock):
 
 def cupy_pfb(timestream, win, out=None,nchan=2049, ntap=4):
     lblock = 2*(nchan-1)
+    print("lblock is", lblock, "nchan is", nchan)
     nblock = timestream.size // lblock - (ntap - 1)
-    if timestream.ndim==1:
-        timestream=timestream.reshape(-1,lblock)
+    timestream=timestream.reshape(-1,lblock)
     if out is not None:
         assert out.shape == (nblock, nchan)
     win=win.reshape(ntap,lblock)
@@ -72,3 +72,15 @@ def cupy_pfb(timestream, win, out=None,nchan=2049, ntap=4):
     y=y[0,:nblock,:]+y[1,1:nblock+1,:]+y[2,2:nblock+2,:]+y[3,3:nblock+3,:]
     out=cp.fft.rfft(y,axis=1)
     return out
+
+def get_matft(nslice,nchan=2049,ntap=4):
+    ntap=4
+    nn=2*(nchan-1)
+    dwin=sinc_hamming(ntap,nn)
+    cupy_win=cp.asarray(dwin,dtype='float32')
+    cupy_win=cp.reshape(cupy_win,[ntap,len(cupy_win)//ntap])
+    mat=cp.zeros((nslice,nn),dtype='float32')
+    mat[:ntap,:]=cupy_win
+    mat=mat.T.copy()
+    matft=cp.fft.rfft(mat,axis=1)
+    return matft
