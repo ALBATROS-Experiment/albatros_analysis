@@ -2,7 +2,7 @@ import struct
 import time
 import numba as nb
 import numpy as np
-from src import xp
+from .. import xp
 import os
 
 print("BDC is using", xp.__name__)
@@ -23,6 +23,7 @@ def fill_arr_cpu(specnum, spec_per_packet):
     return arr
 
 def fill_arr_gpu(specnum, spec_per_packet):
+    print("fill arr gpu was called")
     return (specnum[:,None] + xp.arange(spec_per_packet,dtype=specnum.dtype)).ravel() #broadcast magic
 
 def fill_arr(specnum, spec_per_packet):
@@ -45,9 +46,12 @@ def fill_arr(specnum, spec_per_packet):
     elif xp.__name__=='cupy': return fill_arr_gpu(specnum,spec_per_packet)
 
 def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
+    if len(specnum)==nspec and len(channels)==nchans:
+        return spec #nothing to do if nothing's missing and all channels populated
     if out is None:
         out=xp.zeros((nspec, nchans), dtype=spec.dtype)
-    out[xp.ix_(specnum,channels)] = spec
+    out[xp.ix_(specnum,channels)] = spec[:len(specnum)]
+    print("specnum is", specnum)
     assert out.base is None
     return out
 
