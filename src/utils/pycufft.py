@@ -5,7 +5,7 @@ import threading
 import cupy as cp
 cupy_cache=cp.fft.config.get_plan_cache()
 cupy_cache.set_size(0) #disable all cupy caching
-mylib=ctypes.cdll.LoadLibrary("/home/s/sievers/mohanagr/cuda_ipfb/libpycufft.so")
+mylib=ctypes.cdll.LoadLibrary("/gpfs/fs1/home/s/sievers/mohanagr/albatros_analysis/src/utils/libpycufft.so")
 r2c = mylib.cufft_r2c_mohan
 r2c.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
 c2r = mylib.cufft_c2r_mohan
@@ -21,7 +21,7 @@ set_plan_scratch = mylib.set_plan_scratch
 set_plan_scratch.argtypes = (ctypes.c_void_p,ctypes.c_void_p)
 
 class PlanCache():
-    def __init__(self,maxsize=4*1024**3):
+    def __init__(self,maxsize=10*1024**3):
         self._cache={}
         self.hits=0
         self.misses=0
@@ -41,26 +41,35 @@ class PlanCache():
         if tag in self._cache: 
             self.hits+=1
             # print("Found", key, "in cache!!!")
-            return ctypes.byref(self._cache[tag]) #if plan already in cache, return that
+            # print("returning plan", self._cache[tag])
+            # return ctypes.byref(self._cache[tag]) #if plan already in cache, return that
+            # return self._cache[tag].ctypes.data
+            plan = self._cache[tag]
         else:
+            self.misses+=1
             size=ctypes.c_uint64(0)
-            plan=ctypes.c_uint32(0)
-            self.plan_func[key[2]](key[0], key[1], ctypes.byref(plan), ctypes.byref(size)) #every call creates a new unique plan.
-            # size_check = np.empty(1,dtype=np.uint64)
+            # plan=ctypes.c_uint32(0)
+            plan = np.empty(1, dtype=np.int32)
+            # self.plan_func[key[2]](key[0], key[1], ctypes.byref(plan), ctypes.byref(size)) #every call creates a new unique plan.
+            self.plan_func[key[2]](key[0], key[1], plan.ctypes.data, ctypes.byref(size)) #every call creates a new unique plan.
+            size_check = np.empty(1,dtype=np.uint64)
             # get_plan_size(ctypes.byref(plan),size_check.ctypes.data)
-            # assert size_check[0]==size.value # this can be removed at some point
+            get_plan_size(plan.ctypes.data,size_check.ctypes.data)
+            assert size_check[0]==size.value # this can be removed at some point
+            print(size.value, "size in python")
             if size.value > self.maxsize:
-                raise RuntimeError("Plan cache requires too much memory. Disable caching or use FFT calls with use_cache=False while using this plan.")
+                raise RuntimeError(f"Plan cache requires too much memory, {size.value/1024**3} GB. Disable caching or use FFT calls with use_cache=False while using this plan.")
                 # Raising an error as per CUPY protocol.
                 # Don't wanna keep wasting time calling get_plan_*() to get a plan every time we call an FFT whose cache that won't fit.
                 # We'll eventually have to fallback to using un-cached implementation anyway, which does the planning.
             if size.value > self.cursize:
                 self.cursize = size.value
                 self.scratch = cp.empty(self.cursize, dtype="uint8") #work area bound to cache object's lifetime
-            set_plan_scratch(ctypes.byref(plan), self.scratch.data.ptr)
-            self._cache[tag]=plan
-            self.misses+=1
-            return ctypes.byref(plan)
+        # set_plan_scratch(ctypes.byref(plan), self.scratch.data.ptr)
+        set_plan_scratch(plan.ctypes.data, self.scratch.data.ptr)
+        self._cache[tag]=plan
+        # return ctypes.byref(plan)
+        return plan.ctypes.data
     def __repr__(self):
         return "plans cached currently are: " + ", ".join(self._cache.keys()) + "\n" +\
         f"current work area size: {self.cursize} B" + "\n" +\
@@ -80,13 +89,15 @@ def rfft(inp,axis=1,use_cache=True,copy=False):
     if axis!=inp.ndim-1: 
         inp=inp.swapaxes(axis,-1)
     if inp.base is not None or not inp.flags.c_contiguous:
-        # print("making a copy of inp")
+        print("making a copy of inp")
         inp = inp.copy()
     oshape = inp.shape[:-1] + (inp.shape[-1]//2+1,)
     out = cp.empty(oshape,dtype='complex64')
     n = inp.shape[-1]
     batch = inp.size // n
     plan_ptr = pycufft_cache[batch,n,'R2C'] if use_cache else None
+    print("From RFFT",inp.shape,out.shape,batch, n, plan_ptr)
+    print(pycufft_cache)
     r2c(out.data.ptr,inp.data.ptr,batch,n,plan_ptr)
     if axis!=inp.ndim-1: 
         out=out.swapaxes(axis,-1)
@@ -98,7 +109,7 @@ def irfft(inp,axis=1,use_cache=True,copy=False):
     if axis!=inp.ndim-1: 
         inp=inp.swapaxes(axis,-1)
     if inp.base is not None or not inp.flags.c_contiguous:
-        # print("making a copy of inp")
+        print("making a copy of inp")
         inp = inp.copy()
     # print(inp.shape)
     oshape = inp.shape[:-1] + (2*(inp.shape[-1]-1),)
@@ -106,8 +117,11 @@ def irfft(inp,axis=1,use_cache=True,copy=False):
     n = out.shape[-1]
     batch = out.size // n
     plan_ptr = pycufft_cache[batch,n,'C2R'] if use_cache else None
+    print("From IRFFT",inp.shape,out.shape,batch, n, plan_ptr)
     c2r(out.data.ptr,inp.data.ptr,batch, n, plan_ptr)
     out/=n
+    # cpout=cp.fft.irfft(inp,axis=1)
+    # print("Max error",cp.max(cp.abs(cpout-out)))
     if axis!=inp.ndim-1: 
         out=out.swapaxes(axis,-1)
         if copy and out.base is not None:
@@ -116,12 +130,13 @@ def irfft(inp,axis=1,use_cache=True,copy=False):
     return out
 
 def test(cache=False):
-    inp = cp.random.randn(100,80)
+    inp = cp.random.randn(4096,4914)
     inp=inp.astype("float32")
     axis=1
     print("testing rfft axis", axis)
     tru=cp.fft.rfft(inp,axis=axis)
     out=rfft(inp,use_cache=cache)
+    print(out.shape)
     axis=0
     assert cp.allclose(out,tru,rtol=1e-15,atol=1e-15)
     print("testing rfft axis", axis)
@@ -152,7 +167,7 @@ def test(cache=False):
     print("testing irfft axis", axis)
     tru=cp.fft.irfft(inp,axis=axis)
     out=irfft(inp,axis=axis,use_cache=cache)
-    print(out.shape)
+    
     assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
 
 if __name__=='__main__':

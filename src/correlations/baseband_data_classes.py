@@ -51,7 +51,7 @@ def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
     if out is None:
         out=xp.zeros((nspec, nchans), dtype=spec.dtype)
     out[xp.ix_(specnum,channels)] = spec[:len(specnum)]
-    print("specnum is", specnum)
+    # print("specnum is", specnum)
     assert out.base is None
     return out
 
