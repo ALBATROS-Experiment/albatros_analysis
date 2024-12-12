@@ -9,11 +9,6 @@ import cupy as cp
 import numpy as np
 from albatros_analysis.src.utils import pycufft
 import gc
-#export USE_GPU=1
-#export CUPY_CACHE_DIR=${PROJECT}/.cupy/kernel_cache
-#conda deactivate
-#conda activate albatros
-#export LD_LIBRARY_PATH=/home/s/sievers/mohanagr/.conda/envs/albatros/lib:$LD_LIBRARY_PATH
 # import albatros_analysis.src.baseband_data_classes as bdc
 # import albatros_analysis.src.utils.pfb_utils as pu
 # import albatros_analysis.src.utils.baseband_utils as bu
@@ -55,7 +50,10 @@ print("cupy_win_big size", np.prod(cupy_win_big.shape)*4/1024**3, "GB")
 
 start_chan = (channels[chanstart]-1)*osamp
 end_chan = (channels[chanend]+1)*osamp #numpy conventions
-avg_data = np.zeros((nchunks-1,end_chan-start_chan),dtype="complex64")
+avg_data_rr = np.zeros((nchunks-1,end_chan-start_chan),dtype="float32")
+avg_data_ii = np.zeros((nchunks-1,end_chan-start_chan),dtype="float32")
+avg_data_ri = np.zeros((nchunks-1,end_chan-start_chan),dtype="float32")
+avg_data_ir = np.zeros((nchunks-1,end_chan-start_chan),dtype="float32")
 # print("avg data size", np.prod(avg_data.shape)*8/1024**3, "GB")
 filt_thresh=0.45
 flag=False
@@ -76,10 +74,7 @@ for i, chunk in enumerate(ant):
     print(f"chunk {i}, missing : {missing:5.3f}")
     # if len(chunk['specnums']<acclen):
     #     assert cp.sum(pol0[len(chunk['specnums']):])==0.
-    mm=len(chunk['specnums'])
-    chunk['pol0'][:mm] = 2*(chunk['pol0'][:mm].real>=0)-1 + 1j*(2*(chunk['pol0'][:mm].imag>=0)-1)
-    chunk['pol1'][:mm] = 2*(chunk['pol1'][:mm].real>=0)-1 + 1j*(2*(chunk['pol1'][:mm].imag>=0)-1)
-    # print(chunk['pol0'][mm:])
+
     # print("pol0 properties", pol0.dtype, pol0.shape, pol0.base is None, pol0.flags.c_contiguous)
     # print("pol0 dtype", pol0.dtype)
     # print("pol0 size", np.prod(pol0.shape)*8/1024**3, "GB")
@@ -94,7 +89,10 @@ for i, chunk in enumerate(ant):
         continue
     if missing>0.1:
         print("MISSING ENCOUNTERED")
-        avg_data[i-1,:] = np.nan #ignore this chunk
+        avg_data_rr[i-1,:] = np.nan #ignore this chunk
+        avg_data_ii[i-1,:] = np.nan #ignore this chunk
+        avg_data_ri[i-1,:] = np.nan #ignore this chunk
+        avg_data_ir[i-1,:] = np.nan #ignore this chunk
         flag=True
         continue
     pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-chunk['specnums'][0],channels[ant.obj.channel_idxs],acclen,nchans=2049)
@@ -104,16 +102,15 @@ for i, chunk in enumerate(ant):
         print("FLAG ENABLED BUT GOOD CHUNK")
         to_ipfb_pol0[:2*cut] = pol0[-2*cut:]
         to_ipfb_pol1[:2*cut] = pol1[-2*cut:]
-        avg_data[i-1,:] = np.nan
+        avg_data_rr[i-1,:] = np.nan
+        avg_data_ii[i-1,:] = np.nan
+        avg_data_ri[i-1,:] = np.nan
+        avg_data_ir[i-1,:] = np.nan
         flag=False
         continue
     #print("we're not missing more than 10% and flag is OFF, process the whole chunk")
     to_ipfb_pol0[2*cut:] = pol0.copy()
     to_ipfb_pol1[2*cut:] = pol1.copy()
-    print("TO IPFB")
-    print(to_ipfb_pol0[:,channels[chanstart]:channels[chanend]])
-    print(to_ipfb_pol1[:,channels[chanstart]:channels[chanend]])
-    print(pol1)
     raw_pol0 = pu.cupy_ipfb(to_ipfb_pol0, matft, thresh=filt_thresh)
     raw_pol1 = pu.cupy_ipfb(to_ipfb_pol1, matft, thresh=filt_thresh)
     print("IPFB done")
@@ -127,14 +124,25 @@ for i, chunk in enumerate(ant):
     # print("cupy total time taken to do ipfb/pfb",cp.cuda.get_elapsed_time(start_event, end_event)/1000)
     # do stuff with new pol0
     # start_event.record()
-    avg_data[i-1,:] = cp.asnumpy(cp.mean(pol0_new*cp.conj(pol1_new),axis=0)[start_chan:end_chan])
+    pol0_new = 2*(pol0_new.real>=0)-1 + 1j*(2*(pol0_new.imag>=0)-1)
+    pol1_new = 2*(pol1_new.real>=0)-1 + 1j*(2*(pol1_new.imag>=0)-1)
+    avg_data_rr[i-1,:] = cp.asnumpy(cp.mean(pol0_new.real*pol1_new.real,axis=0)[start_chan:end_chan])
+    avg_data_ii[i-1,:] = cp.asnumpy(cp.mean(pol0_new.imag*pol1_new.imag,axis=0)[start_chan:end_chan])
+    avg_data_ri[i-1,:] = cp.asnumpy(cp.mean(pol0_new.real*pol1_new.imag,axis=0)[start_chan:end_chan])
+    avg_data_ir[i-1,:] = cp.asnumpy(cp.mean(pol0_new.imag*pol1_new.real,axis=0)[start_chan:end_chan])
     # end_event.record()
     # end_event.synchronize()
     # print("cupy total time taken to transfer a row",cp.cuda.get_elapsed_time(start_event, end_event)/1000)
 end_event.record()
 end_event.synchronize()
 print("cupy total time taken ",cp.cuda.get_elapsed_time(start_event, end_event)/1000)
-avg_data=cp.asnumpy(avg_data)
 
-np.savez(f"/project/s/sievers/mohanagr/avgdata_orbcomm_{filt_thresh}_pre_ipfb_1bit.npz", data=avg_data, start_chan=start_chan, end_chan=end_chan, osamp=osamp)
+np.savez(f"/project/s/sievers/mohanagr/avgdata_orbcomm_{filt_thresh}_post_ipfb_1bit.npz", 
+data_rr=avg_data_rr, 
+data_ii=avg_data_ii, 
+data_ri=avg_data_ri, 
+data_ir=avg_data_ir, 
+start_chan=start_chan, 
+end_chan=end_chan, 
+osamp=osamp)
 print("data saved")
