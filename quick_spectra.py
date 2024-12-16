@@ -116,6 +116,11 @@ if __name__ == "__main__":
     if args.vmin is None and args.vmax is None:
         vmin,vmax=get_vmin_vmax(pol00)
         vmin2,vmax2=get_vmin_vmax(pol11)
+    else:
+        vmin=10**args.vmin
+        vmax=10**args.vmax
+        vmin2=vmin
+        vmax2=vmax
     
     pmax = np.max(pol00)
     axrange = [fmin, fmax, 0, pmax]
