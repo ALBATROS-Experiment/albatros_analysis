@@ -423,6 +423,14 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
         One list of risen satellites per epoch. Each epoch's list carries the name of the risen satellite at that epoch.
         E.g. [["FM118","NOAA15"], ["NOAA15"]]
     """
+    junk = [11060, 
+            35865, #Meteor M-1
+            14154, #HILAT
+            28650,  #HAMSAT, old Indian sat
+            28371, #Saudi sat 2
+            5580 #PROSPERO
+            ]
+    good=[28654,25338,33591,57166,59051,44387]
     obs1 = sf.wgs84.latlon(*coords)
     sats = sf.load.tle_file(tle_file)
     tt = t_start
@@ -438,6 +446,8 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
         t = ts.ut1_jd(jd)
 
         for sat in sats:
+            # if sat.model.satnum in junk: continue
+            if sat.model.satnum not in good: continue
             # if (
             # "[+]" not in sat.name and "NOAA" not in sat.name
             # ):  # extracting operational ORBCOMM ([+]) and NOAA from TLE file

@@ -6,7 +6,7 @@
 #include <cufft.h>
 #include <cuComplex.h>
 /*--------------------------------------------------------------------------------*/
-static char* _cufftGetErrorEnum( cufftResult_t error )
+const char* _cufftGetErrorEnum( cufftResult_t error )
 {
     switch ( error )
     {
@@ -119,6 +119,43 @@ void cufft_r2c_mohan(cufftComplex *out, float * data, int nrows, int ncols, cuff
     // cudaEventElapsedTime(&milliseconds, start, stop);
     // printf("r2c took %12.4g\n",milliseconds);
 }
+void cufft_c2c(cufftComplex *out, cufftComplex * data, int nrows, int ncols, int direction, cufftHandle * plan_ptr)
+{
+    cudaError_t cudaError;
+    cudaError = cudaGetLastError();
+    if( cudaError != cudaSuccess )
+    {
+        fprintf(stderr, "CUDA Runtime API Error reported : %s\n", cudaGetErrorString(cudaError));
+        exit(EXIT_FAILURE);
+    }
+    direction = (direction == -1) ? CUFFT_FORWARD : CUFFT_INVERSE;
+    if (plan_ptr)
+    {
+        //if a plan is available execute and move on
+        // printf("Using user's plan r2c\n");
+        // cudaEventRecord(start, 0);
+        cufftResult_t error;
+        error=cufftExecC2C(*plan_ptr,data,out,direction);
+        if (error!=CUFFT_SUCCESS)
+        {
+            fprintf(stderr,"C2C (%d, %d) FAILED\n", nrows, ncols);
+            fprintf(stderr,_cufftGetErrorEnum(error));
+            exit(EXIT_FAILURE);
+        }
+        // cudaDeviceSynchronize();
+    }
+    else
+    {
+        cufftHandle plan;
+        if (cufftPlan1d(&plan,ncols,CUFFT_C2C,nrows)!=CUFFT_SUCCESS)
+            fprintf(stderr,"Error planning dft\n");
+        if (cufftExecC2C(plan,data,out,direction)!=CUFFT_SUCCESS)
+            fprintf(stderr,"Error executing dft manual r2c\n");
+        // cudaDeviceSynchronize();
+        if (cufftDestroy(plan)!= CUFFT_SUCCESS)
+            fprintf(stderr,"Error destroying plan.\n");
+    }
+}
 void cufft_c2r_mohan(float *out, cufftComplex * data, int nrows, int ncols, cufftHandle * plan_ptr)
 {
     // nrows = rows in output data; ncols = columns in output data.
@@ -225,6 +262,40 @@ void get_plan_c2r(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
     printf("axis 1, get plan c2r\n");
     // We can finally actually set up the plan
     if (cufftMakePlan1d(*plan, ncols, CUFFT_C2R, nrows, work_size)!=CUFFT_SUCCESS)
+        fprintf(stderr,"Error planning dft.\n");
+    printf("the plan in C has value %d\n", *plan);
+    printf("plan worksize in C has value %d\n", *work_size);
+    printf("plan worksize in C has size %d\n", sizeof(work_size));
+}
+void get_plan_c2c(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
+{
+    // nrows -> batch, ncols -> size
+    // Initialize an empty plan.
+    cudaError_t cudaError;
+
+        cudaError = cudaGetLastError();
+
+        if( cudaError != cudaSuccess )
+
+        {
+
+        fprintf(stderr, "CUDA Runtime API Error reported : %s\n", cudaGetErrorString(cudaError));
+
+        exit(EXIT_FAILURE);
+
+        }
+    cufftCreate(plan);
+    // Turn off auto-allocation by default. This must be done before the
+    // plan is actually created, so we can't use the shortcut cufftPlan1d
+    cufftResult_t error;
+    error=cufftSetAutoAllocation(*plan, 0);
+    if(error!=CUFFT_SUCCESS)
+    {
+        fprintf(stderr, "CUFFT setAutoAllocation returned %d", error);
+    }
+    printf("axis 1, get plan c2c\n");
+    // We can finally actually set up the plan
+    if (cufftMakePlan1d(*plan, ncols, CUFFT_C2C, nrows, work_size)!=CUFFT_SUCCESS)
         fprintf(stderr,"Error planning dft.\n");
     printf("the plan in C has value %d\n", *plan);
     printf("plan worksize in C has value %d\n", *work_size);

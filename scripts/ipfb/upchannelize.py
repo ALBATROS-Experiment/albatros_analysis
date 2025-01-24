@@ -16,8 +16,8 @@ import gc
 t_start=1721400005
 t_end=t_start+30*60
 files,start_file_idx=bu.get_init_info(t_start,t_end,"/scratch/s/sievers/mohanagr/mars_axion/baseband")
-osamp=1024
-pfb_size = 64 * osamp
+osamp=64
+pfb_size = 256 * osamp
 cut=int(pfb_size/16)
 acclen=pfb_size - 2*cut
 idxstart=0
@@ -46,7 +46,7 @@ start_chan = (channels[0]-1)*osamp
 end_chan = (channels[-1]+1)*osamp #numpy conventions
 avg_data = np.zeros((nchunks-1,end_chan-start_chan),dtype="complex64")
 # print("avg data size", np.prod(avg_data.shape)*8/1024**3, "GB")
-filt_thresh=0.4
+filt_thresh=0.45
 flag=False
 # antennas = [ant1,ant2,...]
 # for i, chunks in enumerate(zip(*antennas)):
@@ -110,5 +110,5 @@ end_event.synchronize()
 print("cupy total time taken ",cp.cuda.get_elapsed_time(start_event, end_event)/1000)
 avg_data=cp.asnumpy(avg_data)
 
-np.savez(f"/project/s/sievers/mohanagr/avgdata_new_{filt_thresh}.npz", data=avg_data, start_chan=start_chan, end_chan=end_chan, osamp=osamp)
+np.savez(f"/project/s/sievers/mohanagr/avgdata_new_{filt_thresh}_{osamp}.npz", data=avg_data, start_chan=start_chan, end_chan=end_chan, osamp=osamp)
 print("data saved")

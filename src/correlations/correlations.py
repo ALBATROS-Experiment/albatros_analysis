@@ -2,7 +2,8 @@ import ctypes
 import numpy as np
 import os
 import time
-from src import xp
+# from src import xp
+from .. import xp
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_correlations_cpu.so"
@@ -302,8 +303,8 @@ def avg_xcorr_4bit_2ant(data0, data1, specnum0, specnum1, start_idx0, start_idx1
         data0.shape[1],
     )
     t2 = time.time()
-    print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    print("ROW COUNT IS ", rowcount)
+    # print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+    # print("ROW COUNT IS ", rowcount)
     if rowcount == 0:
         xcorr = np.nan
         return xcorr

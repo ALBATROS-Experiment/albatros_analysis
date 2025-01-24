@@ -47,7 +47,11 @@ def fill_arr(specnum, spec_per_packet):
 
 def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
     if len(specnum)==nspec and len(channels)==nchans:
-        return spec #nothing to do if nothing's missing and all channels populated
+        if out is not None:
+            out[:]=spec
+            return out #nothing to do if nothing's missing and all channels populated
+        else:
+            return spec
     if out is None:
         out=xp.zeros((nspec, nchans), dtype=spec.dtype)
     out[xp.ix_(specnum,channels)] = spec[:len(specnum)]
@@ -206,6 +210,7 @@ class Baseband:
                 if len(self._wrap_loc) == 1:
                     self.spec_num[self._wrap_loc[0] + 1 :] += 2**32
                     self._overflowed = True
+                    print("file overflowed")
                 elif len(self._wrap_loc) > 1:
                     raise ValueError(
                         "Why are there two -ve diffs in specnum? Investigate this file"
@@ -217,7 +222,7 @@ class Baseband:
         # Lazy initialization, since no need to spend time to compute this unless accessed by someone.
         if self._spec_idx is None:
             self._spec_idx = fill_arr_cpu(self.spec_num, self.spectra_per_packet)
-            print("spec idx is", self._spec_idx)
+            # print("spec idx is", self._spec_idx)
             specdiff = np.diff(self.spec_num)
             idx = np.where(specdiff != self.spectra_per_packet)[0]
             self._missing_loc = (
@@ -578,8 +583,9 @@ class BasebandFileIterator:
                 obj = myclass(*args, **kwargs)
                 if self._OVERFLOW_CTR > 0:
                     add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
-                if obj._overflowed: self._OVERFLOW_CTR+=1
-                print("overflow counter is ",self._OVERFLOW_CTR)
+                if obj._overflowed: 
+                    self._OVERFLOW_CTR+=1
+                    print("overflow counter is ",self._OVERFLOW_CTR)
                 return obj
         return file_loader
 

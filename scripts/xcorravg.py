@@ -2,12 +2,14 @@ import numpy as np
 # from correlations_temp import baseband_data_classes as bdc
 import time
 import argparse
-from os.path import join
+from os import path
+import sys
+sys.path.insert(0,path.expanduser("~"))
 
 if __name__=="__main__":
-    from correlations import baseband_data_classes as bdc
-    from correlations import correlations as cr
-    from utils import baseband_utils as butils
+    from albatros_analysis.src.correlations import baseband_data_classes as bdc
+    from albatros_analysis.src.correlations import correlations as cr
+    from albatros_analysis.src.utils import baseband_utils as butils
 else:
     from .correlations import baseband_data_classes as bdc
     from .correlations import correlations as cr
@@ -22,9 +24,9 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     # idxstart1=2502441
     # idxstart2=1647949
     print(idxstart1,idxstart2, "IDXSTARTS")
+    delay=delay-100000
     if(delay>0):
         idxstart1+=delay
-        
     else:
         idxstart2+=np.abs(delay)
 
@@ -41,14 +43,15 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     m2=ant2.spec_num_start
     st=time.time()
     for i, (chunk1,chunk2) in enumerate(zip(ant1,ant2)):
-        t1=time.time()
+        # t1=time.time()
         # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
         pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
-        t2=time.time()
-        print("time taken for one loop", t2-t1)
+        # t2=time.time()
+        # print("time taken for one loop", t2-t1)
         j=ant1.spec_num_start
-        print("After a loop spec_num start at:", j, "Expected at", m1+(i+1)*acclen)
-        print(i+1,"CHUNK READ")
+        # print("After a loop spec_num start at:", j, "Expected at", m1+(i+1)*acclen)
+        if i%1000==0:
+            print(i+1,"CHUNK READ")
     print("Time taken final:", time.time()-st)
     pol00 = np.ma.masked_invalid(pol00)
     return pol00,ant1.obj.channels
@@ -56,7 +59,8 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
 if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('data_dir', type=str,help='Parent data directory. Should have snap1 and snap3, which have 5 digit time folders.')
+    parser.add_argument('data_dir1', type=str,help='Parent data directory antenna 1, should have 5 digit time folders.')
+    parser.add_argument('data_dir2', type=str,help='Parent data directory antenna 2, should have 5 digit time folders.')
     parser.add_argument("time_start",type=int, help="Start timestamp ctime")
     parser.add_argument("acclen", type=int, help="Accumulation length for averaging")
     parser.add_argument("delay", type=int, help="Delay +ve or -ve")
@@ -74,8 +78,8 @@ if __name__=="__main__":
     if(not args.chans):
         args.chans=[0,None]
 
-    path1=join(args.data_dir,'snap3')
-    path2=join(args.data_dir,'snap1')
+    path1=args.data_dir1
+    path2=args.data_dir2
     print(path1,path2)
     init_t = args.time_start #c#1627441379 #1627441542 #1627439234
     acclen=args.acclen
@@ -86,7 +90,7 @@ if __name__=="__main__":
     pol00,channels=get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=args.chans[0], chanend=args.chans[1])
 
     fname = f"xcorr_pol00_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{str(args.delay)}_{args.chans[0]}_{args.chans[1]}.npz"
-    fpath = join(args.outdir,fname)
+    fpath = path.join(args.outdir,fname)
     np.savez_compressed(fpath,datap00=pol00.data,maskp00=pol00.mask,chans=channels)
 
     from matplotlib import pyplot as plt
@@ -105,6 +109,6 @@ if __name__=="__main__":
     plt.colorbar()
 
     fname = f"xcorr_pol00_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{str(args.delay)}_{args.chans[0]}_{args.chans[1]}.png"
-    fpath = join(args.outdir,fname)
+    fpath = path.join(args.outdir,fname)
     plt.savefig(fpath)
     print(fpath)

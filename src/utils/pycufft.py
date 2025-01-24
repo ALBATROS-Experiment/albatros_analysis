@@ -10,11 +10,15 @@ r2c = mylib.cufft_r2c_mohan
 r2c.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
 c2r = mylib.cufft_c2r_mohan
 c2r.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
+c2c = mylib.cufft_c2c
+c2c.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
 
 get_plan_r2c = mylib.get_plan_r2c
 get_plan_r2c.argtypes = (ctypes.c_int,ctypes.c_int,ctypes.c_void_p,ctypes.c_void_p)
 get_plan_c2r = mylib.get_plan_c2r
 get_plan_c2r.argtypes = (ctypes.c_int,ctypes.c_int,ctypes.c_void_p,ctypes.c_void_p)
+get_plan_c2c = mylib.get_plan_c2c
+get_plan_c2c.argtypes = (ctypes.c_int,ctypes.c_int,ctypes.c_void_p,ctypes.c_void_p)
 get_plan_size = mylib.get_plan_size
 get_plan_size.argtypes = (ctypes.c_void_p,ctypes.c_void_p)
 set_plan_scratch = mylib.set_plan_scratch
@@ -27,7 +31,7 @@ class PlanCache():
         self.misses=0
         self.maxsize=maxsize
         self.cursize=0
-        self.plan_func = {'C2R': get_plan_c2r, 'R2C': get_plan_r2c}
+        self.plan_func = {'C2R': get_plan_c2r, 'R2C': get_plan_r2c, 'C2C': get_plan_c2c}
     def __getitem__(self,key):
         '''
         Return pointer to a plan. None equivalent to passing a NULL pointer in ctypes.
@@ -85,19 +89,46 @@ class PlanCache():
 # they will all use the same cache.
 pycufft_cache=PlanCache()
 
+def _fft(inp,axis=1,direction=-1,use_cache=True,copy=False):
+    # C2C helper
+    # direction -1 for forward, 1 for backward (CUFFT convention)
+    assert inp.dtype==cp.complex64
+    if axis!=inp.ndim-1: #transform axis => fastest moving
+        inp=inp.swapaxes(axis,-1)
+    if inp.base is not None or not inp.flags.c_contiguous:
+        inp = inp.copy()
+    oshape = inp.shape
+    out = cp.empty(oshape,dtype='complex64')
+    n = inp.shape[-1]
+    batch = inp.size // n
+    plan_ptr = pycufft_cache[batch,n,'C2C'] if use_cache else None
+    # print("From _fft",inp.shape,out.shape,batch, n, plan_ptr)
+    c2c(out.data.ptr,inp.data.ptr,batch,n,direction,plan_ptr) #batch = nrows, n = ncols for a 2D array
+    if direction==1: out/=n
+    if axis!=inp.ndim-1: 
+        out=out.swapaxes(axis,-1)
+        if copy and out.base is not None:
+            out=out.copy()
+    return out
+
+def fft(inp,axis=1,use_cache=True,copy=False):
+    return _fft(inp,axis=axis,direction=-1,use_cache=use_cache,copy=copy)
+
+def ifft(inp,axis=1,use_cache=True,copy=False):
+    return _fft(inp,axis=axis,direction=1,use_cache=use_cache,copy=copy)
+
 def rfft(inp,axis=1,use_cache=True,copy=False):
     if axis!=inp.ndim-1: 
         inp=inp.swapaxes(axis,-1)
     if inp.base is not None or not inp.flags.c_contiguous:
-        print("making a copy of inp")
+        # print("making a copy of inp")
         inp = inp.copy()
     oshape = inp.shape[:-1] + (inp.shape[-1]//2+1,)
     out = cp.empty(oshape,dtype='complex64')
     n = inp.shape[-1]
     batch = inp.size // n
     plan_ptr = pycufft_cache[batch,n,'R2C'] if use_cache else None
-    print("From RFFT",inp.shape,out.shape,batch, n, plan_ptr)
-    print(pycufft_cache)
+    # print("From RFFT",inp.shape,out.shape,batch, n, plan_ptr)
     r2c(out.data.ptr,inp.data.ptr,batch,n,plan_ptr)
     if axis!=inp.ndim-1: 
         out=out.swapaxes(axis,-1)
@@ -109,7 +140,7 @@ def irfft(inp,axis=1,use_cache=True,copy=False):
     if axis!=inp.ndim-1: 
         inp=inp.swapaxes(axis,-1)
     if inp.base is not None or not inp.flags.c_contiguous:
-        print("making a copy of inp")
+        # print("making a copy of inp")
         inp = inp.copy()
     # print(inp.shape)
     oshape = inp.shape[:-1] + (2*(inp.shape[-1]-1),)
@@ -117,7 +148,7 @@ def irfft(inp,axis=1,use_cache=True,copy=False):
     n = out.shape[-1]
     batch = out.size // n
     plan_ptr = pycufft_cache[batch,n,'C2R'] if use_cache else None
-    print("From IRFFT",inp.shape,out.shape,batch, n, plan_ptr)
+    # print("From IRFFT",inp.shape,out.shape,batch, n, plan_ptr)
     c2r(out.data.ptr,inp.data.ptr,batch, n, plan_ptr)
     out/=n
     # cpout=cp.fft.irfft(inp,axis=1)
@@ -170,6 +201,47 @@ def test(cache=False):
     
     assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
 
+def test_c2c(cache=False):
+    nc=200
+    nr=100
+    inp = cp.zeros((nr,nc),dtype='complex64')
+    xx=cp.random.randn(nr,nc)+1j*cp.random.randn(nr,nc)
+    inp[:,:]=xx 
+    axis=1
+    print("testing forward fft axis", axis)
+    for i in range(1000):
+        tru=cp.fft.fft(inp,axis=axis)
+        out=fft(inp,axis=axis,use_cache=cache)
+        # print("error", np.sum(tru-out))
+        assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
+    axis=0
+    print("testing forward fft axis", axis)
+    for i in range(1000):
+        tru=cp.fft.fft(inp,axis=axis)
+        out=fft(inp,axis=axis,use_cache=cache)
+        # print("error", np.sum(tru-out))
+        assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
+
+    nc=41
+    nr=56
+    inp = cp.zeros((nr,nc),dtype='complex64')
+    xx=cp.random.randn(nr,nc)+1j*cp.random.randn(nr,nc)
+    inp[:,:]=xx 
+    axis=1
+    print("testing backward fft axis", axis)
+    for i in range(1000):
+        tru=cp.fft.ifft(inp,axis=axis)
+        out=ifft(inp,axis=axis,use_cache=cache)
+        # print("error", np.sum(tru-out))
+        assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
+    axis=0
+    print("testing backward fft axis", axis)
+    for i in range(1000):
+        tru=cp.fft.ifft(inp,axis=axis)
+        out=ifft(inp,axis=axis,use_cache=cache)
+        # print("error", np.sum(tru-out))
+        assert cp.allclose(tru,out,atol=1.5e-7,rtol=1e-6)
+
 if __name__=='__main__':
 
     # Digging into the errors a bit to see what tolerances to use
@@ -187,6 +259,8 @@ if __name__=='__main__':
     # print(np.abs(aa[idx]-bb[idx]))
     # print("limit is", 1e-8+rtol*cp.abs(bb)[idx])
     #-------------------------------------------------------------
+    test_c2c(cache=True)
+    sys.exit(0)
     test()
     assert pycufft_cache.hits==0
     assert pycufft_cache.misses==0

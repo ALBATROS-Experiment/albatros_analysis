@@ -168,7 +168,7 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
 #     fnames.sort()
 #     return fnames
 
-def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5):
+def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_gap=False):
     assert(search_type in ["f", "d"])
     assert(time_stop > time_start)
     time_start, time_stop = [str(t) for t in [time_start, time_stop]]
@@ -183,7 +183,20 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5):
     tstamps = np.asarray(
         [int(s.split("/")[-1].split(".")[0]) for s in files]
     )
-    idx = np.where(np.bitwise_and(tstamps>=int(time_start),tstamps<=int(time_stop)))[0]
+    maxidx=None
+    if mind_gap:
+        tdiff = np.diff(tstamps)
+        if search_type == "d":
+            delta = 3600 + 5*60 # direct spectra files are time-limited files. no need to run a median.
+        else:
+            delta = np.median(tdiff)+ 1
+        maxidx=np.where(tdiff>delta)[0]
+        print(maxidx)
+        if len(maxidx) > 0: #there's a big gap in the middle. return only the first part
+            for ii in maxidx:
+                print("gap after file", files[ii], "of", tdiff[ii], "seconds.")
+            maxidx=maxidx[0]+1  
+    idx = np.where(np.bitwise_and(tstamps[:maxidx]>=int(time_start),tstamps[:maxidx]<=int(time_stop)))[0]
     if len(idx) == 0:
         raise FileNotFoundError("No files found between the requested timestamps")
     return [files[i] for i in idx]
@@ -482,3 +495,15 @@ def plot_1bit(pol01, channels, acclen, time_start, opath, minutes=False, logplot
     plt.colorbar(img2, ax=ax[1])
     plt.savefig(opath)
     return
+
+def get_pfb_chans(channels,osamp):
+    pfbchans = np.array([],dtype='int64')
+    bd = np.where(np.diff(channels)!=1)[0]
+    bd = np.append(bd,[len(channels)-1])
+    start=0
+    for end in bd:
+        print(start, end)
+        temp=np.arange((channels[start]-1)*osamp,(channels[end]+1)*osamp)
+        pfbchans=np.append(pfbchans,temp)
+        start=end+1
+    return pfbchans

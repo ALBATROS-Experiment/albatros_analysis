@@ -1,7 +1,7 @@
 CC := gcc
-CFLAGS := -fPIC -O3 -std=c99 -march=native
+CFLAGS := -fPIC -O3 -std=c99 -mcpu=native
 LIBS := -lfftw3_omp -lm
-objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so
+objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so libpycufft.so
 all: $(objects)
 
 lib_unpacking.so: correlations/unpacking.c
@@ -12,6 +12,8 @@ libmath.so: utils/math_utils.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^
 libfftw.so: utils/mkfftw.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^ $(LIBS)
+libpycufft.so: utils/pycufft.cu
+	nvcc -shared  -o utils/$@ $^ -Xcompiler -fPIC -lgomp -lcufft
 
 clean:
 	rm -f $(wildcard */*.so)
