@@ -2,9 +2,7 @@ import cupy as cp
 import numpy as np
 import os
 import sys
-sys.path.insert(0,os.path.expanduser("~"))
-from albatros_analysis.src.utils import pycufft_jon
-# from albatros_analysis.src.utils import pycufft as pycufft
+import pycufft_jon
 
 plan_cache=pycufft_jon.PlanCache()
 
@@ -13,7 +11,7 @@ def sinc_hamming(ntap,lblock):
     w=np.arange(0,N)-N/2
     return np.hamming(ntap*lblock)*np.sinc(w/lblock)
 
-pfb_size=5000
+pfb_size=4500
 nchans=2049
 # matft=pu.get_matft(pfb_size)
 ntap=4
@@ -29,9 +27,9 @@ print("doing matft axis=1", mat.shape, mat.base is None, mat.flags.c_contiguous)
 matft=pycufft_jon.rfft(mat,axis=1,plan_cache=plan_cache)
 # matft=pycufft.rfft(mat,axis=1)
 
-mat = None # <----- need this, but have seen it happen without this too
+# mat = None # <----- need this, but have seen it happen without this too
 
-for i in range(100):
+for i in range(1000):
     print("-------------------iter-----------------", i)
     xx=cp.random.randn(pfb_size, nchans) + 1j*cp.random.randn(pfb_size, nchans)
     xx=cp.asarray(xx,dtype='complex64')
@@ -45,3 +43,4 @@ for i in range(100):
     ddft=pycufft_jon.rfft(dd,axis=1,plan_cache=plan_cache)
     # ddft=pycufft.rfft(dd,axis=1)
     print("rfft error",cp.max(cp.abs(cuddft-ddft)))
+    print("yo")

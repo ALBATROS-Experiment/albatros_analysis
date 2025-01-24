@@ -36,11 +36,11 @@ def cupy_ipfb(dat,matft,thresh=0.0):
     # end_event = cp.cuda.Event()
     # start_event.record()
     dd=pycufft.irfft(dat,axis=1)
+    assert dd.flags.c_contiguous and dd.base is None
     dd2=dd.T.copy()
-    print(f"about to execute R2C, {dd.shape, dd.dtype}. Is dd C contiguous", dd.flags.c_contiguous, dd.base is None)
     ddft=pycufft.rfft(dd2,axis=1)
     if thresh>0:
-        print("filtering...")
+        # print("filtering...")
         filt=cp.abs(matft)**2/(thresh**2+cp.abs(matft)**2)*(1+thresh**2)
         ddft=ddft*filt
     # print("ddft c conti", ddft.flags.c_contiguous)
@@ -64,8 +64,6 @@ def sinc_hanning(ntap,lblock):
 
 def cupy_pfb(timestream, win, out=None,nchan=2049, ntap=4):
     lblock = 2*(nchan-1)
-    print("lblock is", lblock, "nchan is", nchan)
-    print_mem("from pfb")
     nblock = timestream.size // lblock - (ntap - 1)
     timestream=timestream.reshape(-1,lblock)
     if out is not None:

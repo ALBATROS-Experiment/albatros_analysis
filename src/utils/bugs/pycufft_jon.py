@@ -1,7 +1,7 @@
 import cupy as cp, os
 import ctypes
 import numpy as np
-
+print(os.path.dirname(__file__))
 mylib = ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), "libpycufft_jon.so"))
 
 # All function arguments are pointers or ints
@@ -132,7 +132,7 @@ class PlanCache:
                 self.maxsize = size
                 self.scratch = cp.empty(self.maxsize, dtype=np.uint8)
                 print("fft scratch increased to %d" % self.maxsize, "for tag", tag)
-            set_plan_scratch(plan, self.scratch)
+                set_plan_scratch(plan, self.scratch)
             # Update cache with this plan
             self.plans[tag] = plan
         # And return

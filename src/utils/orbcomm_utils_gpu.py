@@ -8,7 +8,7 @@ import sys
 # sys.path.insert(0,os.path.expanduser("~"))
 import cupy as cp
 import numpy as np
-# from albatros_analysis.src.utils import pycufft
+from albatros_analysis.src.utils import pycufft
 
 def apply_delay(arr, delay, freqs, out=None):
     """Apply a time-dependent exponential phase to a timestream.
@@ -33,7 +33,7 @@ def apply_delay(arr, delay, freqs, out=None):
     """
     if out is None:
         out = cp.empty(arr.shape,dtype=arr.dtype)
-    out[:] = arr * cp.exp(2j * cp.pi * freqs[cp.newaxis,:]*delays[:,cp.newaxis])
+    out[:] = arr * cp.exp(-2j * cp.pi * freqs[cp.newaxis,:]*delay[:,cp.newaxis])
     return out
 
 def coarse_xcorr(f1, f2, dN, Npfb=4096,window=None):
@@ -47,8 +47,10 @@ def coarse_xcorr(f1, f2, dN, Npfb=4096,window=None):
     bigf2 = cp.zeros((nchans, 2 * Nsmall), dtype="complex64")
     bigf1[:,:Nsmall] = f1.T
     bigf2[:,:Nsmall] = f2.T
-    print(bigf1)
-    xcorr = cp.fft.ifft(cp.fft.fft(bigf1,axis=1) * cp.conj(cp.fft.fft(bigf2,axis=1)), axis=1)
+    xcorr = pycufft.ifft(pycufft.fft(bigf1,axis=1) * cp.conj(pycufft.fft(bigf2,axis=1)), axis=1)
     norm = Nsmall-cp.abs(cp.arange(-dN, dN, dtype='float32'))
-    print("norm is", norm)
     return cp.fft.fftshift(xcorr)[:,Nsmall-dN:Nsmall+dN].copy()/norm[cp.newaxis,:]
+
+def median_abs_deviation(x,axis=1):
+    med = cp.median(x,axis=axis)
+    return cp.median(cp.abs(x-med[:, cp.newaxis]),axis=axis)
