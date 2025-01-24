@@ -1,10 +1,10 @@
 #!/bin/bash -l
 #BACKUP SPEED IS ROUGHLY 3.33 HR/TB
-#SBATCH -t 50:00:00
+#SBATCH -t 25:00:00
 #SBATCH -p archivelong 
 #SBATCH -N 1
 #SBATCH --mail-type=END,FAIL
-#SBATCH -o /project/s/sievers/albatros/uapishka/202305/baseband/snap8/backup_uapishka_may_aug_2023_%j.txt
+#SBATCH -o /project/s/sievers/albatros/mars/mars202207_sep_2022_%j.txt
 
 trap "echo 'Job script not completed';exit 129" TERM INT
 if [ $# -ne 2 ]; then
@@ -14,7 +14,7 @@ fi
 echo "Backing up files in $1 to $2"
 shopt -s nullglob
 SRC=$(realpath "$1")
-DEST=$(realpath "$2") #remove trailing slashes and relative paths
+DEST=${2%/} #remove trailing slashes and relative paths
 maxfiles=10 #number of files in one tarball
 DIRS=( $(find "$SRC" -mindepth 1 -type d -regextype posix-extended -regex ".*/[0-9]{5}"| sort -n) ) #find valid 5-digit dirs : absolute paths
 
@@ -33,15 +33,25 @@ do
 	else
 		hsi mkdir "$DEST/$stamp" &> /dev/null
         #mkdir "$DEST/$stamp" &> /dev/null
-		echo "Created dir $stamp at destination"
+                status=$?
+                echo "status is $status"
+                if [[ $status == 0 ]]
+                then
+		    echo "Created dir $stamp at destination"
+                else
+                    echo "Dir creation failed on tape"
+                    exit $status
+                fi
 	fi
 done
 
 #loop over each 5 digit dir
 for d in ${DIRS[@]} #be careful, another / and stamp will fail (below)
 do
+        d=${d%/} #remove trailing slash if something went wrong earlier
         stamp=${d##*/} #get 5 digit sub-dir stamp by removing longest substring ending with /
-	cd $d
+	echo "cd into $d"
+        cd $d
 	files=$(ls | sort -n)
 	files=($files)
 	numfiles=${#files[@]}
