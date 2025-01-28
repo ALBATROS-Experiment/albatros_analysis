@@ -3,6 +3,7 @@ import ctypes
 import time
 import os
 from .. import xp
+import cupy as cp
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_unpacking.so"
@@ -139,14 +140,49 @@ def _unpack_4bit_float_gpu(data, rowstart, rowend, channels, length_channels):
     d_pol1 = xp.array(p1re+1j*p1im,dtype='complex64')
     return d_pol0, d_pol1
 
-def unpack_4bit(data, rowstart, rowend, channels, length_channels, ):
+_fill_1bit_float = cp.ElementwiseKernel(
+    'int8 re, int8 im',
+    'complex64 pol',
+    'pol = complex<float>(static_cast<float>(re), static_cast<float>(im))',
+    '_fill_1bit_float'
+)
+
+def _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels):
+    nrows = int(rowend-rowstart)
+    ncols = len(channels)
+    print(nrows, ncols, "from unpack 1 bit gpu")
+    bytes_per_spectra = length_channels//2
+    cols=channels[::2]//2
+    d_pol0 = xp.empty((nrows,ncols),dtype='complex64')
+    d_pol1 = xp.empty((nrows,ncols),dtype='complex64')
+    # print("allocated mem for pols", 2*nrows*ncols*64/8/1024**3, "GB")
+    # print("allocated mem for raw data", data.shape[0]*data.shape[1]/8/1024**3, "GB")
+    d_data = data.reshape(-1,bytes_per_spectra) #data should already be on the GPU
+    
+    r0c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 7),1,dtype='int8')-1
+    i0c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 6),1,dtype='int8')-1
+    r1c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 5),1,dtype='int8')-1
+    i1c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 4),1,dtype='int8')-1
+    r0c1 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 3),1,dtype='int8')-1
+    i0c1 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 2),1,dtype='int8')-1
+    r1c1 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 1),1,dtype='int8')-1
+    i1c1 = 2*xp.bitwise_and(d_data[rowstart:rowend, cols],1,dtype='int8')-1
+
+    d_pol0[:,::2] = _fill_1bit_float(r0c0, i0c0) #all even channels, pol0
+    d_pol0[:,1::2] = _fill_1bit_float(r0c1, i0c1) #all odd channels, pol0
+    d_pol1[:,::2] = _fill_1bit_float(r1c0, i1c0) #all even channels, pol1
+    d_pol1[:,1::2] = _fill_1bit_float(r1c1, i1c1) #all odd channels, pol1
+
+    return d_pol0, d_pol1
+
+def unpack_4bit(data, rowstart, rowend, channels, length_channels):
     """Unpacks the raw baseband data file in 4-bit mode 
-    and inflates array of electric field as complex numbers (float, float).
+    and inflates array of electric field as 64-bit complex numbers (fp32, fp32)..
     Returns pol0 and pol1 separately.
 
     Parameters
     ----------
-    data : np.ndarray
+    data : np.ndarray or cp.ndarray
         Raw data file returned from Baseband class. Normally, n_packets x n_bytes_per_packet
     length_channels : int
         Number of channels in the raw baseband file
@@ -194,46 +230,59 @@ def unpack_4bit(data, rowstart, rowend, channels, length_channels, ):
     return pol0, pol1
 
 
-def unpack_1bit(data, length_channels, rowstart, rowend, chanstart, chanend):
-    """Unpacks 1-bit data from binary dump file. (??)
-
-    ??
+def unpack_1bit(data, rowstart, rowend, channels, length_channels):
+    """Unpacks the raw baseband data file in 1-bit mode 
+    and inflates array of electric field as 64-bit complex numbers (fp32, fp32).
+    Returns pol0 and pol1 separately.
 
     Parameters
     ----------
-    data: ??
-        ??
-    length_channels: ??
-        ??
-    chanstart: ??
-        ??
-    chanend: ??
-        ??
+    data : np.ndarray
+        Raw data file returned from Baseband class. Normally, n_packets x n_bytes_per_packet
+    length_channels : int
+        Number of channels in the raw baseband file
+    rowstart : int
+        Row number corresponding to first spectrum (numpy index convention)
+    rowend : int
+        Row number corresponding to last spectrum (numpy index convention)
+        rowstart, rowend = 10, 20 unpacks 10 spectra starting at 11th spectrum (index 10).
+    channels : list
+        Channel INDICES in numpy convention (not channel numbers) you'd like to unpack. 
+        E.g. channels = [0, 2, 4] corresponds to channels at index 0, 2, and 4.
+        In this mode, channel indices must be continuous, and must start at an even channel index.
+        Total number of channels should also be a multiple of 2.
 
     Returns
     -------
-    pol0: ??
-        ??
-    pol1: ??
-        ??
+    (xp.ndarray, xp.ndarray)
+        Arrays of nrows x len(channels) corresponding to pol0 and pol1.
+        Cupy arrays on device, if GPU in use.
     """
-    nrows = rowend - rowstart
-    ncols = chanend - chanstart
-    print("print shape of my pols", nrows, ncols)
-    pol0 = numpy.empty([nrows, ncols], dtype="complex64")
-    pol1 = numpy.empty([nrows, ncols], dtype="complex64")
-    t1 = time.time()
-    unpack_1bit_float_c(
-        data.ctypes.data,
-        pol0.ctypes.data,
-        pol1.ctypes.data,
-        rowstart,
-        rowend,
-        chanstart,
-        chanend,
-        length_channels,
-    )
-    t2 = time.time()
+    if xp.__name__=='numpy':
+        chanstart = channels[0]
+        chanend = channels[-1]+1
+        nrows = rowend - rowstart
+        ncols = chanend - chanstart
+        print("print shape of my pols", nrows, ncols)
+        pol0 = numpy.empty([nrows, ncols], dtype="complex64")
+        pol1 = numpy.empty([nrows, ncols], dtype="complex64")
+        t1 = time.time()
+        unpack_1bit_float_c(
+            data.ctypes.data,
+            pol0.ctypes.data,
+            pol1.ctypes.data,
+            rowstart,
+            rowend,
+            chanstart,
+            chanend,
+            length_channels,
+        )
+        t2 = time.time()
+    elif xp.__name__=='cupy':
+        assert isinstance(data, xp.ndarray)
+        t1=time.time()
+        pol0,pol1 = _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels)
+        t2=time.time()
     print("Took " + str(t2 - t1) + " to unpack")
     return pol0, pol1
 
