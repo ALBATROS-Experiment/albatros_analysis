@@ -319,6 +319,14 @@ class Baseband:
             else:
                 self.chanend = chanend
             self.channel_idxs = np.arange(self.chanstart, self.chanend, dtype="int64")
+        if self.bit_mode == 1:
+            #only continuous range of channels allowed.
+            #start, end channels should be even
+            # print("raw data shape", self)
+            if self.chanstart%2!=0 or self.chanend%2!=0:
+                raise ValueError("Start and end channel indices must be divisible by 2 in 1-bit mode.")
+            if np.any(np.diff(self.channel_idxs)-1):
+                raise ValueError("A continuous range of channels must be provided in 1-bit mode.")
 
 
 def get_header(file_name, verbose=False):
@@ -403,14 +411,13 @@ class BasebandFloat(Baseband):
                 self.channel_idxs,
                 self.length_channels
             )
-        elif self.bit_mode == 1: #TODO: fix the function call
+        elif self.bit_mode == 1:
             return unpk.unpack_1bit(
                 self.raw_data,
-                self.length_channels,
                 rowstart,
                 rowend,
-                self.chanstart,
-                self.chanend,
+                self.channel_idxs,
+                self.length_channels,
             )
 
 class BasebandPacked(Baseband):

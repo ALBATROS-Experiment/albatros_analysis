@@ -49,7 +49,7 @@ def coarse_xcorr(f1, f2, dN, Npfb=4096,window=None):
     bigf2[:,:Nsmall] = f2.T
     xcorr = pycufft.ifft(pycufft.fft(bigf1,axis=1) * cp.conj(pycufft.fft(bigf2,axis=1)), axis=1)
     norm = Nsmall-cp.abs(cp.arange(-dN, dN, dtype='float32'))
-    return cp.fft.fftshift(xcorr)[:,Nsmall-dN:Nsmall+dN].copy()/norm[cp.newaxis,:]
+    return cp.fft.fftshift(xcorr, axes=1)[:,Nsmall-dN:Nsmall+dN].copy()/norm[cp.newaxis,:]
 
 def median_abs_deviation(x,axis=1):
     med = cp.median(x,axis=axis)
