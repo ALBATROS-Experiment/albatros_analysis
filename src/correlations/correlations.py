@@ -2,6 +2,7 @@ import ctypes
 import numpy as np
 import os
 import time
+import numba as nb
 # from src import xp
 from .. import xp
 
@@ -377,19 +378,20 @@ def avg_xcorr_1bit_vanvleck_2ant(
     # nchannels = num of channels contained in packed pol0/pol1 data
     assert data0.shape[0] == data1.shape[0]
     assert data0.shape[1] == data1.shape[1]
-    print("Input shapes are", len(specnum0), len(specnum1))
+    # print("Input shapes are", len(specnum0), len(specnum1))
     # xcorr = np.zeros(data0.shape[1],dtype='complex64',order='c')
     R0 = np.empty(nchannels, dtype="float32", order="c")
     R1 = np.empty(nchannels, dtype="float32", order="c")
     IM0 = np.empty(nchannels, dtype="float32", order="c")
     IM1 = np.empty(nchannels, dtype="float32", order="c")
+
     t1 = time.time()
     if len(specnum0) == 0 or len(specnum1) == 0:
         R0[:] = np.nan
         R1[:] = np.nan
         IM0[:] = np.nan
         IM1[:] = np.nan
-        return [R0, R1, IM0, IM1]
+        return [R0, R1, IM0, IM1], 0
     rowcount = avg_xcorr_1bit_vanvleck_2ant_c(
         data0.ctypes.data,
         data1.ctypes.data,
@@ -411,13 +413,15 @@ def avg_xcorr_1bit_vanvleck_2ant(
         R1[:] = np.nan
         IM0[:] = np.nan
         IM1[:] = np.nan
-        return [R0, R1, IM0, IM1]
     t2 = time.time()
-    print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
-    return [R0 / rowcount, R1 / rowcount, IM0 / rowcount, IM1 / rowcount]
+    # print(f"time taken for avg_xcorr {t2-t1:5.3f}s")
+    return [R0, R1, IM0, IM1], rowcount
 
-def van_vleck_correction(corr, power0, power1):
-    R0,R1,I0,I1=corr
-    Vij= (R0+R1 + 1J*(I1-I0))*2/np.sqrt(power0 * power1)
+@nb.njit()
+def van_vleck_correction(R0,R1,I0,I1,rowcount):
+    Vij=np.sin(R0*np.pi/2/rowcount)+np.sin(R1*np.pi/2/rowcount) + 1J*(np.sin(I1*np.pi/2/rowcount)-np.sin(I0*np.pi/2/rowcount))
+    # Vij=R0+R1 + 1J*(I1-I0)
+    # if power0 is not None and power1 is not None:
+    #     Vij= Vij*2/np.sqrt(power0 * power1)
     return Vij
 

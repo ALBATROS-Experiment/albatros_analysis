@@ -531,11 +531,6 @@ int avg_xcorr_1bit_vanvleck_2ant(uint8_t * data0, uint8_t * data1, float * R0, f
     uint8_t imask=15;
     uint8_t rmask=255-15;
 
-    // printf("\n***Variables passed****\n");
-    // printf("idx: %d %d %d %d\n", idxstart0, idxstart1, nrows0, nrows1);
-    // printf("From C: %d %d",specnum0[0],specnum1[0]);
-    // printf("ncol: %d\n", ncol);
-
     while((i<nrows0)&&(j<nrows1))
     {
         

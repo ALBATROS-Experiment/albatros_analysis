@@ -1,7 +1,15 @@
 CC := gcc
-CFLAGS := -fPIC -O3 -std=c99 -mcpu=native
+CFLAGS := -fPIC -O3 -std=c99
 LIBS := -lfftw3_omp -lm
-objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so libpycufft.so
+objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so
+
+ifeq (${USE_GPU}, 1)
+objects += libpycufft.so
+CFLAGS += -mcpu=native #On MIST
+else
+CFLAGS += -march=native #On NIAGARA
+endif
+
 all: $(objects)
 
 lib_unpacking.so: correlations/unpacking.c
@@ -14,8 +22,5 @@ libfftw.so: utils/mkfftw.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^ $(LIBS)
 libpycufft.so: utils/pycufft.cu
 	nvcc -shared  -o utils/$@ $^ -Xcompiler -fPIC -lgomp -lcufft
-
 clean:
 	rm -f $(wildcard */*.so)
-
-

@@ -131,8 +131,6 @@ class Baseband:
             self.raw_data = None  # (np.ndarray)
             self.spec_num = None  # (np.ndarray)
             self.where_zero = None  # (np.ndarray)
-            self.missing_num = None  # ?? [not initialized in __init__]
-            self.missing_loc = None  # ?? [not initialized in __init__]
             # GPS
             self.gps_week = None  # ??
             self.gps_timestamp = None  # What's the format/units??
@@ -225,6 +223,7 @@ class Baseband:
             # print("spec idx is", self._spec_idx)
             specdiff = np.diff(self.spec_num)
             idx = np.where(specdiff != self.spectra_per_packet)[0]
+            self._missing_idx = idx
             self._missing_loc = (
                 self.spec_num[idx] + self.spectra_per_packet - self.spec_num[0]
             ).astype("int64")

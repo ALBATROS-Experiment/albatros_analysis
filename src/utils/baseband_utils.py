@@ -81,6 +81,7 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     # print(tstamps>ts)
     # if len(tstamps) == 1:
     #     flip = tstamps >= ts
+    # print("delta is", delta, "ts is", ts)
     tstamps = np.hstack([tstamps, tstamps[-1] + delta])
     # print(tstamps)
     # print(tstamps  < ts)
@@ -115,60 +116,30 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     # otherwise there's no such file with that timestamp. tell user to start from the next future timestamp
     # force_ts = True  may be?
 
-
-# def time2fnames(time_start, time_stop, dir_parent, fraglen=5):
-#     """Gets a list of filenames within specified time-rage.
-
-#     Given a start and stop ctime, retrieve list of corresponding files.
-#     This function assumes that the parent directory has the directory
-#     structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
-#     fine time stamp>.
-
-#     Paramaters
-#     -----------
-#     time_start: int
-#         start time in ctime
-#     time_stop: int
-#         stop time in ctime
-#     dir_parent: str
-#         parent directory, e.g. /path/to/data_100MHz
-#     fraglen: int
-#         number of digits in coarse time fragments
-
-#     Returns
-#     -------
-#     list of str
-#         List of files in specified time range.
-#     """
-#     times_coarse = os.listdir(dir_parent)
-#     times_coarse.sort()
-#     s = re.compile(r"(\d{10})")  # We'll use this to search for 10-digit time strings
-#     fnames = []
-#     for time_coarse in times_coarse:
-#         try:
-#             # Include +-1 coarse directory on endpoints because
-#             # sometimes the fine time stamp rolls over to the coarse
-#             # time within the same directory
-#             if (int(time_coarse) < int(str(time_start)[:fraglen]) - 1) or (
-#                 int(time_coarse) > int(str(time_stop)[:fraglen]) + 1
-#             ):
-#                 continue
-
-#             all_fnames = os.listdir("{}/{}".format(dir_parent, time_coarse))
-#             all_fnames.sort()
-
-#             for f in all_fnames:
-#                 if s.search(f):
-#                     tstamp = int(s.search(f).groups()[0])
-#                     if tstamp >= time_start and tstamp <= time_stop:
-#                         # fnames.append(dir_parent+'/'+time_coarse+'/'+f)
-#                         fnames.append(os.path.join(dir_parent, time_coarse, f))
-#         except:
-#             pass
-#     fnames.sort()
-#     return fnames
-
 def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_gap=False):
+    """Gets a list of filenames within specified time-rage.
+
+    Given a start and stop ctime, retrieve list of corresponding files.
+    This function assumes that the parent directory has the directory
+    structure <dir_parent>/<5-digit coarse time fragment>/<10-digit
+    fine time stamp>.
+
+    Paramaters
+    -----------
+    time_start: int
+        start time in ctime
+    time_stop: int
+        stop time in ctime
+    dir_parent: str
+        parent directory, e.g. /path/to/data_100MHz
+    fraglen: int
+        number of digits in coarse time fragments
+
+    Returns
+    -------
+    list of str
+        List of files in specified time range.
+    """
     assert(search_type in ["f", "d"])
     assert(time_stop > time_start)
     time_start, time_stop = [str(t) for t in [time_start, time_stop]]
@@ -192,7 +163,8 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_g
             delta = np.median(tdiff)+ 1
         maxidx=np.where(tdiff>delta)[0]
         print(maxidx)
-        if len(maxidx) > 0: #there's a big gap in the middle. return only the first part
+        if len(maxidx) > 0: #there's a big gap in the middle. Either return only the first part or raise error. raising error for now
+            raise Exception("Whoops! big gap in the requested timestop - timestart range. May be system rebooted?")
             for ii in maxidx:
                 print("gap after file", files[ii], "of", tdiff[ii], "seconds.")
             maxidx=maxidx[0]+1  
@@ -250,7 +222,6 @@ def get_init_info(init_t, end_t, dir_parent):
     f2,_=get_file_from_timestamp(end_t,dir_parent,'f')
     files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent,'f')
     return files,idx
-
 
 def get_plot_lims(pol, acclen):
     """Get limits for display settings for pretty plots!

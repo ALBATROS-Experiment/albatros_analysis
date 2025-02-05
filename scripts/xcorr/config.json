@@ -1,0 +1,30 @@
+{
+        "antennas": {
+            "ALB1": {
+                "name": "Antenna 1",
+                "path": "/data/antenna1/",
+                "coordinates": [10.123, -20.456, 30.789],
+                "clock_offset": 0
+            },
+            "ALB2": {
+                "name": "Antenna 2",
+                "path": "/data/antenna2/",
+                "coordinates": [11.234, -21.567, 31.890],
+                "clock_offset": 1000
+            },
+            "ALB3": {
+                "name": "Antenna 3",
+                "path": "/data/antenna3/",
+                "coordinates": [12.345, -22.678, 32.901],
+                "clock_offset": 450
+            }
+        },
+        "correlation": {
+            "start_timestamp": 1699711339,
+            "accumulation_length": 10.0
+        },
+        "frequency": {
+            "start_channel": 100, 
+            "end_channel": 500
+        }
+    }

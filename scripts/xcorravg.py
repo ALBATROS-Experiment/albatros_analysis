@@ -23,7 +23,7 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     files2, idxstart2 = butils.get_init_info(init_t, end_t, path2)
     # idxstart1=2502441
     # idxstart2=1647949
-    print(idxstart1,idxstart2, "IDXSTARTS")
+    print(idxstart1,idxstart2, "IDXSTARTS from xcorravg old")
     delay=delay-100000
     if(delay>0):
         idxstart1+=delay
@@ -45,7 +45,9 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     for i, (chunk1,chunk2) in enumerate(zip(ant1,ant2)):
         # t1=time.time()
         # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
-        pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
+        # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
+        xcorr = cr.avg_xcorr_1bit_vanvleck_2ant(chunk1['pol0'], chunk2['pol0'],ncols, chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
+        pol00[i,:]=cr.van_vleck_correction(xcorr)
         # t2=time.time()
         # print("time taken for one loop", t2-t1)
         j=ant1.spec_num_start
