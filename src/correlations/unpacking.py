@@ -2,8 +2,18 @@ import numpy
 import ctypes
 import time
 import os
+import numpy as np
 from .. import xp
-import cupy as cp
+
+def set_backend(backend):
+    global xp
+    if backend == "numpy":
+        xp = np
+    elif backend == "cupy":
+        import cupy as cp
+        xp = cp
+    else:
+        raise ValueError("Invalid backend. Choose either 'numpy' or 'cupy'.")
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_unpacking.so"
@@ -140,12 +150,13 @@ def _unpack_4bit_float_gpu(data, rowstart, rowend, channels, length_channels):
     d_pol1 = xp.array(p1re+1j*p1im,dtype='complex64')
     return d_pol0, d_pol1
 
-_fill_1bit_float = cp.ElementwiseKernel(
-    'int8 re, int8 im',
-    'complex64 pol',
-    'pol = complex<float>(static_cast<float>(re), static_cast<float>(im))',
-    '_fill_1bit_float'
-)
+if xp.__name__=='cupy': #Niagara does not have Cupy. Ensure Mist/Niagara compatibility
+    _fill_1bit_float = xp.ElementwiseKernel(
+        'int8 re, int8 im',
+        'complex64 pol',
+        'pol = complex<float>(static_cast<float>(re), static_cast<float>(im))',
+        '_fill_1bit_float'
+    )
 
 def _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels):
     nrows = int(rowend-rowstart)
@@ -158,7 +169,7 @@ def _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels):
     # print("allocated mem for pols", 2*nrows*ncols*64/8/1024**3, "GB")
     # print("allocated mem for raw data", data.shape[0]*data.shape[1]/8/1024**3, "GB")
     d_data = data.reshape(-1,bytes_per_spectra) #data should already be on the GPU
-    
+
     r0c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 7),1,dtype='int8')-1
     i0c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 6),1,dtype='int8')-1
     r1c0 = 2*xp.bitwise_and(xp.right_shift(d_data[rowstart:rowend, cols], 5),1,dtype='int8')-1
@@ -326,6 +337,8 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
     if chanend is None:
         chanstart = 0
         chanend = length_channels
+    elif chanend > length_channels:
+        raise ValueError("ERROR: Trying to unpack more channels than present. Check chanend.")
     nrows = rowend - rowstart
     if bit_mode == 4:
         ncols = (

@@ -399,7 +399,7 @@ def gauss_smooth(data, sigma=5):
     return np.fft.irfft(dataft * kernelft)
 
 
-def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutoff=1):
+def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, good=None,altitude_cutoff=1):
     """Get all satellites risen at a particular point on earth at a list of epochs.
     Epochs start at t_start and a list of risen satellites is returned for every t_start + i * dt epoch
     The satellites are read form a TLE file (currently hardcoded).
@@ -430,7 +430,8 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, altitude_cutof
             28371, #Saudi sat 2
             5580 #PROSPERO
             ]
-    good=[28654,25338,33591,57166,59051,44387]
+    if not good:
+        good=[28654,25338,33591,57166,59051,44387]
     obs1 = sf.wgs84.latlon(*coords)
     sats = sf.load.tle_file(tle_file)
     tt = t_start
