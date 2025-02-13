@@ -49,23 +49,3 @@ if __name__=="__main__":
     fpath = path.join(args.outdir,fname)
     np.savez(fpath,data=pols.data,mask=pols.mask,rowcounts=rowcounts,chans=channels)
 
-    from matplotlib import pyplot as plt
-    pol00 = pols[0,:,:]
-    plt.figure(figsize=(5,10), dpi=200)
-    plt.suptitle(f'Delay {delay}, acclen {acclen}')
-    myext = np.array([np.min(channels)*125/2048,np.max(channels)*125/2048, pol00.shape[0]*t_acclen, 0])
-    plt.subplot(211)
-    plt.imshow(np.log10(np.abs(pol00)), aspect='auto', extent=myext,interpolation='none')
-    plt.title('xcorr pol00 magnitude')
-    plt.colorbar()
-
-    ph = np.angle(pol00)
-    plt.subplot(212)
-    plt.imshow(ph, aspect='auto', extent=myext, cmap='RdBu',interpolation='none')
-    plt.title('xcorr pol00 phase')
-    plt.colorbar()
-
-    fname = f"xcorr_00_11_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{str(args.delay)}_{args.chans[0]}_{args.chans[1]}.png"
-    fpath = path.join(args.outdir,fname)
-    plt.savefig(fpath)
-    print(fpath)
