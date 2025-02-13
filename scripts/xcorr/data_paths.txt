@@ -1,0 +1,13 @@
+notes for data paths to correlate
+
+
+
+example data paths to correlate
+
+mars1, mars2 at 17219: 
+/scratch/s/sievers/mohanagr/mars1_2024/baseband/17219 
+/scratch/s/sievers/mohanagr/mars2_2024/baseband/17219
+starttime 1721900077 (start of the file ish)
+
+
+

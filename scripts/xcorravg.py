@@ -58,7 +58,6 @@ def get_avg_fast(path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=
     pol00 = np.ma.masked_invalid(pol00)
     return pol00,ant1.obj.channels
 
-"here do argparse stuff - elya"
 
 if __name__=="__main__":
 
