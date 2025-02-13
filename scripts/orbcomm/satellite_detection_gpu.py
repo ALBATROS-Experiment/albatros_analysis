@@ -23,7 +23,8 @@ DEBUG=True
 # a1_path = "/scratch/s/sievers/mohanagr/mars1_2024/baseband/"
 # a2_path = "/scratch/s/sievers/mohanagr/mars2_2024/baseband/"
 a1_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_1_central"
-a2_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east"
+# a2_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east"
+a2_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_3_west"
 
 out_path = "/project/s/sievers/mohanagr/"
 # all the sats we track
@@ -40,14 +41,15 @@ for i, satnum in enumerate(satlist):
 
 # for each file get the risen sats and divide them up into unique transits
 a1_coords = [79+25.031/60, -90-46.041/60, 189]  # MARS 1
-a2_coords = [79+25.033/60, -90-45.531/60, 176]  # MARS 2
+# a2_coords = [79+25.033/60, -90-45.531/60, 176]  # MARS 2
+a2_coords = [79+24.925/60, -90-46.385/60, 175]  # MARS 3
 
 sat_data = {}
 
 # tstart = butils.get_tstamp_from_filename(file)
 nrows=int(24*3600*1/5)
 # tstart = 1721800002+1000*5
-tstart = 1699711338
+tstart = 1699711450
 sat_data[tstart] = []
 tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
 print("USING TLE PATH", tle_path)
