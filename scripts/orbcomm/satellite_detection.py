@@ -2,7 +2,7 @@ import sys
 import time
 #status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
 #                           sat delay values match, coarse xcorr values match, SNR matches
-sys.path.insert(0, "/home/s/sievers/mohanagr/")
+sys.path.insert(0, "/home/s/sievers/thomasb/")
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
@@ -23,7 +23,7 @@ ant1_snap = "snap3"
 # ant2_snap = "snap4"
 ant2_snap = "snap1"
 base_path = path.join("/project/s/sievers/albatros/uapishka",deployment_yyyymm)
-out_path = "/scratch/s/sievers/mohanagr/"
+out_path = "/scratch/s/sievers/thomasb/tester"
 
 # get a list of all direct spectra files between two timestamps
 print(base_path, path.join(base_path,"data_auto_cross", ant1_snap))
