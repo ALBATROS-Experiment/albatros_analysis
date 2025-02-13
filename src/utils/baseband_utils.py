@@ -75,8 +75,9 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     else:
         delta = np.median(
             np.diff(tstamps)
-        )  + 1 # find the time period. assumption: usually there will be several files in an hour.
-        # + 1 because tstamp accuracy is only 1 s. if something happens to system, file gap >> 1 s.
+        )  + 3 # find the time period. assumption: usually there will be several files in an hour.
+        # + 3 because tstamp accuracy is only 1 s, and duration of file tstamp may fluctuate a bit
+        # if something happens to system, file gap >> 1 s.
         dt = 4096 / 250e6
     # print(tstamps>ts)
     # if len(tstamps) == 1:
@@ -149,31 +150,26 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_g
         search_tags = [tag + "\.raw" for tag in search_tags]
     search_tag = "|".join(search_tags)
     op = _find(dir_parent, search_type, search_tag, "2")
-    files = op.split()
+    files = op.split() #get all files for all 5-digit tstamps spanning the range.
     files.sort()
     tstamps = np.asarray(
         [int(s.split("/")[-1].split(".")[0]) for s in files]
     )
-    maxidx=None
+    idx = np.where(np.bitwise_and(tstamps>=int(time_start),tstamps<=int(time_stop)))[0]
     if mind_gap:
-        tdiff = np.diff(tstamps)
+        tdiff = np.diff(tstamps[idx])
         if search_type == "d":
             delta = 3600 + 5*60 # direct spectra files are time-limited files. no need to run a median.
         else:
-            delta = np.median(tdiff)+ 1
-        maxidx=np.where(tdiff>delta)[0]
-        print(maxidx)
-        if len(maxidx) > 0: #there's a big gap in the middle. Either return only the first part or raise error. raising error for now
+            delta = np.median(tdiff)+ 4 #same logic as get_file_from_timestamp
+        gaps=np.where(tdiff>delta)[0]
+        if len(gaps) > 0: #there's a big gap in the middle. Either return only the first part or raise error. raising error for now
+            for ii in gaps:
+                print("gap after file", files[idx[ii]], "of", tdiff[ii], "seconds.")
             raise Exception("Whoops! big gap in the requested timestop - timestart range. May be system rebooted?")
-            for ii in maxidx:
-                print("gap after file", files[ii], "of", tdiff[ii], "seconds.")
-            maxidx=maxidx[0]+1  
-    idx = np.where(np.bitwise_and(tstamps[:maxidx]>=int(time_start),tstamps[:maxidx]<=int(time_stop)))[0]
     if len(idx) == 0:
         raise FileNotFoundError("No files found between the requested timestamps")
     return [files[i] for i in idx]
-
-
 
 def get_tstamp_from_filename(f):
     s = re.compile(r"(\d{10})")
