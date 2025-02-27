@@ -1,0 +1,11 @@
+astropy
+matplotlib
+numba
+numpy
+palettable
+pytest
+pytz
+pbio
+scipy
+skyfield
+tqdm
