@@ -16,7 +16,28 @@ def fill_arr(myarr,specnum, spec_per_packet):
 class Baseband:
     def __init__(self, file_name, readlen=-1):
         with open(file_name, "rb") as file_data: #,encoding='ascii')
-            self._read_header(file_data)
+            header_bytes = struct.unpack(">Q", file_data.read(8))[0]
+                #setting all the header values
+            self.header_bytes = 8 + header_bytes
+            self.bytes_per_packet = struct.unpack(">Q", file_data.read(8))[0]
+            self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
+            self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
+            self.bit_mode = struct.unpack(">Q", file_data.read(8))[0]
+            self.have_trimble = struct.unpack(">Q", file_data.read(8))[0]
+            self.channels = numpy.frombuffer(file_data.read(self.header_bytes - 88), ">%dQ"%(int((header_bytes-8*10)/8)))[0] #this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
+            self.gps_week = struct.unpack(">Q", file_data.read(8))[0]
+            self.gps_timestamp = struct.unpack(">Q", file_data.read(8))[0]
+            self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
+            self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
+            self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
+            
+            if self.bit_mode == 1:
+                self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
+                self.length_channels = int(self.length_channels * 2)
+            if self.bit_mode == 4:
+                self.channels = self.channels[::2]
+                self.length_channels = int(self.length_channels / 2)
+            
             self.num_packets = (os.fstat(file_data.fileno()).st_size - self.header_bytes)//self.bytes_per_packet
             if(readlen>=1):
                 #interpreted as number of packets
@@ -35,11 +56,11 @@ class Baseband:
             if(self.read_packets!=0):
                 file_data.seek(self.header_bytes)
                 t1 = time.time()
-                data = numpy.fromfile(file_data, count=self.read_packets, dtype=[("spec_num", ">u4"), ("spectra", f"{self.bytes_per_packet-4}u1")])
+                data = numpy.fromfile(file_data, count=self.read_packets, dtype=[("spec_num", ">I"), ("spectra", "%dB"%(self.bytes_per_packet-4))])
                 t2 = time.time()
                 print(f'took {t2-t1:5.3f} seconds to read raw data on ', file_name)
                 
-                self.spec_num = numpy.array(data["spec_num"], dtype = "int64") #converts to native byteorder
+                self.spec_num = numpy.array(data["spec_num"], dtype = "int64")
                 self.raw_data = numpy.array(data["spectra"], dtype = "uint8")
                 self.spec_idx = numpy.zeros(self.spec_num.shape[0]*self.spectra_per_packet, dtype = "int64") # keep dtype int64 otherwise numpy binary search becomes slow
                 fill_arr(self.spec_idx, self.spec_num, self.spectra_per_packet)
@@ -47,68 +68,15 @@ class Baseband:
 
                 specdiff=numpy.diff(self.spec_num)
                 where_change = numpy.where(specdiff < 0)[0]
-                # print(where_change)
+                print(where_change)
                 if len(where_change) > 0:
                     raise RuntimeError("specnum wrap detected.")
                 idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
                 self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
                 self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')
 
-    def _read_header(self, file_data):
-        self.header_bytes = numpy.frombuffer(file_data.read(8),dtype='>u8')[0] #big-endian unsigned byte
-        self.escape_seq = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-        if self.escape_seq == 0:
-            # switch to new format
-            self.major_version_num = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-            self.minor_version_num = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-            if self.major_version_num == 1:
-                self.bytes_per_packet = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.length_channels = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.spectra_per_packet = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.bit_mode = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.sample_rate = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.fft_frame_len = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.station_id = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.have_gps = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.time_s = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.time_ns = numpy.frombuffer(file_data.read(8),dtype='>u8')[0]
-                self.gps_latitude = numpy.frombuffer(file_data.read(8),dtype='>f8')[0]
-                self.gps_longitude = numpy.frombuffer(file_data.read(8),dtype='>f8')[0]
-                self.gps_elevation = numpy.frombuffer(file_data.read(8),dtype='>f8')[0]
-                self.channels = numpy.frombuffer(file_data.read(8*self.length_channels),dtype='>u8').astype('int64') #cast to native byteorder to avoid future conversion
-                self.coeffs = numpy.zeros((2,self.length_channels),dtype='>u8')
-                self.coeffs[0,:] = numpy.frombuffer(file_data.read(8*self.length_channels),dtype='>u8')
-                self.coeffs[1,:] = numpy.frombuffer(file_data.read(8*self.length_channels),dtype='>u8')
-                self.coeffs=self.coeffs.astype('int64')
-        else:
-            self.header_bytes += 8
-            self.bytes_per_packet = self.escape_seq
-            self.length_channels = struct.unpack(">Q", file_data.read(8))[0]
-            self.spectra_per_packet = struct.unpack(">Q", file_data.read(8))[0]
-            self.bit_mode = struct.unpack(">Q", file_data.read(8))[0]
-            self.have_trimble = struct.unpack(">Q", file_data.read(8))[0]
-            self.channels = numpy.frombuffer(file_data.read(self.header_bytes - 88), ">%dQ"%(int((self.header_bytes-8*11)/8)))[0] #this line is sketchy but it should work as long as the header structure stays the same. I know there's 88 bytes of the header which is not the channel array, so the rest is the length of the channel array.
-            self.gps_week = struct.unpack(">Q", file_data.read(8))[0]
-            self.gps_timestamp = struct.unpack(">Q", file_data.read(8))[0]
-            self.gps_latitude = struct.unpack(">d", file_data.read(8))[0]
-            self.gps_longitude = struct.unpack(">d", file_data.read(8))[0]
-            self.gps_elevation = struct.unpack(">d", file_data.read(8))[0]
-            
-            if self.bit_mode == 1:
-                self.channels = numpy.ravel(numpy.column_stack((self.channels, self.channels+1)))
-                self.length_channels = int(self.length_channels * 2)
-            if self.bit_mode == 4:
-                self.channels = self.channels[::2]
-                self.length_channels = int(self.length_channels / 2)
-
     def print_header(self):
-        if self.escape_seq == 0:
-            print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
-            str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Total packets = " + str(self.num_packets) +". Read packets = " + str(self.read_packets) + ". Have GPS = " + str(self.have_gps) + ". Channels: " + str(self.channels) + \
-                 ". time seconds= " + str(self.time_s) + ". time nanoseconds= " + str(self.time_ns) + ". GPS latitude = " + str(self.gps_latitude) + ". GPS longitude = " +\
-                    str(self.gps_longitude) + ". GPS elevation = " + str(self.gps_elevation) + ".")
-        else:
-            print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
+        print("Header Bytes = " + str(self.header_bytes) + ". Bytes per packet = " + str(self.bytes_per_packet) + ". Channel length = " + str(self.length_channels) + ". Spectra per packet: " +\
             str(self.spectra_per_packet) + ". Bit mode: " + str(self.bit_mode) + ". Total packets = " + str(self.num_packets) +". Read packets = " + str(self.read_packets) + ". Have trimble = " + str(self.have_trimble) + ". Channels: " + str(self.channels) + \
                 " GPS week = " + str(self.gps_week)+ ". GPS timestamp = " + str(self.gps_timestamp) + ". GPS latitude = " + str(self.gps_latitude) + ". GPS longitude = " +\
                     str(self.gps_longitude) + ". GPS elevation = " + str(self.gps_elevation) + ".")
