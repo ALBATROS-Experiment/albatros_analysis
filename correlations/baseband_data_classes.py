@@ -49,7 +49,7 @@ class Baseband:
                 where_change = numpy.where(specdiff < 0)[0]
                 # print(where_change)
                 if len(where_change) > 0:
-                    raise RuntimeError("specnum wrap detected.")
+                    raise RuntimeError(f"specnum wrap detected in file {file_name}.")
                 idx=numpy.where(specdiff!=self.spectra_per_packet)[0]
                 self.missing_loc = (self.spec_num[idx]+self.spectra_per_packet-self.spec_num[0]).astype('int64')
                 self.missing_num = (specdiff[idx]-self.spectra_per_packet).astype('int64')

@@ -23,21 +23,25 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
     j=ant1.spec_num_start
     m=ant1.spec_num_start
     st=time.time()
-    for i, chunk in enumerate(ant1):
-        t1=time.time()
-        pol00[i,:] = cr.avg_autocorr_4bit(chunk['pol0'],chunk['specnums'])
-        pol11[i,:] = cr.avg_autocorr_4bit(chunk['pol1'],chunk['specnums'])
-        pol01[i,:] = cr.avg_xcorr_4bit(chunk['pol0'], chunk['pol1'],chunk['specnums'])
-        t2=time.time()
-        print("time taken for one loop", t2-t1)
-        j=ant1.spec_num_start
-        print("After a loop spec_num start at:", j, "Expected at", m+(i+1)*acclen)
-        print(i+1,"CHUNK READ")
-    print("Time taken final:", time.time()-st)
-    pol00 = np.ma.masked_invalid(pol00)
-    pol11 = np.ma.masked_invalid(pol11)
-    pol01 = np.ma.masked_invalid(pol01)
-    return pol00,pol11,pol01,ant1.obj.channels
+    try:
+        for i, chunk in enumerate(ant1):
+            t1=time.time()
+            pol00[i,:] = cr.avg_autocorr_4bit(chunk['pol0'],chunk['specnums'])
+            pol11[i,:] = cr.avg_autocorr_4bit(chunk['pol1'],chunk['specnums'])
+            pol01[i,:] = cr.avg_xcorr_4bit(chunk['pol0'], chunk['pol1'],chunk['specnums'])
+            t2=time.time()
+            print("time taken for one loop", t2-t1)
+            j=ant1.spec_num_start
+            print("After a loop spec_num start at:", j, "Expected at", m+(i+1)*acclen)
+            print(i+1,"CHUNK READ")
+    except RuntimeError as e:
+        print(e)
+        print("saving everything...")
+        print("Time taken final:", time.time()-st)
+        pol00 = np.ma.masked_invalid(pol00)
+        pol11 = np.ma.masked_invalid(pol11)
+        pol01 = np.ma.masked_invalid(pol01)
+        return pol00,pol11,pol01,ant1.obj.channels
 
 if __name__=="__main__":
 
