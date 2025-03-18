@@ -5,6 +5,7 @@ objects := lib_unpacking.so lib_correlations_cpu.so libmath.so libfftw.so
 
 ifeq (${USE_GPU}, 1)
 objects += libpycufft.so
+objects += lib_correlations_gpu.so
 CFLAGS += -mcpu=native #On MIST
 else
 CFLAGS += -march=native #On NIAGARA
@@ -21,6 +22,8 @@ libmath.so: utils/math_utils.c
 libfftw.so: utils/mkfftw.c
 	$(CC) $(CFLAGS) -shared -fopenmp -o utils/$@ $^ $(LIBS)
 libpycufft.so: utils/pycufft.cu
-	nvcc -shared  -o utils/$@ $^ -Xcompiler -fPIC -lgomp -lcufft
+	nvcc -shared -o utils/$@ $^ -Xcompiler -fPIC -lgomp -lcufft
+lib_correlations_gpu.so: correlations/correlations_gpu.cu
+	nvcc -shared -o correlations/$@ $^ -Xcompiler -fPIC -lcublas
 clean:
 	rm -f $(wildcard */*.so)
