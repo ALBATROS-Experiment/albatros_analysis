@@ -161,7 +161,7 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_g
         if search_type == "d":
             delta = 3600 + 5*60 # direct spectra files are time-limited files. no need to run a median.
         else:
-            delta = np.median(tdiff)+ 4 #same logic as get_file_from_timestamp
+            delta = np.median(tdiff)+ 7 #same logic as get_file_from_timestamp
         gaps=np.where(tdiff>delta)[0]
         if len(gaps) > 0: #there's a big gap in the middle. Either return only the first part or raise error. raising error for now
             for ii in gaps:
