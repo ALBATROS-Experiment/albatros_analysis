@@ -3,25 +3,22 @@
             "ALB1": {
                 "name": "Antenna 1",
                 "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_1_central",
-                "coordinates": [10.123, -20.456, 30.789],
-                "clock_offset": 0
+                "coordinates": [79.41718333333333, -90.76735, 189]
             },
             "ALB2": {
                 "name": "Antenna 2",
                 "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east",
-                "coordinates": [11.234, -21.567, 31.890],
-                "clock_offset": -277647
+                "coordinates": [79.41721666666666, -90.75885, 176]
             },
             "ALB3": {
                 "name": "Antenna 3",
                 "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_3_west",
-                "coordinates": [12.345, -22.678, 32.901],
-                "clock_offset": -603518
+                "coordinates": [79.41541666666667, -90.77308333333333, 175]
             }
         },
         "correlation": {
             "start_timestamp": 1699625045,
-            "end_timestamp": 1699711150,
+            "end_timestamp": 1699711132,
             "accumulation_length": 30000
         },
         "frequency": {
