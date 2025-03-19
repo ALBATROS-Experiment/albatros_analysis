@@ -6,7 +6,7 @@ import numba as nb
 # from src import xp
 from .. import xp
 if xp.__name__=='cupy':
-    from . import correlations_gpu as cxgpu
+    from .correlations_gpu import *
 
 mylib = ctypes.cdll.LoadLibrary(
     os.path.realpath(__file__ + r"/..") + "/lib_correlations_cpu.so"
