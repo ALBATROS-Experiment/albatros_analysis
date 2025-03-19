@@ -10,7 +10,7 @@ Sxc.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctype
 Cxc = mylib.Cxc
 Cxc.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int)
 
-def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npols: int,ntime: int,nfreq: int,split : int = 1):
+def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npol: int,ntime: int,nfreq: int,split : int = 1, scratch = None, out = None):
     """Correlate all antenna-feed pairs for all times and frequencies.
     Correlation implemented using CuBLAS Cgemm, thus input data must be column-major (Fortran ordered).
 
@@ -24,7 +24,7 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npols: int,ntime: int,nfreq: i
         3rd leading dimension: nfreq
     nant : int
         Number of antennas.
-    npols : int
+    npol : int
         Number of feed/polarizations per antenna.
     ntime : int
         Number of time steps to average over.
@@ -34,6 +34,8 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npols: int,ntime: int,nfreq: i
         Split the summing over time by a factor of `split`, by default 1.
         Implemented to reduce the effect of floating-point error accumulation.
         Necessary for averaging length > 10,000 samples.
+    out : cp.ndarray, optional
+        Output array to write to if passed.
 
     Returns
     -------
@@ -47,18 +49,21 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npols: int,ntime: int,nfreq: i
     """
     #sgemm/cgemm callsign (m,n,k, ldA, strideA, ldB, strideB, ldC, strideC, nbatch)
     #A = m x k  | B = k x n  | C = m x n
-    m=nant*npols
+    m=nant*npol
     n=m
     nbatch=nfreq
     k=ntime
     if(k%split!=0):
         raise ValueError("split should be a divisor of ntime")
-    out = xp.empty((m,n*nbatch*split),dtype=x.dtype,order='F')
-    Sxc(out.data.ptr,x.data.ptr,x.data.ptr,m,n,k//split,nbatch*split)  # can trivially split up time blocks too
-    if split > 1:
-        out=out.reshape(m*m,split,nbatch,order='F')
-        out=xp.sum(out,axis=1)
+    if scratch is None:
+        scratch = xp.empty((m,n,nbatch*split),dtype=x.dtype,order='F')
     else:
-        out=out.reshape(m*m,nbatch,order='F')
-    return out/ntime
+        assert scratch.shape == (m,n,nbatch*split) and scratch.dtype == x.dtype and scratch.flags['F_CONTIGUOUS']
+    Cxc(scratch.data.ptr,x.data.ptr,x.data.ptr,m,n,k//split,nbatch*split)  # can trivially split up time blocks too
+    if split > 1:
+        out=out.reshape(m,n,split,nbatch,order='F') #reshaping is free of cost here
+        out=xp.sum(out,axis=2) #reduce along split time axis
+    out=out/ntime
+    # print(out)
+    return out
     

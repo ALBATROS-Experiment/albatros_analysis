@@ -7,8 +7,8 @@
 plots/
 usage.txt
 plot_one_file_scaled.py
-*.sh
 .DS_Store
+*.sh
 devenv/
 env/
 html/pdoc/
