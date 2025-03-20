@@ -10,7 +10,7 @@ Sxc.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctype
 Cxc = mylib.Cxc
 Cxc.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int)
 
-def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npol: int,ntime: int,nfreq: int,split : int = 1, scratch = None, out = None):
+def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npol: int,ntime: int,nfreq: int,split : int = 1, scratch = None):
     """Correlate all antenna-feed pairs for all times and frequencies.
     Correlation implemented using CuBLAS Cgemm, thus input data must be column-major (Fortran ordered).
 
@@ -61,9 +61,11 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray,nant: int,npol: int,ntime: int,nfreq: in
         assert scratch.shape == (m,n,nbatch*split) and scratch.dtype == x.dtype and scratch.flags['F_CONTIGUOUS']
     Cxc(scratch.data.ptr,x.data.ptr,x.data.ptr,m,n,k//split,nbatch*split)  # can trivially split up time blocks too
     if split > 1:
-        out=out.reshape(m,n,split,nbatch,order='F') #reshaping is free of cost here
-        out=xp.sum(out,axis=2) #reduce along split time axis
-    out=out/ntime
+        scratch=scratch.reshape(m,n,split,nbatch,order='F') #reshaping is free of cost here
+        out=xp.sum(scratch,axis=2) #reduce along split time axis
+    else:
+        out=scratch
+    out/=ntime
     # print(out)
     return out
     
