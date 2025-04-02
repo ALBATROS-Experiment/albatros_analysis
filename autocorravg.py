@@ -23,8 +23,8 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
     j=ant1.spec_num_start
     m=ant1.spec_num_start
     st=time.time()
-    for i, chunk in enumerate(ant1):
-        try:
+    try:
+        for i, chunk in enumerate(ant1):
             t1=time.time()
             pol00[i,:] = cr.avg_autocorr_4bit(chunk['pol0'],chunk['specnums'])
             pol11[i,:] = cr.avg_autocorr_4bit(chunk['pol1'],chunk['specnums'])
@@ -34,17 +34,27 @@ def get_avg_fast(path, init_t, end_t, acclen, nchunks, chanstart=0, chanend=None
             j=ant1.spec_num_start
             print("After a loop spec_num start at:", j, "Expected at", m+(i+1)*acclen)
             print(i+1,"CHUNK READ")
-        except RuntimeError as e:
-            print(e)
-            print("saving everything...")
-            print("Time taken final:", time.time()-st)
+    except RuntimeError as e:
+        print(e)
+        print("saving everything...")
+        print("Time taken final:", time.time()-st)
 
     pol00 = np.ma.masked_invalid(pol00)
     pol11 = np.ma.masked_invalid(pol11)
     pol01 = np.ma.masked_invalid(pol01)
-    return pol00,pol11,pol01,ant1.obj.channels
+
+    try:
+        data = (pol00,pol11,pol01,ant1.obj.channels, ant1.obj.coeffs)
+    except KeyError as e:
+        print(e)
+        print('No obj.coeffs found')
+        data = (pol00,pol11,pol01,ant1.obj.channels)
+
+    return data
 
 if __name__=="__main__":
+
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument('data_dir', type=str,help='Parent data directory. Should have 5 digit time folders.')
@@ -68,73 +78,23 @@ if __name__=="__main__":
         args.chans=[0,None]
     
     print("nchunks is: ", args.nchunks,"and stop time is ", args.time_stop)
-    # assert(1==0)
-    pol00,pol11,pol01,channels = get_avg_fast(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
-    print("RUN 1 DONE")
-
-    import os
 
     fname = f"pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.npz"
     fpath = os.path.join(args.outdir,fname)
-    np.savez_compressed(fpath,datap01=pol01.data,maskp01=pol01.mask,datap00=pol00.data,maskp00=pol00.mask,\
-        datap11=pol11.data,maskp11=pol11.mask,chans=channels)
+    try:
+        pol00,pol11,pol01,channels, coeffs = get_avg_fast(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
+        np.savez_compressed(fpath,datap01=pol01.data,maskp01=pol01.mask,datap00=pol00.data,maskp00=pol00.mask,\
+            datap11=pol11.data,maskp11=pol11.mask,chans=channels, coeffs=coeffs)
+    except:
+        pol00,pol11,pol01,channels = get_avg_fast(args.data_dir, args.time_start, args.time_stop, args.acclen, args.nchunks, args.chans[0], args.chans[1])
+        np.savez_compressed(fpath,datap01=pol01.data,maskp01=pol01.mask,datap00=pol00.data,maskp00=pol00.mask,\
+            datap11=pol11.data,maskp11=pol11.mask,chans=channels)
+
+    print("RUN 1 DONE")
+
+
 
     fname=f'pols_4bit_{str(args.time_start)}_{str(args.acclen)}_{str(args.nchunks)}_{args.chans[0]}_{args.chans[1]}.png'
     fpath=os.path.join(args.outdir,fname)
     butils.plot_4bit(pol00,pol11,pol01,channels[args.chans[0]:args.chans[1]],args.acclen,args.time_start,args.vmin,args.vmax,fpath,minutes=True,logplot=args.logplot)
     print(fpath)
-
-
-
-
-        
-
-                
-                
-            
-                
-                
-            
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
