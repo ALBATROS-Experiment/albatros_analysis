@@ -1,0 +1,14 @@
+name: albatros
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - conda
+  - conda-forge::cupy
+  - numba::numba
+  - conda-forge::psutil
+  - matplotlib
+  - pytz
+  - scipy
+  - conda-forge::skyfield

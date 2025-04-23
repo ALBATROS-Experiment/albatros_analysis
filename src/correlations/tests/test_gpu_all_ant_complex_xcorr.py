@@ -1,23 +1,32 @@
 import pytest
 from src.correlations import correlations as cr
 from src import xp
+import cupy as cp
 import numpy as np
+print(xp.__name__)
 def test_all_ant_complex_xcorr1():
     nant = 1
     npol = 2
     ntime = 10000
     nfreq = 2
-    x = xp.empty((nant*npol, ntime, nfreq), dtype='complex64', order='F')
+    x = cp.empty((nant*npol, ntime, nfreq), dtype='complex64', order='F')
     val = 1.37 + 1.37j #something that's not exactly representable in fp32
     x[:] = val
     # print(x)
     # print(xp.abs(val)**2)
+    myout = xp.zeros((nant*npol, nant*npol, nfreq), dtype="complex64", order="F")
     out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=16)
+    print(out.flags)
+    myout[:]=out
+    print(out-xp.abs(val)**2)
+    print()
     assert xp.all(xp.isclose(out.astype('complex128'),xp.abs(val)**2,rtol=1e-4,atol=1e-8))
     #re-fill the array
+    print(out)
     val = 1.37
     x[:]= val
     out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=16)
+    
     #Real should be 1.37^2, imag should be 0
     assert xp.all(xp.isclose(out.astype('complex128').real,xp.abs(val)**2,rtol=1e-4,atol=1e-8))
     assert xp.all(xp.isclose(out.astype('complex128').imag,0,rtol=1e-4,atol=1e-8))

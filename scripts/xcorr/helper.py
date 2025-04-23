@@ -10,6 +10,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 from albatros_analysis.src.utils import baseband_utils as butils
 import json
+from helper_gpu import *
 
 
 def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
@@ -83,7 +84,7 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
         and in-file index pointer needs to seek to past times due to clock offsets.
     """
     # spec offset definition:
-    # offset in actual spdcrum numbers from two antennas that line up the two timestreams
+    # offset in actual spectrum numbers from two antennas that line up the two timestreams
     idxs = len(dir_parents) * [0]
     specnums = len(dir_parents) * [0]
     files = []
@@ -104,9 +105,10 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
         specnums[anum] = f_obj.spec_num[0] + idx
 
     for jj in range(1, len(idxs)):  # all except first antenna
-        init_offset = specnums[0] - specnums[jj]
+        init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
         print("before correction", idxs[0], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
+        print(spec_offsets[jj] - init_offset) #this is the offset within the respective files
         idxs[jj] -= spec_offsets[jj] - init_offset  # the other way around.
         if idxs[jj] < 0:
             raise NotImplementedError(

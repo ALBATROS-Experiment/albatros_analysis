@@ -19,7 +19,7 @@ T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 DEBUG=False
 
-with open("config.json", "r") as f:
+with open("config_uapishka.json", "r") as f:
     config = json.load(f)
     dir_parents = []
     coords = []
@@ -34,7 +34,8 @@ with open("config.json", "r") as f:
 print(coords)
 out_path = "/project/s/sievers/mohanagr/"
 # all the sats we track
-satlist = [28654,25338,33591,57166,59051,44387]
+# satlist = [28654,25338,33591,57166,59051,44387]
+satlist = [40087,41187]
 # satlist = [57166,59051]
 satmap = {}
 assert min(satlist) > len(
