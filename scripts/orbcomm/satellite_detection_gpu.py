@@ -1,8 +1,14 @@
+import os
+
+print("CUPY_CACHE_DIR =", os.environ.get("CUPY_CACHE_DIR"))
+
 import sys
 import time
 #status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
 #                           sat delay values match, coarse xcorr values match, SNR matches
-sys.path.insert(0, "/home/s/sievers/mohanagr/")
+from os import path
+sys.path.insert(0, "/home/s/sievers/thomasb/")
+
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -12,7 +18,6 @@ from scipy import stats
 from matplotlib import pyplot as plt
 import json
 import cProfile, pstats
-from os import path
 import cupy as cp
 
 T_SPECTRA = 4096 / 250e6
@@ -25,7 +30,7 @@ DEBUG=True
 a1_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_1_central"
 a2_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east"
 
-out_path = "/project/s/sievers/mohanagr/"
+out_path = "/project/s/sievers/thomasb/"
 # all the sats we track
 # satlist = [28654,25338,33591,57166,59051,44387]
 satlist = [57166,59051]
