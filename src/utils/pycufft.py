@@ -5,7 +5,7 @@ import threading
 import cupy as cp
 cupy_cache=cp.fft.config.get_plan_cache()
 cupy_cache.set_size(0) #disable all cupy caching
-mylib=ctypes.cdll.LoadLibrary("/gpfs/fs1/home/s/sievers/mohanagr/albatros_analysis/src/utils/libpycufft.so")
+mylib=ctypes.cdll.LoadLibrary("/gpfs/fs1/home/s/sievers/thomasb/albatros_analysis/src/utils/libpycufft.so")
 r2c = mylib.cufft_r2c_mohan
 r2c.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
 c2r = mylib.cufft_c2r_mohan
