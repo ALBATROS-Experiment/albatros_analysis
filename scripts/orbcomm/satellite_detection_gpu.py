@@ -1,7 +1,4 @@
 import os
-
-print("CUPY_CACHE_DIR =", os.environ.get("CUPY_CACHE_DIR"))
-
 import sys
 import time
 #status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
