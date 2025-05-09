@@ -483,6 +483,10 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
         Consider the effect of round-off error if you are using "eq" with a float array.
     thresh : float, optional
         If passed, (x - thresh) is compared against the condition, by default None
+
+    Returns
+    --------
+    TO FILL OUT
     """
     ops = {
         ">": operator.gt,

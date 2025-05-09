@@ -5,6 +5,7 @@ import time
 #                           sat delay values match, coarse xcorr values match, SNR matches
 from os import path
 sys.path.insert(0, "/home/s/sievers/thomasb/")
+out_path = "/project/s/sievers/thomasb/"
 
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
@@ -21,6 +22,8 @@ T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 DEBUG=False
 
+
+#set up config file stuff
 with open("config.json", "r") as f:
     config = json.load(f)
     dir_parents = []
@@ -34,7 +37,10 @@ with open("config.json", "r") as f:
     init_t = config["correlation"]["start_timestamp"]
     end_t = config["correlation"]["end_timestamp"]
 print(coords)
-out_path = "/project/s/sievers/thomasb/"
+
+#Make a satmap
+
+#note that all the satellites are hard-coded in as of now. Need to find a way to generalize.
 # all the sats we track
 satlist = [28654,25338,33591,57166,59051,44387]
 # satlist = [57166,59051]
@@ -46,6 +52,8 @@ for i, satnum in enumerate(satlist):
     satmap[i] = satnum
     satmap[satnum] = i
 # print(satmap)
+
+
 
 # for each file get the risen sats and divide them up into unique transits
 a1_coords = coords[0] #ref ant]
