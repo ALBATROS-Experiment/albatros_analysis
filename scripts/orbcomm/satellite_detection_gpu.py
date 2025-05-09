@@ -24,10 +24,12 @@ DEBUG=False
 
 
 #set up config file stuff
+
 with open("config.json", "r") as f:
     config = json.load(f)
     dir_parents = []
     coords = []
+    # unpack information from the json file
     # Call get_starting_index for all antennas except reference
     for i, (ant, details) in enumerate(config["antennas"].items()):
         # if ant != ref_ant:
