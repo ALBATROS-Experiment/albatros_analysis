@@ -438,7 +438,7 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, good=None,alti
     ts = sf.load.timescale()
     if not dt:
         dt = 393216 * 4096 / 250e6
-    print("starting at ", tt, "dt is", dt)
+    print("Starting Time of", tt, "with a dt of", dt)
     risen_sats = []
     for iter in range(niter):
         visible = []
