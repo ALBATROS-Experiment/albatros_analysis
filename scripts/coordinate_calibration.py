@@ -87,6 +87,7 @@ def get_coarse_xcorr(f1, f2, Npfb=4096):
 
 T_SPECTRA = 4096/250e6
 visibility_window = 1000
+DEBUG = False
 
 with open("config_test.json", "r") as f:
     config = json.load(f)
@@ -122,19 +123,113 @@ tle_path = outils.get_tle_file(global_start_time, "/project/s/sievers/mohanagr/O
 
 #------------IMPORT INFO FROM SATELLITE DETECTION------------
 
+# filtering process, get list filtered_pulses
+# note that the channels are probably wrong. to verify (maybe using my coarse correlator script)
 
-
-
+filtered_pulses =  [
+                    [[715, 1110], [28654], [1836]], 
+                    [[4950, 5270], [59051], [1836]], 
+                    [[7000, 7145], [28654], [1836]], 
+                    [[8615, 8970], [44387], [1836]], 
+                    [[10975, 11440], [59051], [1836]], 
+                    [[14630, 15110], [44387], [1836]]
+                    ]
 
 
 #--------------SET UP PHASE PREDICTOR--------------
 
+# just use the phase_predictor function I made
+
+
+def phase_predictor(fit_coords, pulse_idx):
+    
+    #depends if I want to keep ant1 as reference in general
+    ref_coords = coords[0]
+
+    relative_start_time = filtered_pulses[pulse_idx][0][0]
+    pulse_duration_sec = filtered_pulses[pulse_idx][0][1] - filtered_pulses[pulse_idx][0][0]
+    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+
+    time_start = global_start_time + relative_start_time
+    sat_ID = filtered_pulses[pulse_idx][1][0]
+
+    pulse_channel_idx = filtered_pulses[pulse_idx][2][0]
+    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
+
+    # 'd' has one entry per second
+    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, visibility_window+1, sat_ID)
+    # 'delay' has one entry per chunk (~0.5s) 
+    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(visibility_window)+1), d)
+    #thus 'pred' has one entry for each chunk
+    pred = (-delay[:pulse_duration_chunks]+ delay[0]) *  2*np.pi * pulse_freq
+
+    return pred
+
+plt.plot(phase_predictor(coords[1], 1))
+
+if DEBUG == True:
+    plt.plot(phase_predictor(coords[1], 1))
+    plt.savefig(f"predicted_phase_antenna{antidx}_pulse{pulseidx}.png")
 
 
 
 #---------------GET OBSERVED PHASES-----------------
 
+pulse_idx = 1
 
+pulse_duration_sec = filtered_pulses[pulse_idx][0][1] - filtered_pulses[pulse_idx][0][0]
+pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+
+relative_start_time = filtered_pulses[pulse_idx][0][0]
+t_start = global_start_time + relative_start_time
+t_end = t_start + visibility_window
+
+files_a1, idx1 = butils.get_init_info(t_start, t_end, dir_parents[0])
+files_a2, idx2 = butils.get_init_info(t_start, t_end, dir_parents[1])
+
+print('initial offset:', idx1-idx2)
+
+idx_correction = 109993-100000
+if idx_correction>0:
+    idx1+=idx_correction
+else:
+    idx2+=np.abs(idx_correction)
+
+print('final offset:', idx1-idx2)
+
+channels = bdc.get_header(files_a1[0])["channels"].astype('int64')
+chanstart = np.where(channels == 1834)[0][0] 
+chanend = np.where(channels == 1852)[0][0]
+nchans=chanend-chanstart
+
+ant1 = bdc.BasebandFileIterator(files_a1, 0, idx1, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
+ant2 = bdc.BasebandFileIterator(files_a2, 0, idx2, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
+
+
+m1=ant1.spec_num_start
+m2=ant2.spec_num_start
+
+visibility_phased = np.zeros((v_nchunks,len(ant1.channel_idxs)), dtype='complex64')
+st=time.time()
+print(f"--------- Processing Pulse Idx {pulse_idx} ---------")
+for i, (chunk1,chunk2) in enumerate(zip(ant1,ant2)):
+        xcorr = avg_xcorr_4bit_2ant_float(
+            chunk1['pol0'], 
+            chunk2['pol0'],
+            chunk1['specnums'],
+            chunk2['specnums'],
+            m1+i*v_acclen,
+            m2+i*v_acclen)
+        visibility_phased[i,:] = np.sum(xcorr,axis=0)/v_acclen
+        print("CHUNK", i, " has ", xcorr.shape[0], " rows")
+print("Time taken final:", time.time()-st)
+visibility_phased = np.ma.masked_invalid(visibility_phased)
+vis_phase = np.angle(visibility_phased)
+
+
+if DEBUG == TRUE:
+    plt.imshow(vis_phase[:,:], aspect='auto',cmap='RdBu',interpolation="none")
+    plt.savefig(f"observed_phase_antenna{antidx}_pulse_{pulseidx}.png")
 
 
 
