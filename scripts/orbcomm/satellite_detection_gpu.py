@@ -355,10 +355,6 @@ for antnum in range(1,len(dir_parents)):
 
 
 
-
-
-
-
         #----Detect Peaks----
         # rows = sats_present, cols = channels
         # questions: does the first if statement mean uncorrected is larger than corrected?

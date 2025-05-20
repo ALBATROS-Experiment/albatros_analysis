@@ -138,8 +138,6 @@ filtered_pulses =  [
 
 #--------------SET UP PHASE PREDICTOR--------------
 
-# just use the phase_predictor function I made
-
 
 def phase_predictor(fit_coords, pulse_idx):
     
@@ -171,10 +169,7 @@ if DEBUG == True:
     plt.plot(phase_predictor(coords[1], 1))
     plt.savefig(f"predicted_phase_antenna{antidx}_pulse{pulseidx}.png")
 
-
-
 #---------------GET OBSERVED PHASES-----------------
-
 pulse_idx = 1
 
 pulse_duration_sec = filtered_pulses[pulse_idx][0][1] - filtered_pulses[pulse_idx][0][0]
@@ -234,3 +229,11 @@ if DEBUG == TRUE:
 
 
 #----------------FIT IT---------------
+
+
+
+
+
+
+
+
