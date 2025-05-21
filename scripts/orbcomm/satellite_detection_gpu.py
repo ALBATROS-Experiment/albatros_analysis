@@ -10,6 +10,7 @@ from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 import numpy as np
 from scipy import stats
+from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
 import json
 import cProfile, pstats
@@ -22,7 +23,8 @@ T_SPECTRA = 4096 / 250e6
 T_SCAN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 altitude_cutoff = 15  #cutoff when looking for satellites
 array_time =  3*3600  #how long we look for pulses after the start time (in seconds)
-DEBUG=True
+DEBUG=False
+ONLY_RUSSIANS = True
 
 #----Unpack Config File Data----
 
@@ -309,8 +311,8 @@ for antnum in range(1,len(dir_parents)):
                 ax2[i].plot(cp.asnumpy(cp.abs(cx[0][i,:])))
                 # ax2[i].set_xlim(mm-1000,mm+1000)
             plt.tight_layout()
-            fig2.savefig(path.join(out_path,f"debug_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
-            print(path.join(out_path,f"debug_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+            fig2.savefig(path.join(out_path,f"dg_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+            print(path.join(out_path,f"dg_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
             # sys.exit(0)
 
         
@@ -332,7 +334,22 @@ for antnum in range(1,len(dir_parents)):
                         p0_a1, p0_a2_delayed, dN
                     )
             )
+        if DEBUG:
+            fig2, ax2 = plt.subplots(np.ceil(cx[1].shape[0]/3).astype(int), 3)
+            fig2.set_size_inches(12, np.ceil(cx[1].shape[0]/3)*3)
+            ax2=ax2.flatten()
+            fig2.suptitle(f"for pulse {pstart}:{pend}")
+            for i in range(cx[1].shape[0]):
+                mm=cp.argmax(cp.abs(cx[1][i,:]))
+                ax2[i].set_title(f"chan {1834+i} max: {mm}")
+                ax2[i].plot(cp.asnumpy(cp.abs(cx[1][i,:])))
+                # ax2[i].set_xlim(mm-1000,mm+1000)
+            plt.tight_layout()
+            fig2.savefig(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+            print(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+            # sys.exit(0)
 
+        
 
         #----Get SNR----
         # we want an array of the SNR for each channel for each satellite (plus uncorrected)
@@ -353,8 +370,6 @@ for antnum in range(1,len(dir_parents)):
 
 
 
-
-
         #----Detect Peaks----
         # rows = sats_present, cols = channels
         # questions: does the first if statement mean uncorrected is larger than corrected?
@@ -363,13 +378,15 @@ for antnum in range(1,len(dir_parents)):
         detected_sats = np.zeros(nchans, dtype="int")
         detected_peaks = np.zeros(nchans, dtype="int")
 
+        print('\nStarting to Process SNRs \n')
+
         for chan in range(nchans):
-            print(chan)
             sortidx = np.argsort(snr_arr[:, chan])
-            print("sorted indices", sortidx)
-            if (sortidx[-1] == 0):  # no sat was detected, idx 0 is the default "no phase" value
+            #if the index of maximum SNR is the 'uncorrected' value, then no sat detected.
+            if (sortidx[-1] == 0):  
                 continue
-            if (snr_arr[sortidx[-1], chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(2) > 5:  
+            #below is the minimum condition of SNR for a detection. Most basic requirement
+            if (snr_arr[sortidx[-1], chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(2) > 5: 
                 # if SNR 1 = a1/sigma, SNR 2 = a2/sigma.
                 # I want SNR on a1-a2 i.e. is the difference significant.
                 # print(
@@ -379,7 +396,7 @@ for antnum in range(1,len(dir_parents)):
                 #     snr_arr[sortidx[-2], chan],
                 # )
                 cx_idx = sortidx[-1] # which cxcorr has the detection
-                print(cx_idx)
+                print(f"\nDetected Peak in cx index {cx_idx} in channel {chan}")
                 satID = temp_satmap[cx_idx]
                 print("SatID of detected peak:", satID)
             
@@ -398,14 +415,38 @@ for antnum in range(1,len(dir_parents)):
                     plt.tight_layout()
                     fig2.savefig(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
                     print(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
-                
+
+                #this is a requirement that can be turned on to identify reliable peaks only
+                if ONLY_RUSSIANS:
+                    data = cp.abs(cx[sortidx[-1]][chan,:])
+                    peak_location = cp.argmax(data)
+                    peak_data = data[peak_location - 200:peak_location + 200]
+                    data_cpu = cp.asnumpy(data)
+                    peaks_total = find_peaks(data_cpu, height=0.001)
+                    heights = peaks_total[1]['peak_heights']
+                    height_indices = np.argsort(heights)
+
+                    tallest = heights[height_indices[-1]]
+                    reps, total = 4, 0
+                    for i in range(reps):
+                        total += (tallest - heights[height_indices[-(i+2)]])
+                    ratio = (total/(tallest * reps))
+                    print("\nRATIO:", ratio)
+
+                    if ratio > 0.6:
+                        print("CCCP")
+                    if ratio < 0.1:
+                        print("AMERICAN")
+                    else:
+                        print("undecided?")
+
                 # if we actually detect the peak in the data, we add it to these arrays
                 # note that present and detected are different: present is from prediction, detected is from data.
                 detected_sats[chan] = temp_satmap[sortidx[-1]]
                 detected_peaks[chan] = cp.argmax(cp.abs(cx[sortidx[-1]][chan,:]))
                 # detected_sats[chan] = satmap[sats_present[sortidx[-1]]]
 
-        print("Detected Sats:", detected_sats)
+        print("\nDetected Sats:", detected_sats)
         print("Detected Peaks:", detected_peaks)
         
 
