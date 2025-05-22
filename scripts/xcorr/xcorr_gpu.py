@@ -47,3 +47,4 @@ if __name__=="__main__":
     fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(pfb_size)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}.npz"
     fpath = path.join(outdir,fname)
     np.savez(fpath,data=pols.data,mask=pols.mask,missing_fraction=missing_fraction,chans=channels)
+

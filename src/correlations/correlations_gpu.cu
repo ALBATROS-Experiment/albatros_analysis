@@ -2,6 +2,7 @@
 #include <cuda.h>
 #include <cublas_v2.h>
 #include <cufft.h>
+#include <cuComplex.h>
 
 //nvcc -Xcompiler -fPIC -o lib_sgemm.so cuda_sgemm.cu -shared -lcublas
 extern "C"
@@ -53,16 +54,44 @@ void Cxc(cuComplex * dev_c, cuComplex * dev_a, cuComplex * dev_b, int m, int n, 
     // cublasOperation_t op;
     // printf("optypes are %d %d %d");
     cublasStatus_t stat;
+    cudaError_t cudaError;
+
+    cudaError = cudaGetLastError();
+
+    if( cudaError != cudaSuccess )
+    {
+        fprintf(stderr, "CUDA Runtime API Error reported Pre GEMM: %s\n", cudaGetErrorString(cudaError));
+        exit(EXIT_FAILURE);
+    }
     cuComplex alpha = make_cuComplex(1,0);
     cuComplex beta = make_cuComplex(0,0);
+    cuComplex test = make_cuComplex(0,0);
     // float alpha = make_float(1, 0);
     // float beta = make_float(0, 0);
     // long long int stride_A = m*k, stride_B = n*k, stride_C =  m*n;
     long long int stride_A = m*k, stride_B = n*k, stride_C =  m*n;
+    printf("stride A %d stride B %d, stride C %d\n", stride_A, stride_B, stride_C );
+    printf("m %d, n %d, k %d\n", m, n, k);
     // long long int stride_A = 1, stride_B = 1, stride_C =  1;
+    // for (int ii = 0; ii < nbatch; ii++)
+    // {
+    //     for (int jj = 0; jj < k; jj++) //k cols
+    //     {
+    //         for (int kk = 0; kk < m; kk++) //m rows
+    //         {
+    //             // printf("A = %f", cuCrealf(dev_a[kk + jj*m + stride_A * ii]));
+    //             test = dev_a[kk + jj*m + stride_A * ii] ;
+    //         }
+            
+    //     }
+        
+    // }
     cublasHandle_t h;
+    int vnum;
 	if(cublasCreate(&h)!=CUBLAS_STATUS_SUCCESS)
         fprintf(stderr,"Error creating cublas handle\n");
+    cublasGetVersion(h, &vnum);
+    printf("CuBLAS version number %d", vnum);
     stat = cublasCgemmStridedBatched(
 		h,
 		CUBLAS_OP_N, // not transposed
@@ -81,9 +110,19 @@ void Cxc(cuComplex * dev_c, cuComplex * dev_a, cuComplex * dev_b, int m, int n, 
 		stride_C, // i.e. c[0] takes up 4 x 2 = 8 floats
 		nbatch      // multiply 2 matrices
 	);
+    if( cudaError != cudaSuccess )
+    {
+        fprintf(stderr, "CUDA Runtime API Error reported post GEMM: %s\n", cudaGetErrorString(cudaError));
+        exit(EXIT_FAILURE);
+    }
     if(stat!=CUBLAS_STATUS_SUCCESS)
         fprintf(stderr,"Error executing GEMM\n");
     cublasDestroy(h);
+    if( cudaError != cudaSuccess )
+    {
+        fprintf(stderr, "CUDA Runtime API Error reported post destroy: %s\n", cudaGetErrorString(cudaError));
+        exit(EXIT_FAILURE);
+    }
     printf("finished....\n");
 }
 }
