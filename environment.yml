@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 alabaster==0.7.16
 astropy==6.0.1
 astropy-iers-data==0.2024.3.25.0.29.50
@@ -89,3 +90,19 @@ traitlets==5.14.2
 tzdata==2024.1
 urllib3==2.2.3
 wcwidth==0.2.13
+=======
+name: albatros
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - conda
+  - conda-forge::cupy
+  - numba::numba
+  - conda-forge::psutil
+  - matplotlib
+  - pytz
+  - scipy
+  - conda-forge::skyfield
+>>>>>>> dev
