@@ -23,8 +23,14 @@ T_SPECTRA = 4096 / 250e6
 T_SCAN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 altitude_cutoff = 15  #cutoff when looking for satellites
 array_time =  3*3600  #how long we look for pulses after the start time (in seconds)
-DEBUG=True
-ONLY_RUSSIANS = True
+
+
+#----Flags----
+
+DEBUG = True
+ONLY_RELIABLE = True
+INCLUDE_XCORR_OFFSETS = True
+
 
 #----Unpack Config File Data----
 
@@ -89,9 +95,7 @@ for i, satnum in enumerate(satlist):
 #            why do we choose 3 hours from the start specifically?
 #            does this mean that we only care about the 3 hours after the start time to find our spectrum number offsets?
 
-tstart = init_t #define start time (observer frame)
-sat_data = {} 
-sat_data[tstart] = [] 
+tstart = init_t #define start time (observer frame) 
 nrows = int((array_time)/T_SCAN)
 arr = np.zeros((nrows, len(satlist)), dtype="int64") #array 
 tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
@@ -446,10 +450,12 @@ for antnum in range(1,len(dir_parents)):
                     ratio = (total/(tallest * reps))
                     print("\nRATIO:", ratio)
 
-                    if ratio > 0.6:
-                        sat_label = "CCCP"
+                    if ratio > 0.7:
+                        sat_label = "RELIABLE"
                     elif ratio < 0.15:
-                        sat_label ="AMERICAN"
+                        sat_label ="UNRELIABLE"
+                        if ONLY_RELIABLE:
+                            continue
                     else:
                         sat_label ="UNCLEAR"
                     print(sat_label)
@@ -496,10 +502,22 @@ for antnum in range(1,len(dir_parents)):
         pulse_data["timestream_offset"] = int(final_specnum_offset)
         pulse_data["primary_pulse_type"] = sat_label
     
+
+        sat_data = {} 
+        sat_data[tstart] = []
+
+    
         for i, satID in enumerate(sats_present):
             where_sat = np.where(detected_sats == satmap[satID])[0]
-            for ids in where_sat:
-                sat_peaks.append([int(ids)+1834, int(detected_peaks[ids])]) #append the channel and the peak location of that channel
+            
+            if INCLUDE_XCORR_OFFSETS:
+                for ids in where_sat:
+                    sat_peaks.append([int(ids)+1834, int(detected_peaks[ids])]) #append the channel and the peak location of that channel
+            
+            if INLUCDE_XCORR_OFFSETS == False:
+                for ids in where_sats:
+                    sat_peaks.append(int(ids)+1834)  #only include the channel idx
+
             pulse_data["sats_present"][satmap[satID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
 
         #Finally, apprend pulse data to satellite_data
