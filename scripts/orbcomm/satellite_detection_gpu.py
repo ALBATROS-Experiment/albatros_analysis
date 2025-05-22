@@ -3,7 +3,7 @@ import sys
 import time
 from os import path
 sys.path.insert(0, "/home/s/sievers/thomasb/")
-out_path = "/project/s/sievers/thomasb/"
+out_path = "/project/s/sievers/thomasb/may_22"
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -23,7 +23,7 @@ T_SPECTRA = 4096 / 250e6
 T_SCAN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 altitude_cutoff = 15  #cutoff when looking for satellites
 array_time =  3*3600  #how long we look for pulses after the start time (in seconds)
-DEBUG=False
+DEBUG=True
 ONLY_RUSSIANS = True
 
 #----Unpack Config File Data----
@@ -158,7 +158,7 @@ for antnum in range(1,len(dir_parents)):
         #define our pulse length
         t1 = tstart + pstart * T_SCAN
         t2 = tstart + pend * T_SCAN
-        print("In ctime we measure Pulse t1:", t1, "Pulse t2:", t2)
+        #print("In ctime we measure Pulse t1:", t1, "Pulse t2:", t2)
         print("Length of Pulse is:", t2-t1, '\n')
 
         #this is buggy and sets off the exception below. fix so that max 50 seconds of pulse read.
@@ -179,18 +179,18 @@ for antnum in range(1,len(dir_parents)):
             continue
         # print(files_a1,files_a2)
 
+
+        print("Setting Antenna as BFI Objects", '\n')
+
         # Set up the number of channels we look through
         channels = np.asarray(bdc.get_header(files_a1[0])["channels"],dtype='int64')
         chanstart = np.where(channels == 1834)[0][0]
         chanend = np.where(channels == 1852)[0][0]
         nchans = chanend - chanstart
 
-
-        # recall we defined acclen above with the config file unpacking
         # dont impose any chunk num, continue iterating as long as a chunk with small enough missing fraction is found.
         # have passed enough files to begin with. should not run out of files.
-        print("Setting Antenna as BFI Objects", '\n')
-
+        
         ant1 = bdc.BasebandFileIterator(
             files_a1,
             0,
@@ -219,14 +219,14 @@ for antnum in range(1,len(dir_parents)):
         p0_a2 = cp.zeros((c_acclen, nchans), dtype="complex64")
         p0_a2_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
         niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
-        print("niter for delay is", niter, "t1 is", t1)
+        #print("niter for delay is", niter, "t1 is", t1)
 
 
 
         #----Obtain Geometric Delay----
         # get geo delay for each satellite present in the pulse from Skyfield (often just one or two)
 
-        delays = np.zeros((c_acclen, len(sats_present)))
+        delays = np.zeros((c_acclen, numsats_in_pulse))
         for i, satidx in enumerate(sats_present):
             d = outils.get_sat_delay(
                 a1_coords,
@@ -276,9 +276,9 @@ for antnum in range(1,len(dir_parents)):
         info_tstamps_a1 = str(butils.get_tstamp_from_filename(files_a1[0]))+":"+str(ant1.spec_num_start-c_acclen)
         info_tstamps_a2 = str(butils.get_tstamp_from_filename(files_a2[0]))+":"+str(ant2.spec_num_start-c_acclen)
         specnum_offset = ant1.spec_num_start - ant2.spec_num_start #this is the initial delay between specnums when the antennas booted up
-        print(info_tstamps_a1)
-        print(info_tstamps_a2)
-        print("initial specnum offset 1 - 2", specnum_offset)
+        #print(info_tstamps_a1)
+        #print(info_tstamps_a2)
+        #print("initial specnum offset 1 - 2", specnum_offset)
 
 
         #----Set up Temporary Satmap----
@@ -324,7 +324,7 @@ for antnum in range(1,len(dir_parents)):
     
         freqs = 250e6 * (1 - cp.arange(1834, 1852) / 4096)
         for i, satidx in enumerate(sats_present):
-            print("Processing Satellite with ID:", satmap[satidx], "aka wrote its xcorr to cx")
+            print("\nProcessing Satellite with ID:", satmap[satidx])
             temp_satmap.append(satmap[satidx])
             # phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
             # print("phase delay shape", phase_delay.shape)
@@ -346,21 +346,36 @@ for antnum in range(1,len(dir_parents)):
                 # ax2[i].set_xlim(mm-1000,mm+1000)
             plt.tight_layout()
             fig2.savefig(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
-            print(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+            #print(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
             # sys.exit(0)
 
         
 
+        ''' 
+        By this point, we have all the setup that we need. 
+        - cx : coarse xcorr for uncorrected and for all sats, for all present passes
+        - temp_satmap : lets you move from indices in cx to their actual satID
+        - initial_offset : self-explanatory
+        Objective is as follows:
+        - determine when a present pass is detected
+        - filter the detected passes for quality
+        - register detected pass info
+        - determine relative offset
+        - determine global timestream offset
+        '''
+
+
+
         #----Get SNR----
         # we want an array of the SNR for each channel for each satellite (plus uncorrected)
 
-        snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  
+        snr_arr = np.zeros((numsats_in_pulse + 1, nchans), dtype="float64")  
         # set up plot for all pulses, finished at end of big pulse loop
         # beware: need a 2D array of plots here. For each antenna (row) have a column of pnum (column) plots
 
 
         axS[pnum].set_title(f"Pulse {pstart} to {pend}.")
-        for i in range(len(sats_present) + 1):
+        for i in range(numsats_in_pulse + 1):
             snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx[i]),axis=1))
             axS[pnum].plot(snr_arr[i, :], label=f"{temp_satmap[i]}")
         axS[pnum].set_xlabel("Channels")
@@ -372,13 +387,11 @@ for antnum in range(1,len(dir_parents)):
 
         #----Detect Peaks----
         # rows = sats_present, cols = channels
-        # questions: does the first if statement mean uncorrected is larger than corrected?
-        #            in the second if statement, we could be comparing between satellites no? difference between the two SNRs?
 
         detected_sats = np.zeros(nchans, dtype="int")
         detected_peaks = np.zeros(nchans, dtype="int")
 
-        print('\nStarting to Process SNRs \n')
+        print('Processing SNRs \n')
 
         for chan in range(nchans):
             sortidx = np.argsort(snr_arr[:, chan])
@@ -414,7 +427,7 @@ for antnum in range(1,len(dir_parents)):
                         # ax2[i].set_xlim(mm-1000,mm+1000)
                     plt.tight_layout()
                     fig2.savefig(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
-                    print(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
+                    #print(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
 
                 #this is a requirement that can be turned on to identify reliable peaks only
                 if ONLY_RUSSIANS:
@@ -434,11 +447,12 @@ for antnum in range(1,len(dir_parents)):
                     print("\nRATIO:", ratio)
 
                     if ratio > 0.6:
-                        print("CCCP")
-                    if ratio < 0.1:
-                        print("AMERICAN")
+                        sat_label = "CCCP"
+                    elif ratio < 0.15:
+                        sat_label ="AMERICAN"
                     else:
-                        print("undecided?")
+                        sat_label ="UNCLEAR"
+                    print(sat_label)
 
                 # if we actually detect the peak in the data, we add it to these arrays
                 # note that present and detected are different: present is from prediction, detected is from data.
@@ -455,18 +469,18 @@ for antnum in range(1,len(dir_parents)):
         #----Update Spectrum Number Offset----
         #question:  if we detect multiple conflicting offsets for different pulses, do they just overwrite each other?
 
-        sat_peaks=[]
+        
         if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
             peak_guesses = detected_peaks[detected_peaks>0]
             print("detected peak locations are", peak_guesses)
             best_guess_offset = np.max(detected_peaks)  #use the maximum peak to determine best guess offset for each pulse
             if (best_guess_offset-dN) > 0:
                     #tau > 0; idxstart0 += detected_peaks[chan]-dN
-                    specnum_offset += (best_guess_offset-dN)
+                    final_specnum_offset = specnum_offset + (best_guess_offset-dN)
             else:
                 #tau < 0; idxstart1 += abs(best_guess_offset-dN)
-                specnum_offset -= np.abs(best_guess_offset - dN)
-            print("specnum offset updated to:", specnum_offset)
+                final_specnum_offset = specnum_offset - np.abs(best_guess_offset - dN)
+            print("specnum offset updated to:", final_specnum_offset)
         else:
             print("No detected peaks for this pulse")
 
@@ -474,11 +488,13 @@ for antnum in range(1,len(dir_parents)):
         #----Store Pulse Data----
 
         #create dictionary to store pulse information
+        sat_peaks=[]
         pulse_data = {}
         pulse_data["start"] = pstart
         pulse_data["end"] = pend
         pulse_data["sats_present"] = {}
-        numsats_in_pulse = len(sats_present)
+        pulse_data["timestream_offset"] = int(final_specnum_offset)
+        pulse_data["primary_pulse_type"] = sat_label
     
         for i, satID in enumerate(sats_present):
             where_sat = np.where(detected_sats == satmap[satID])[0]
@@ -509,6 +525,4 @@ json_output = path.join(out_path,f"pulsedata_{tstart}_{int(time.time())}.json")
 with open(json_output, "w") as file:
    json.dump(sat_data, file, indent=4)
 print(sat_data)
-
-
 
