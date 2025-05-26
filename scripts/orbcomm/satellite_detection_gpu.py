@@ -3,7 +3,7 @@ import sys
 import time
 from os import path
 sys.path.insert(0, "/home/s/sievers/thomasb/")
-out_path = "/project/s/sievers/thomasb/may_22"
+out_path = "/project/s/sievers/thomasb/may_26"
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -27,9 +27,9 @@ array_time =  3*3600  #how long we look for pulses after the start time (in seco
 
 #----Flags----
 
-DEBUG = True
+DEBUG = False
 ONLY_RELIABLE = True
-INCLUDE_XCORR_OFFSETS = True
+VERBOSE = False
 
 
 #----Unpack Config File Data----
@@ -132,11 +132,16 @@ print("Number of Pulses:", npulses, '\n')
 
 
 
+sat_data = {} 
+sat_data[tstart] = {}
+
 
 #----Iterate over each Antenna----
 
 for antnum in range(1,len(dir_parents)):
     print(f"--------------- ANTENNA {antnum}-----------------")
+
+    sat_data[tstart][f"antenna {antnum}"] = []
 
     #setup paths and coordinates for each antenna at the start of the loop
     a2_path = dir_parents[antnum]
@@ -397,6 +402,9 @@ for antnum in range(1,len(dir_parents)):
 
         print('Processing SNRs \n')
 
+
+        pulse_labels = {}
+
         for chan in range(nchans):
             sortidx = np.argsort(snr_arr[:, chan])
             #if the index of maximum SNR is the 'uncorrected' value, then no sat detected.
@@ -434,36 +442,46 @@ for antnum in range(1,len(dir_parents)):
                     #print(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
 
                 #this is a requirement that can be turned on to identify reliable peaks only
-                if ONLY_RUSSIANS:
-                    data = cp.abs(cx[sortidx[-1]][chan,:])
-                    peak_location = cp.argmax(data)
-                    peak_data = data[peak_location - 200:peak_location + 200]
-                    data_cpu = cp.asnumpy(data)
-                    peaks_total = find_peaks(data_cpu, height=0.001)
-                    heights = peaks_total[1]['peak_heights']
-                    height_indices = np.argsort(heights)
 
-                    tallest = heights[height_indices[-1]]
-                    reps, total = 4, 0
-                    for i in range(reps):
-                        total += (tallest - heights[height_indices[-(i+2)]])
-                    ratio = (total/(tallest * reps))
-                    print("\nRATIO:", ratio)
+                data = cp.abs(cx[sortidx[-1]][chan,:])
+                peak_location = cp.argmax(data)
+                peak_data = data[peak_location - 200:peak_location + 200]
+                data_cpu = cp.asnumpy(data)
+                peaks_total = find_peaks(data_cpu, height=0.001)
+                heights = peaks_total[1]['peak_heights']
+                height_indices = np.argsort(heights)
 
-                    if ratio > 0.7:
-                        sat_label = "RELIABLE"
-                    elif ratio < 0.15:
-                        sat_label ="UNRELIABLE"
-                        if ONLY_RELIABLE:
-                            continue
-                    else:
-                        sat_label ="UNCLEAR"
-                    print(sat_label)
+                tallest = heights[height_indices[-1]]
+                reps, total = 4, 0
+                for i in range(reps):
+                    total += (tallest - heights[height_indices[-(i+2)]])
+                ratio = (total/(tallest * reps))
+                print("\nRATIO:", ratio)
+
+                pulse_label = ""
+                if ratio < 0.15:
+                    pulse_label = "UNRELIABLE"
+                elif ratio > 0.7:
+                    pulse_label = "RELIABLE"
+                else:
+                    pulse_label = "UNCLEAR"
+                print(pulse_label)
+
+                pulse_labels[chan] = pulse_label
 
                 # if we actually detect the peak in the data, we add it to these arrays
                 # note that present and detected are different: present is from prediction, detected is from data.
+
+                #if we only want reliable pulses, only store the channel where they are indeed reliable. may have
+                #a pulse where they are reliable in one channel but unreliable in the other
+
+                if ONLY_RELIABLE:
+                    if pulse_label != "RELIABLE":
+                        continue
                 detected_sats[chan] = temp_satmap[sortidx[-1]]
                 detected_peaks[chan] = cp.argmax(cp.abs(cx[sortidx[-1]][chan,:]))
+
+                
                 # detected_sats[chan] = satmap[sats_present[sortidx[-1]]]
 
         print("\nDetected Sats:", detected_sats)
@@ -482,46 +500,43 @@ for antnum in range(1,len(dir_parents)):
             best_guess_offset = np.max(detected_peaks)  #use the maximum peak to determine best guess offset for each pulse
             if (best_guess_offset-dN) > 0:
                     #tau > 0; idxstart0 += detected_peaks[chan]-dN
-                    final_specnum_offset = specnum_offset + (best_guess_offset-dN)
+                    specnum_offset += (best_guess_offset-dN)
             else:
                 #tau < 0; idxstart1 += abs(best_guess_offset-dN)
-                final_specnum_offset = specnum_offset - np.abs(best_guess_offset - dN)
-            print("specnum offset updated to:", final_specnum_offset)
+                specnum_offset -=  np.abs(best_guess_offset - dN)
+            print("specnum offset updated to:", specnum_offset)
         else:
             print("No detected peaks for this pulse")
 
         
         #----Store Pulse Data----
 
-        #create dictionary to store pulse information
+        #create dictionary to store pulse information (but only if there was a detection)
+
+        #reset these variables to make sure we don't add more than the current pulse's info
         sat_peaks=[]
         pulse_data = {}
-        pulse_data["start"] = pstart
-        pulse_data["end"] = pend
-        pulse_data["sats_present"] = {}
-        pulse_data["timestream_offset"] = int(final_specnum_offset)
-        pulse_data["primary_pulse_type"] = sat_label
-    
 
-        sat_data = {} 
-        sat_data[tstart] = []
+        if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
+            pulse_data["start"] = pstart
+            pulse_data["end"] = pend
+            pulse_data["sats_present"] = {}
+            pulse_data["timestream_offset"] = int(specnum_offset)
+        
+            for i, satID in enumerate(sats_present):
+                where_sat = np.where(detected_sats == satmap[satID])[0]
+        
+                for chanidx in where_sat:
+                    if VERBOSE:
+                        sat_peaks.append([int(chanidx)+1834, int(detected_peaks[chanidx]), pulse_labels[chanidx]]) #append the channel and the peak location of that channel
+                    else:
+                        sat_peaks.append([int(chanidx)+1834, pulse_labels[chanidx]])
 
-    
-        for i, satID in enumerate(sats_present):
-            where_sat = np.where(detected_sats == satmap[satID])[0]
-            
-            if INCLUDE_XCORR_OFFSETS:
-                for ids in where_sat:
-                    sat_peaks.append([int(ids)+1834, int(detected_peaks[ids])]) #append the channel and the peak location of that channel
-            
-            if INLUCDE_XCORR_OFFSETS == False:
-                for ids in where_sats:
-                    sat_peaks.append(int(ids)+1834)  #only include the channel idx
+                pulse_data["sats_present"][satmap[satID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
 
-            pulse_data["sats_present"][satmap[satID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
+            print("PULSE DATA", pulse_data)
 
-        #Finally, apprend pulse data to satellite_data
-        sat_data[tstart].append(pulse_data)
+            sat_data[tstart][f"antenna {antnum}"].append(pulse_data)
     
 
 
