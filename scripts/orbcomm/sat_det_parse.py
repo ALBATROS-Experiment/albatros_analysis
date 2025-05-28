@@ -1,0 +1,609 @@
+import os
+import sys
+import time
+from os import path
+sys.path.insert(0, "/home/s/sievers/thomasb/")
+from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
+from albatros_analysis.src.utils import orbcomm_utils as outils
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
+import numpy as np
+from scipy import stats
+from scipy.signal import find_peaks
+from matplotlib import pyplot as plt
+import json
+import cProfile, pstats
+import cupy as cp
+import argparse
+
+
+#----Basic Setup----
+
+if __name__ == "__main__":
+    #test
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "config_file",
+        type=str,
+        help="Config file containing all required data.",
+    )
+
+    #the following can also all be added into the config file. Just here as a reminder of stuff to add, and for use before everything gets done. 
+
+
+    parser.add_argument(
+        "-o", "--output_path", type=str, default="/project/s/sievers/thomasb", help="Output directory for debug and pulses"
+    )
+
+    parser.add_argument(
+        "-e", "--extra_data", action="store_true", help="Adds extra data to json dump, such as corase offset and reliability ratio"
+    )
+
+    parser.add_argument(
+        "-r", "--reliable", action="store_true", help="Only writes reliable pulses to json file"
+    )
+
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="debug option that spits out a ton of plots to see stuff"
+    )
+
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Gives more context on what is happening during the script. Prints a lot of stuff."
+    )
+
+    parser.add_argument(
+        "--T_spectra", type=float, default= 4096 / 250e6
+    )
+
+    parser.add_argument(
+        "--T_scan", type = int, default=5
+    )
+
+    parser.add_argument(
+        "--alt_cutoff", type = int, default=15
+    )
+
+    parser.add_argument(
+        "-hr", "--hours", type = int, default=3, help="how long we look for pulses after the start time, in hours"
+    )
+
+    args = parser.parse_args()
+
+
+    #------Set Argument Variables-----
+    T_SPECTRA = args.T_spectra
+    T_SCAN = args.T_scan #seconds between each pulse scan -- look for sat rise/set every 5 sec.
+    altitude_cutoff = args.alt_cutoff  #cutoff when looking for satellites
+    out_path = args.output_path
+    array_time =  args.hours*3600  #
+
+
+
+    #----Unpack Config File Data----
+
+    with open(args.config_file, "r") as f:
+        config = json.load(f)
+        dir_parents = []
+        coords = []
+        # unpack information from the json file
+        # Call get_starting_index for all antennas except reference
+        print('\n', "Antenna Details:")
+        for i, (ant, details) in enumerate(config["antennas"].items()):
+            # if ant != ref_ant:
+            print(ant, details)
+            coords.append(details['coordinates'])
+            dir_parents.append(details["path"])
+        init_t = config["correlation"]["start_timestamp"]
+        end_t = config["correlation"]["end_timestamp"]
+        c_acclen = config["correlation"]["coarse_acclen"]
+        v_acclen = config["correlation"]["vis_acclen"]
+
+    print("Antenna Coordinates:", coords, '\n')
+    print("Coarse Accumulation Length", c_acclen, '\n')
+    print("Visibility Accumulation Length:", v_acclen, '\n')
+
+
+    #----Define Reference Antenna----
+
+    a1_coords = coords[0] 
+    a1_path = dir_parents[0]
+
+
+    #----Make Satellite List----
+
+    satlist = [28654,25338,33591,57166,59051,44387]
+    # satlist = [57166,59051]
+
+
+
+    #----Make Satellite Map----
+    #this is used throughout the code to identify the overall satellite ID (e.g. 33591) to its index in the satlist (e.g. 2)
+
+    satmap = {}
+    assert min(satlist) > len(
+        satlist
+    )  # to make sure there are no collisions, we'll never have an i that's also a satnum
+    for i, satnum in enumerate(satlist):
+        satmap[i] = satnum
+        satmap[satnum] = i
+    # print(satmap)
+
+
+
+    #----Obtain and Plot the Risen Satellites----
+    # arr: temporary array where we store which satellite has a pulse active, using 1 and 0 (on/off)
+    # rsats: list of lists of coordinates and ID of satellites visible (aka risen), entry each dt (usually 5 secs)
+    # num_sats_risen: integer list with number of visible satellites at that point, entry each dt
+    # sat_data: dictionary where we will eventually store all pulse data
+
+    #questions:  how long do the TLE files go on for/ how long are they reliable?
+
+
+    tstart = init_t #define start time (observer frame) 
+    nrows = int((array_time)/T_SCAN)
+    arr = np.zeros((nrows, len(satlist)), dtype="int64") #array 
+    tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
+    print("Using TLE path:", tle_path, '\n')
+    rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, dt=T_SCAN, niter=nrows, good=satlist, altitude_cutoff=altitude_cutoff)
+    num_sats_risen = [len(x) for x in rsats]
+
+    #plot risen sats
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10,4)
+    fig.suptitle(f"Risen sats for file {tstart}")
+    ax[0].plot(num_sats_risen)
+    ax[0].set_xlabel("time (in units of 5 sec)")
+    for i, row in enumerate(rsats):
+        for satnum, satele, sataz in row:
+            arr[i,satmap[satnum]] = 1
+    ax[1].set_ylabel("time in units of 5 sec")
+    ax[1].set_xlabel("Sat ID") #Sat ID with respect to the satmap dictionary index
+    ax[1].imshow(arr,aspect='auto',interpolation="none")
+    plt.tight_layout()
+    fig.savefig(path.join(out_path,f"risen_sats_{tstart}_{str(time.time())}.jpg"))
+    print(arr)
+
+
+
+    #----Get Pulses, AKA Satellite Transits----
+    # pulses is in the form of [[start, end], [sats_present]]. sats_present is identified in terms of its index in satlist, by the way
+    # just a practical rearranging of the previously obtained data.
+
+    pulses = outils.get_simul_pulses(arr)
+    npulses = len(pulses)
+    print("Sat transits detected are:", pulses, '\n')
+    print("Number of Pulses:", npulses, '\n')
+
+
+
+    sat_data = {} 
+    sat_data[tstart] = {}
+
+
+    #----Iterate over each Antenna----
+
+    for antnum in range(1,len(dir_parents)):
+        print(f"--------------- ANTENNA {antnum}-----------------")
+
+        sat_data[tstart][f"antenna {antnum}"] = []
+
+        #setup paths and coordinates for each antenna at the start of the loop
+        a2_path = dir_parents[antnum]
+        a2_coords = coords[antnum]
+
+        #define SNR plots for later (here defined for one antenna, all pulses)
+        #snrplot, axS = plt.subplots(npulses, 1, figsize=(6, 2 * npulses), sharex=True)
+
+        snrplot, axS = plt.subplots(np.ceil(npulses/2).astype(int), 2)
+        snrplot.set_size_inches(10, np.ceil(npulses/2)*4)
+        snrplot.suptitle(str(tstart))
+        axS=axS.flatten()
+
+        #----Iterate over each Pulse----
+
+        for pnum, [(pstart, pend), sats_present] in enumerate(pulses):
+            print(f"------Pulse Number {pnum}-------")
+            print("Pulse Start Idx:", pstart)
+            print("Pulse End Idx:", pend)
+            print("Satelite Idxs Present:", sats_present, '\n')
+            numsats_in_pulse = len(sats_present)
+
+            #define our pulse length
+            t1 = tstart + pstart * T_SCAN
+            t2 = tstart + pend * T_SCAN
+            #print("In ctime we measure Pulse t1:", t1, "Pulse t2:", t2)
+            print("Length of Pulse is:", t2-t1, '\n')
+
+            #this is buggy and sets off the exception below. fix so that max 50 seconds of pulse read.
+            #if (pend-pstart)*T_SCAN > 50:
+            #    t2 = t1 + 50
+            #else:
+            #    t2 = tstart + pend * T_SCAN
+            #print("Full time difference:", tstart + pend * T_SCAN - t1)
+            #print("Maxed time difference:", t2-t1)
+
+            # Make sure no problem in files
+            try:
+                files_a1, idx1 = butils.get_init_info(t1, t2, a1_path)
+                files_a2, idx2 = butils.get_init_info(t1, t2, a2_path)
+            except Exception as e:
+                print(e)
+                print(f"skipping pulse {pstart} to {pend} in {tstart} as some file discontinuity was encountered.")
+                continue
+            # print(files_a1,files_a2)
+
+
+            print("Setting Antenna as BFI Objects", '\n')
+
+            # Set up the number of channels we look through
+            channels = np.asarray(bdc.get_header(files_a1[0])["channels"],dtype='int64')
+            chanstart = np.where(channels == 1834)[0][0]
+            chanend = np.where(channels == 1852)[0][0]
+            nchans = chanend - chanstart
+
+            # dont impose any chunk num, continue iterating as long as a chunk with small enough missing fraction is found.
+            # have passed enough files to begin with. should not run out of files.
+            
+            ant1 = bdc.BasebandFileIterator(
+                files_a1,
+                0,
+                idx1,
+                c_acclen,
+                None,
+                chanstart=chanstart,
+                chanend=chanend,
+                type="float",
+            )
+            ant2 = bdc.BasebandFileIterator(
+                files_a2,
+                0,
+                idx2,
+                c_acclen,
+                None,
+                chanstart=chanstart,
+                chanend=chanend,
+                type="float",
+            )
+
+            #set up our polarization arrays 
+
+            p0_a1 = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
+            p0_a2 = cp.zeros((c_acclen, nchans), dtype="complex64")
+            p0_a2_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
+            niter = int(t2 - t1) + 1  # run it for an extra second to avoid edge effects
+            #print("niter for delay is", niter, "t1 is", t1)
+
+
+
+            #----Obtain Geometric Delay----
+            # get geo delay for each satellite present in the pulse from Skyfield (often just one or two)
+
+            delays = np.zeros((c_acclen, numsats_in_pulse))
+            for i, satidx in enumerate(sats_present):
+                d = outils.get_sat_delay(
+                    a1_coords,
+                    a2_coords,
+                    tle_path,
+                    t1,
+                    niter,
+                    satmap[satidx],
+                )
+                delays[:, i] = np.interp(
+                    np.arange(0, c_acclen) * T_SPECTRA, np.arange(0, niter), d
+                )
+                # print(f"delay for {satmap[satID]}", delays[0:10,i], delays[-10:,i])
+            # get baseband chunk for the duration of required transit. Take the first chunk `acclen` long that satisfies missing packet requirement
+            # print(delays[0:10,1], delays[-10:,1])
+            # print(delays[0:10,0], delays[-10:,0])
+            delays = cp.asarray(delays)
+
+
+
+            #----Verify Chunk Data Percentage----
+            #iterates so that we take the first chunk which is above tolenance fill (I THINK?)
+
+            a1_start = ant1.spec_num_start
+            a2_start = ant2.spec_num_start
+            for i, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
+                perc_missing_a1 = (1 - len(chunk1["specnums"]) / c_acclen) * 100
+                perc_missing_a2 = (1 - len(chunk2["specnums"]) / c_acclen) * 100
+                print("missing a1", perc_missing_a1, "missing a2", perc_missing_a2)
+                if perc_missing_a1 > 10 or perc_missing_a2 > 10:
+                    a1_start = ant1.spec_num_start
+                    a2_start = ant2.spec_num_start
+                    continue
+                # print(chunk1["pol0"])
+                # print(chunk2["pol0"])
+                # print("nchans is", nchans)
+                # print("first row chunk1", chunk1['pol0'][0,:])
+                bdc.make_continuous_gpu(chunk1['pol0'],chunk1['specnums']-a1_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_a1)
+                bdc.make_continuous_gpu(chunk2['pol0'],chunk2['specnums']-a2_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_a2)
+                # print("first row p0_a1", p0_a1[0,:])
+                break
+
+
+            #----Record Initial Spectrum Number Offset----
+            #If we detect a sat, note down what file we started from and what the specnum at the start was. 
+
+            info_tstamps_a1 = str(butils.get_tstamp_from_filename(files_a1[0]))+":"+str(ant1.spec_num_start-c_acclen)
+            info_tstamps_a2 = str(butils.get_tstamp_from_filename(files_a2[0]))+":"+str(ant2.spec_num_start-c_acclen)
+            specnum_offset = ant1.spec_num_start - ant2.spec_num_start #this is the initial delay between specnums when the antennas booted up
+            #print(info_tstamps_a1)
+            #print(info_tstamps_a2)
+            #print("initial specnum offset 1 - 2", specnum_offset)
+
+
+            #----Set up Temporary Satmap----
+            # cx will have multiple entries, first one is no phase correction, next ones are for specific satellite geo offsets
+            # temp_satmap has satellite ID in the correct index (e.g. ['Uncorrected', 33591] for single sat present)
+            # i.e. maps row number of cx to satID. Works off of index of 'sats_present'
+
+            temp_satmap = [] 
+            temp_satmap.append("Uncorrected")  # zeroth row is always "no phase" (thomas: changed from 'default' to 'Uncorrected')
+
+
+
+            #----Coarse xcorr, WITHOUT corrections----
+
+            cx = []  # store coarse xcorr for each satellite
+            N = 2 * c_acclen
+            dN = min(100000, int(0.3 * N))
+            print("2*N and 2*dN", N, dN)
+            cx.append(outils_g.coarse_xcorr(p0_a1, p0_a2, dN))  # no correction
+
+            # debug option to visually see the coarse xcorr peaks
+            if args.debug:
+                fig2, ax2 = plt.subplots(np.ceil(cx[0].shape[0]/3).astype(int), 3)
+                fig2.set_size_inches(12, np.ceil(cx[0].shape[0]/3)*3)
+                ax2=ax2.flatten()
+                fig2.suptitle(f"for pulse {pstart}:{pend}")
+                for i in range(cx[0].shape[0]):
+                    mm=cp.argmax(cp.abs(cx[0][i,:]))
+                    ax2[i].set_title(f"chan {1834+i} max: {mm}")
+                    ax2[i].plot(cp.asnumpy(cp.abs(cx[0][i,:])))
+                    # ax2[i].set_xlim(mm-1000,mm+1000)
+                plt.tight_layout()
+                fig2.savefig(path.join(out_path,f"UNCORR_pulse{pstart}_ant{antnum}.jpg"))
+                print(path.join(out_path,f"dg_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+                # sys.exit(0)
+
+            
+
+            #----Coarse xcorr, WITH correction----
+            # aka beamformed visibilities
+            # thomas: changed "satID" to "satidx" since in 'sats_present' we have the satelitte indices from satlist present,
+            #         then convert to their satID using satmap. More intuitive to me.
+        
+            freqs = 250e6 * (1 - cp.arange(1834, 1852) / 4096)
+            for i, satidx in enumerate(sats_present):
+                print("\nProcessing Satellite with ID:", satmap[satidx])
+                temp_satmap.append(satmap[satidx])
+                # phase_delay = 2 * np.pi * delays[:, i : i + 1] @ freq
+                # print("phase delay shape", phase_delay.shape)
+                outils_g.apply_delay(p0_a2, delays[:,i], freqs, out=p0_a2_delayed)
+                cx.append(
+                        outils_g.coarse_xcorr(
+                            p0_a1, p0_a2_delayed, dN
+                        )
+                )
+            if args.debug:
+                fig2, ax2 = plt.subplots(np.ceil(cx[1].shape[0]/3).astype(int), 3)
+                fig2.set_size_inches(12, np.ceil(cx[1].shape[0]/3)*3)
+                ax2=ax2.flatten()
+                fig2.suptitle(f"for pulse {pstart}:{pend}")
+                for i in range(cx[1].shape[0]):
+                    mm=cp.argmax(cp.abs(cx[1][i,:]))
+                    ax2[i].set_title(f"chan {1834+i} max: {mm}")
+                    ax2[i].plot(cp.asnumpy(cp.abs(cx[1][i,:])))
+                    # ax2[i].set_xlim(mm-1000,mm+1000)
+                plt.tight_layout()
+                fig2.savefig(path.join(out_path,f"CORR_pulse{pstart}_ant{antnum}.jpg"))
+                #print(path.join(out_path,f"dg_CORR_cxcorr_{tstart}_{pstart}_{pend}.jpg"))
+                # sys.exit(0)
+
+            
+
+            ''' 
+            By this point, we have all the setup that we need. 
+            - cx : coarse xcorr for uncorrected and for all sats, for all present passes
+            - temp_satmap : lets you move from indices in cx to their actual satID
+            - initial_offset : self-explanatory
+            Objective is as follows:
+            - determine when a present pass is detected
+            - filter the detected passes for quality
+            - register detected pass info
+            - determine relative offset
+            - determine global timestream offset
+            '''
+
+
+
+            #----Get SNR----
+            # we want an array of the SNR for each channel for each satellite (plus uncorrected)
+
+            snr_arr = np.zeros((numsats_in_pulse + 1, nchans), dtype="float64")  
+            # set up plot for all pulses, finished at end of big pulse loop
+            # beware: need a 2D array of plots here. For each antenna (row) have a column of pnum (column) plots
+
+
+            axS[pnum].set_title(f"Pulse {pstart} to {pend}.")
+            for i in range(numsats_in_pulse + 1):
+                snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx[i]),axis=1))
+                axS[pnum].plot(snr_arr[i, :], label=f"{temp_satmap[i]}")
+            axS[pnum].set_xlabel("Channels")
+            axS[pnum].set_ylabel("SNR")
+            axS[pnum].legend()
+            #print("SNR Array:", snr_arr)
+
+
+
+            #----Detect Peaks----
+            # rows = sats_present, cols = channels
+
+            detected_sats = np.zeros(nchans, dtype="int")
+            detected_peaks = np.zeros(nchans, dtype="int")
+
+            print('Processing SNRs \n')
+
+
+            pulse_ratios = {}
+
+            for chan in range(nchans):
+                sortidx = np.argsort(snr_arr[:, chan])
+                #if the index of maximum SNR is the 'uncorrected' value, then no sat detected.
+                if (sortidx[-1] == 0):  
+                    continue
+                #below is the minimum condition of SNR for a detection. Most basic requirement
+                if (snr_arr[sortidx[-1], chan] - snr_arr[sortidx[-2], chan]) / np.sqrt(2) > 5: 
+                    # if SNR 1 = a1/sigma, SNR 2 = a2/sigma.
+                    # I want SNR on a1-a2 i.e. is the difference significant.
+                    # print(
+                    #     "top two snr for chan",
+                    #     chan,
+                    #     snr_arr[sortidx[-1], chan],
+                    #     snr_arr[sortidx[-2], chan],
+                    # )
+                    cx_idx = sortidx[-1] # which cxcorr has the detection
+                    print(f"\nDetected Peak in cx index {cx_idx} in channel {chan}")
+                    satID = temp_satmap[cx_idx]
+                    print("SatID of detected peak:", satID)
+                
+
+                    # these plots are for the channels where something was detected
+                    if args.debug: 
+                        fig2, ax2 = plt.subplots(np.ceil(cx[cx_idx].shape[0]/3).astype(int), 3)
+                        fig2.set_size_inches(12, np.ceil(cx[cx_idx].shape[0]/3)*3)
+                        ax2=ax2.flatten()
+                        fig2.suptitle(f"for pulse {pstart}:{pend}, sat {satID}")
+                        for i in range(cx[cx_idx].shape[0]):
+                            mm=cp.argmax(cp.abs(cx[cx_idx][i,:]))
+                            ax2[i].set_title(f"chan {1834+i} max: {mm}")
+                            ax2[i].plot(cp.asnumpy(cp.abs(cx[cx_idx][i,:])))
+                            # ax2[i].set_xlim(mm-1000,mm+1000)
+                        plt.tight_layout()
+                        fig2.savefig(path.join(out_path,f"DETECT_ant{antnum}_pulse{pstart}_sat{satID}.jpg"))
+                        #print(path.join(out_path,f"dg_cxdet_{tstart}_{pstart}_{pend}_sat{satID}.jpg"))
+
+                    #this is a requirement that can be turned on to identify reliable peaks only
+
+                    data_gpu = cp.abs(cx[sortidx[-1]][chan,:])
+                    data_cpu = cp.asnumpy(data_gpu)
+
+                    peak_location = cp.argmax(data_gpu)
+                    peak_data = data_gpu[peak_location - 200:peak_location + 200]
+                    peaks_total = find_peaks(data_cpu, height=0.001)
+
+                    heights = peaks_total[1]['peak_heights']
+                    height_indices = np.argsort(heights)
+                    tallest = heights[height_indices[-1]]
+                    reps, total = 4, 0
+                    for i in range(reps):
+                        total += (tallest - heights[height_indices[-(i+2)]])
+                    reliability_ratio = (total/(tallest * reps))
+                    print("\nRATIO:", reliability_ratio)
+
+                    pulse_label = ""
+                    if reliability_ratio < 0.15:
+                        pulse_label = "UNRELIABLE"
+                    elif reliability_ratio > 0.7:
+                        pulse_label = "RELIABLE"
+                    else:
+                        pulse_label = "UNCLEAR"
+                    print(pulse_label)
+
+                    pulse_ratios[chan] = (reliability_ratio, pulse_label)
+
+                    # if we actually detect the peak in the data, we add it to these arrays
+                    # note that present and detected are different: present is from prediction, detected is from data.
+
+                    #if we only want reliable pulses, only store the channel where they are indeed reliable. may have
+                    #a pulse where they are reliable in one channel but unreliable in the other
+
+                    if args.reliable:
+                        if pulse_label != "RELIABLE":
+                            continue
+                    detected_sats[chan] = temp_satmap[sortidx[-1]]
+                    detected_peaks[chan] = cp.argmax(cp.abs(cx[sortidx[-1]][chan,:]))
+
+                    
+                    # detected_sats[chan] = satmap[sats_present[sortidx[-1]]]
+            if args.verbose:
+                print("\nDetected Sats:", detected_sats)
+                print("Detected Peaks:", detected_peaks)
+            
+
+
+
+            #----Update Spectrum Number Offset----
+            #question:  if we detect multiple conflicting offsets for different pulses, do they just overwrite each other?
+
+            
+            if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
+                peak_guesses = detected_peaks[detected_peaks>0]
+                print("detected peak locations are", peak_guesses)
+                best_guess_offset = np.max(detected_peaks)  #use the maximum peak to determine best guess offset for each pulse
+                if (best_guess_offset-dN) > 0:
+                        #tau > 0; idxstart0 += detected_peaks[chan]-dN
+                        specnum_offset += (best_guess_offset-dN)
+                else:
+                    #tau < 0; idxstart1 += abs(best_guess_offset-dN)
+                    specnum_offset -=  np.abs(best_guess_offset - dN)
+                print("specnum offset updated to:", specnum_offset)
+            else:
+                print("No detected peaks for this pulse")
+
+            
+            #----Store Pulse Data----
+
+            #create dictionary to store pulse information (but only if there was a detection)
+
+            #reset these variables to make sure we don't add more than the current pulse's info
+            sat_peaks=[]
+            pulse_data = {}
+
+            if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
+                pulse_data["start"] = pstart
+                pulse_data["end"] = pend
+                pulse_data["sats_present"] = {}
+                pulse_data["timestream_offset"] = int(specnum_offset)
+            
+                for i, satID in enumerate(sats_present):
+                    where_sat = np.where(detected_sats == satmap[satID])[0]
+            
+                    for chanidx in where_sat:
+                        if args.extra_data:
+                            sat_peaks.append([int(chanidx)+1834, int(detected_peaks[chanidx]), pulse_ratios[chanidx]]) #append the channel and the peak location of that channel
+                        else:
+                            sat_peaks.append([int(chanidx)+1834, pulse_ratios[chanidx][1]])
+
+                    pulse_data["sats_present"][satmap[satID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
+
+                if args.verbose:
+                    print("PULSE DATA", pulse_data)
+
+                sat_data[tstart][f"antenna {antnum}"].append(pulse_data)
+        
+
+
+        #----Save SNR Debug for each Antenna----
+
+        snrplot.subplots_adjust(hspace=0.6)
+        snrplot.savefig(
+                path.join(out_path,f"SNR_ant{antnum}_datastart{tstart}.jpg")  #update antenna number?? +1?
+            )
+        if args.verbose:
+            print("SNR plot path:", path.join(out_path,f"SNR_ant{antnum}_datastart{tstart}.jpg"))
+
+
+    #----Save Pulse Data to Json for each Antenna
+    #question: how do we want to configure the json to read off the antenna information?
+    #          because as of now, no antenna information encoded directly. 
+    #          could add an extra dictionary element which gives the antenna, may be a move.
+
+    json_output = path.join(out_path,f"pulsedata_{tstart}_{int(time.time())}.json")
+    with open(json_output, "w") as file:
+        json.dump(sat_data, file, indent=4)
+        if args.verbose:
+            print(sat_data)
+
