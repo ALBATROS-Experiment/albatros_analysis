@@ -1,4 +1,5 @@
 import sys
+import os
 from os import path
 sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
@@ -8,7 +9,8 @@ from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
 import ctypes
 
-lib = ctypes.CDLL('./libcgemm_batch.so')
+lib_path = os.path.expanduser('~/albatros_analysis/src/correlations/libcgemm_batch.so')
+lib = ctypes.CDLL(lib_path)
 
 # 2) Declare the C function signature
 lib.cgemm_strided_batched.argtypes = [

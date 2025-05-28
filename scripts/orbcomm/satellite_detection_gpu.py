@@ -48,12 +48,12 @@ with open("config.json", "r") as f:
         dir_parents.append(details["path"])
     init_t = config["correlation"]["start_timestamp"]
     end_t = config["correlation"]["end_timestamp"]
-    c_acclen = config["correlation"]["coarse_accumulation_length"]
-    acclen = config["correlation"]["accumulation_length"]
+    c_acclen = config["correlation"]["coarse_acclen"]
+    v_acclen = config["correlation"]["vis_acclen"]
 
 print("Antenna Coordinates:", coords, '\n')
 print("Coarse Accumulation Length", c_acclen, '\n')
-print("Accumulation Length:", acclen, '\n')
+print("Visibility Accumulation Length:", v_acclen, '\n')
 
 
 #----Define Reference Antenna----

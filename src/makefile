@@ -6,6 +6,7 @@ objects := lib_unpacking.so lib_correlations_cpu.so#Always build unpacking
 ifeq (${USE_GPU}, 1)
 objects += libpycufft.so
 objects += lib_correlations_gpu.so
+objects += libcgemm_batch.so
 CFLAGS += -mcpu=native #On MIST
 else
 objects += libmath.so
@@ -28,5 +29,8 @@ libpycufft.so: utils/pycufft.cu
 	nvcc -shared -o utils/$@ $^ -Xcompiler -fPIC -lgomp -lcufft
 lib_correlations_gpu.so: correlations/correlations_gpu.cu
 	nvcc -shared -o correlations/$@ -g -G $^ -Xcompiler -fPIC -lcublas -lcudart
+libcgemm_batch.so: correlations/cgemm_batch.cu
+	nvcc -shared -o correlations/$@ -g -G $^ -Xcompiler -fPIC -lcublas -lcudart
+
 clean:
 	rm -f $(wildcard */*.so)
