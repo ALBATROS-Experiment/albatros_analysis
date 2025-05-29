@@ -1,5 +1,6 @@
 import os
 import sys
+from os import path
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
 import numpy as np 
 import numba as nb
@@ -12,9 +13,12 @@ from src.correlations import baseband_data_classes as bdc
 from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
 import json
+import argparse
+from scipy.optimize import least_squares
 
 
 #define some basic functions here, like xcorr and etc
+#not sure where they are from but can just import these bad boys from their source
 
 @nb.njit()
 def get_common_rows(specnum0,specnum1,idxstart0,idxstart1):
@@ -108,11 +112,48 @@ def phase_pred(fit_coords, info, pulse_idx):
 
 
 
-#----------SETUP FROM CONFIG FILE-------------
+if __name__ == "__main__":
+    #test
 
-T_SPECTRA = 4096/250e6
-visibility_window = 1000
-DEBUG = False
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "config_file",
+        type=str,
+        help="Config file containing all required data.",
+    )
+
+    #the following can also all be added into the config file. Just here as a reminder of stuff to add, and for use before everything gets done. 
+
+
+    parser.add_argument(
+        "-o", "--output_path", type=str, default="/project/s/sievers/thomasb", help="Output directory for debug and pulses"
+    )
+
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="debug option that spits out a ton of plots to see stuff"
+    )
+
+    parser.add_argument(
+        "--T_spectra", type=float, default= 4096 / 250e6
+    )
+
+    parser.add_argument(
+        "-v", "--visibility_window", type=int, default= 1000, help="max time we analyse the pulse. in seconds, default 1000"
+    )
+
+    parser.add_argument(
+        "-p", "--pre_plots_only", action='store_true', help="makes the script exit before fitting, so that you only get the pre-fit plots."
+    )
+
+    args = parser.parse_args()
+
+
+#------Set Argument Variables-----
+T_SPECTRA = args.T_spectra
+out_path = args.output_path
+visibility_window = args.visibility_window
+
+#----------SETUP FROM CONFIG FILE-------------
 
 with open("config_test.json", "r") as f:
     config = json.load(f)
@@ -147,9 +188,8 @@ tle_path = outils.get_tle_file(global_start_time, "/project/s/sievers/mohanagr/O
 
 
 
-
 #right here is where I am going to want to iteralize for each antenna I think.
-#------------IMPORT INFO FROM SATELLITE DETECTION------------
+#------------START ANTENNA INTERATIONS-------------------------------------
 
 a1_coords = coords[0]
 a1_path = dir_parents[0]
@@ -161,13 +201,12 @@ a2_path = dir_parents[1]
 #times are in seconds, after global_start_time
 # [ [pulse start, pulse end], satID, chan, offset]
 
-#check if I can keep channel indices as 0-17 or if I should go 1834-
 info = [
-        [[715, 1110], 28654, 2, 86568], 
-        [[4950, 5270], 59051, 2, 109993], 
-        [[7000, 7145], 28654, 2, 109993], 
-        [[10975, 11440],59051, 2, 86568],
-        [[17005, 17530], 59051, 2, 86568]
+        [[715, 1110], 28654, 1836, 86568], 
+        [[4950, 5270], 59051, 1836, 109993], 
+        [[7000, 7145], 28654, 1836, 109993], 
+        [[10975, 11350],59051, 1836, 86568],
+        [[17005, 17530], 59051, 1836, 86568]
         ]
 
 
@@ -178,17 +217,17 @@ for pulse_idx in range(len(info)):
 
     print(f"---------STARTING PULSE {pulse_idx}---------")
 
-    #times
+    #--------times-----
     relative_start_time = info[pulse_idx][0][0]
     pulse_duration_chunks = int(  (info[pulse_idx][0][1] - info[pulse_idx][0][0]) / (T_SPECTRA * v_acclen)  )
     t_start = global_start_time + relative_start_time
     t_end = t_start + visibility_window
 
-    #get initialized information
+    #----get initialized information----
     files_a1, idx1 = butils.get_init_info(t_start, t_end, a1_path)
     files_a2, idx2 = butils.get_init_info(t_start, t_end, a2_path)
 
-    #get corrected offsets
+    #------get corrected offsets-----
     idx_correction = info[pulse_idx][3] - 100000
     if idx_correction>0:
         idx1_v = idx1 + idx_correction
@@ -198,19 +237,21 @@ for pulse_idx in range(len(info)):
         idx1_v = idx1
     #print("Corrected Starting Indices:", idx1_v, idx2_v)
 
-    #set up channels
+    #-------set up channels-------
     channels = bdc.get_header(files_a1[0])["channels"].astype('int64')
     chanstart = np.where(channels == 1834)[0][0] 
     chanend = np.where(channels == 1852)[0][0]
     nchans=chanend-chanstart
 
-    chan = info[pulse_idx][2]
+    chan_bigidx = info[pulse_idx][2] #index in total list , e.g. 1836 (for predicted phases)
+    chanmap = channels[chanstart:chanend].astype(int)  #list of all the channels between 1834 and 1852
+    chan_smallidx = np.where(chanmap == chan_bigidx)[0][0] #index in small list, e.g. 2 (for data selection)
 
-    #open object
+    #--------open object----------
     ant1 = bdc.BasebandFileIterator(files_a1, 0, idx1_v, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
     ant2 = bdc.BasebandFileIterator(files_a2, 0, idx2_v, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
 
-    #get visibilities
+    #--------get visibilities-----
     m1=ant1.spec_num_start
     m2=ant2.spec_num_start
 
@@ -230,22 +271,115 @@ for pulse_idx in range(len(info)):
     print(f"DONE PULSE {pulse_idx}. TIME:", time.time()-time_pulse)
     visibility_phased = np.ma.masked_invalid(visibility_phased)
     vis_phase = np.angle(visibility_phased)
-    obs = np.unwrap(vis_phase[0:pulse_duration_chunks, chan])
+    obs = np.unwrap(vis_phase[0:pulse_duration_chunks, chan_smallidx])
     observed_data.append(obs)
-
-    if DEBUG:
-        plt.imshow(obs, aspect='auto',cmap='RdBu',interpolation="none")
-        plt.savefig(f"observed_phase_antenna{antidx}_pulse_{pulseidx}.png")
-
+    
 print("Done with everything. Time taken:", time.time() - time_total)
 
+if args.debug:
+    fig, ax = plt.subplots(int(np.ceil(len(observed_data)/2)), 2)
+    fig.set_size_inches(8, 8)
+    ax = ax.flatten()
+    fig.suptitle(f"Before Fitting")
+    for pulse_idx in range(len(observed_data)):
+        print(pulse_idx)
+        predicted_data = phase_pred(a2_coords, info, pulse_idx)
+        ax[pulse_idx].set_title(f"Pulse Idx {pulse_idx}")
+        ax[pulse_idx].plot(observed_data[pulse_idx])
+        ax[pulse_idx].plot(predicted_data)
+    plt.tight_layout()
+    fig.savefig(path.join(out_path,f"pre_fit_calib_plots_{global_start_time}.jpg"))
+    print(path.join(out_path,f"prefit_plot_coordfit_{global_start_time}.jpg"))
 
 
+if args.pre_plots_only:
+    sys.exit()
+
+    
 #----------------FIT IT---------------
 
+def residuals(coords, observed_data, phase_pred, info):
+    
+    #gets all residuals in one long array
+    residuals_all = []
+
+    for pulse_idx, observed in enumerate(observed_data):
+        
+        predicted = phase_pred(coords, info, pulse_idx)  
+        res = observed - predicted
+        residuals_all.append(res.flatten())  # Flatten for least squares fitting
+
+    return np.concatenate(residuals_all)
+
+def residuals_individual(coords, observed_data, phase_pred, info, pulse_idx):
+    predicted = phase_pred(coords, info, pulse_idx)
+    res = observed_data[pulse_idx] - predicted
+    
+    return res
 
 
+def fitting(observed_data, initial_coordinates, phase_pred, info):
 
+    result = least_squares(
+        lambda coords: residuals(coords, observed_data, phase_pred, info),  # Pass a lambda that calls residuals
+        initial_coordinates
+    )
+    
+    optimized_coordinates = result.x
+    return optimized_coordinates, result
+
+
+fitted_coords = fitting(observed_data, a2_coords, phase_pred, info)[0]
+
+
+#-------Debug plots--------
+
+if args.debug:
+
+    #combined residuals
+    fig, ax = plt.subplots(1,2, sharey=True)
+    fig.set_size_inches(12, 4)
+    ax = ax.flatten()
+    fig.suptitle("Residuals Comparison")  #add start time into title!!
+    ax[0].plot(residuals(a2_coords, observed_data, phase_pred, info))
+    ax[0].set_title("Pre-Fit")
+    ax[1].plot(residuals(fitted_coords, observed_data, phase_pred, info))
+    ax[1].set_title("Post-Fit")
+    plt.tight_layout()
+    fig.savefig(path.join(out_path,f"residuals_combined_coordfit_{global_start_time}.jpg"))
+    print("saved residual plot to:", path.join(out_path,f"residuals_combined_coordfit_{global_start_time}.jpg"))
+
+    #individual residuals
+    fig, ax = plt.subplots(len(observed_data),2, sharey=True)
+    fig.set_size_inches(8, 12)
+    ax = ax.flatten()
+    fig.suptitle(f"Residuals Comparison {global_start_time}")
+    for i in range(len(observed_data)):  
+
+        ax[2*i].plot(residuals_individual(a2_coords, observed_data, phase_pred, info, i))
+        ax[2*i].set_title(f"Pulse {i} Pre-Fit")
+
+        ax[2*i +1].plot(residuals_individual(fitted_coords, observed_data, phase_pred, info, i))
+        ax[2*i +1].set_title(f"Pulse {i} Post-Fit")
+
+    fig.tight_layout()
+    fig.savefig(path.join(out_path,f"residuals_individual_coordfit_{global_start_time}.jpg"))
+    print("saved residual plot to:", path.join(out_path,f"residuals_individual_coordfit_{global_start_time}.jpg"))
+
+
+    fig, ax = plt.subplots(int(np.ceil(len(observed_data)/2)), 2)
+    fig.set_size_inches(8, 8)
+    ax = ax.flatten()
+    fig.suptitle(f"Post-Fit")
+    for pulse_idx in range(len(observed_data)):
+        print(pulse_idx)
+        predicted_data = phase_pred(fitted_coords, info, pulse_idx)
+        ax[pulse_idx].set_title(f"Pulse Idx {pulse_idx}")
+        ax[pulse_idx].plot(observed_data[pulse_idx])
+        ax[pulse_idx].plot(predicted_data)
+    plt.tight_layout()
+    fig.savefig(path.join(out_path,f"post_fit_calib_plots_{tstart}.jpg"))
+    print(path.join(out_path,f"post_fit_calib_plots_{tstart}.jpg"))
 
 
 
