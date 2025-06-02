@@ -1,0 +1,84 @@
+T_SPECTRA = 4096/250e6
+
+visibility_window = 1000
+
+c_acclen = 10**6 
+v_acclen = 30000
+
+C_T_ACCLEN = c_acclen* T_SPECTRA
+V_T_ACCLEN = v_acclen* T_SPECTRA
+
+c_nchunks = int((visibility_window)/C_T_ACCLEN)
+v_nchunks = int((visibility_window)/V_T_ACCLEN)
+
+#---------Data-specific--------
+
+data_version = "MANUAL TESTER 2"
+
+if data_version == "MANUAL TESTER":
+
+    a1_path = "/scratch/s/sievers/mohanagr/mars1_2024/baseband/"
+    a2_path = "/scratch/s/sievers/mohanagr/mars2_2024/baseband/"
+
+    global_start_time = 1721800002
+
+    a1_coords = [79+25.031/60, -90-46.041/60, 189]  # MARS 1
+    a2_coords = [79+25.033/60, -90-45.531/60, 176]  # MARS 2
+
+if data_version == "MANUAL TESTER 2":
+
+    a1_path = "/scratch/s/sievers/mohanagr/mars1_2024/baseband/"
+    a2_path = "/scratch/s/sievers/mohanagr/mars2_2024/baseband/"
+
+    global_start_time = 1721900002
+
+    a1_coords = [79+25.031/60, -90-46.041/60, 189]  # MARS 1
+    a2_coords = [79+25.033/60, -90-45.531/60, 176]  # MARS 2
+
+elif data_version == "SATDET TESTER":
+
+    a1_coords = [79.41718333333333, -90.76735, 189]
+    a2_coords = [79.41721666666666, -90.75885, 176] #ant2
+    a3_coords = [79.41541666666667, -90.77308333333333, 175] #ant3
+
+    a1_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_1_central"
+    a2_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east" #ant2
+    a3_path = "/project/s/sievers/albatros/mars/202307/baseband/stn_3_west" #ant3
+
+    global_start_time = 1699625045
+
+
+tle_path = outils.get_tle_file(global_start_time, "/project/s/sievers/mohanagr/OCOMM_TLES")
+
+dir_parents = []
+dir_parents.append(a1_path)
+dir_parents.append(a2_path)
+
+coords = []
+coords.append(a1_coords)
+coords.append(a2_coords)
+
+
+#all these are detected. These numbers are the result of all the stuff above. What we care about starts now.
+
+
+#if data_version == "MANUAL TESTER":
+        #info = [[[715, 1110], 28654, 1836, 86568], 
+                #[[4950, 5270], 59051, 1836, 109993], 
+               # [[7000, 7145], 28654, 1836, 109993], 
+                #[[10975, 11350],59051, 1836, 86568],
+                #[[17005, 17530], 59051, 1837, 86568] ]
+
+#if data_version == "MANUAL TESTER 2":
+        #info = [[[2110, 2630], 59051, 1836, 103156], 
+               # [[6920, 7230], 25338, 1841, 79705], 
+                #[[8135, 8680], 59051, 1836, 79731], 
+                #[[13600, 13905],33591, 1849, 79730],
+                #[[14870, 15215], 57166, 1837, 79731] ]
+
+#elif data_version == "SATDET TESTER":
+        #info = [[[0, 215], 33591, 16, 77396]]
+                
+                #[[505, 765], 28654, 2, 67385],
+                #[[1815, 2250], 57166, 2, 53673],
+                #[[4730, 4940], 25338, 7, 71541]]
