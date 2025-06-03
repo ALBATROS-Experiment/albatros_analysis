@@ -1,6 +1,17 @@
+-------------MARS 2 fitted, MARS 1 as reference-----------
+
+Iniital coordinates: 
+[79.41721666666666, -90.75885, 176]
+
+
 Timestamp 1721900002
 
-Fitted Coordinates for MARS 2 wrt reference MARS 1
+fitted:
 [79.4172439 -90.75895515 183.524]
 
 Agrees with fitting type and random starts. Now increase random starts for testing again.
+
+Timestamp 1721800002
+
+fitted:
+[79.41722474 -90.75872107 183.38761283]
