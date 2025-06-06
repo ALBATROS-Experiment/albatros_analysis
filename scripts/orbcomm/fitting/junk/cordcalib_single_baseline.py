@@ -56,11 +56,16 @@ if __name__ == "__main__":
         "-sd", "--saved_data", action='store_true', help='call the flag if you are running from saved visibilities'
     )
 
+    parser.add_argument(
+        "-ig", "--improved_guess", action='store_true', help='uses first guess altitude to get a better guess for the overall fit'
+    )
+
     args = parser.parse_args()
 
 
 out_path = args.output_path
 baseline_idx = args.baseline
+
 
 #----------SETUP FROM CONFIG FILE-------------
 
@@ -107,44 +112,58 @@ context = [global_start_time, visibility_window, [T_SPECTRA, v_acclen, v_nchunks
 
 
 
-# filtering process is manual, get list filtered_pulses
+#---------------GET OBSERVED DATA-----------------
 
-#times are in seconds, after global_start_time
-# [ [pulse start, pulse end], satID, chan, offset]
-
-# 17218
-#info = [[[2110, 2630], 59051, 1837, 103156], 
-       # [[6920, 7230], 25338, 1841, 79705], 
-        #[[8135, 8680], 59051, 1837, 79731], 
-       # [[13600, 13905],33591, 1850, 79705] ]
-
-info =  [[[715, 1110], 28654, 1836, 86568], 
-         [[4950, 5270], 59051, 1837, 109993], 
-         [[7000, 7145], 28654, 1836, 109993], 
-         [[10975, 11440], 59051, 1837, 86568], 
-         [[17005, 17530], 59051, 1836, 86568], 
-         [[22070, 22425], 25338, 1841, 86568],
-         [[23025, 23570], 59051, 1837, 48959], 
-         [[27945, 28075], 33591, 1850, 109994]] 
-
-
-#17219
-#info = [[[6920, 7230], 25338, 1841, 79705], 
-      #  [[8135, 8680], 59051, 1837, 79731], 
-      #  [[12925, 13380], 25338, 1841, 79705], 
-       # [[13600, 13905], 33591, 1850, 79705], 
-       # [[14150, 14695], 59051, 1837, 79731], 
-        #[[17330, 17605], 28654, 1836, 79705]]
-
-
-#---------------GET OBSERVED PHASES-----------------
-#this is either correlated directly or done via saved data
+#objective here is to obtain both the 'info' and the 'observed_data' lists
+#this is either correlated directly in this code, or imported from saved data
 
 
 observed_data = []
 time_total = time.time()
 
 if args.saved_data == False:
+
+    with open(f"pulsedata_{global_start_time}_1748962214.json", "r") as f:
+        pulsedata = json.load(f)
+        
+        info = []
+        offsets = []
+        for pulse_idx, details in enumerate(pulsedata[f"{global_start_time}"]["antenna 1"]):
+            #print(f"\n--------pulse idx {pulse_idx}---------")
+            start_time = details["start"] * 5
+            end_time = details["end"] * 5
+            rel = False
+
+            #For now, disregard multiple sat passes. For v2.
+            if len(details["sats_present"]) > 1:
+                continue
+
+            for satID, values in details["sats_present"].items():
+                
+                for i in range(len(values)):
+                    pulse_info = []
+                    #print(values[i])
+                    chan = values[i][0]
+                    corr_offset = values[i][1]
+                    if values[i][2][0] > 0.9:
+                        rel = True
+                    pulse_info.append([start_time, end_time])
+                    pulse_info.append(int(satID))
+                    pulse_info.append(chan)
+                    pulse_info.append(corr_offset)
+
+                    info.append(pulse_info)
+
+            if rel==True:
+                offsets.append(details["timestream_offset"])
+                
+    print(info)
+    print(offsets)
+    specnumoffset = int(stats.mode(offsets)[0])
+    print(specnumoffset)
+    print(len(info))
+
+
     for pulse_idx in range(len(info)):
 
         print(f"---------STARTING PULSE {pulse_idx}---------")
@@ -162,11 +181,9 @@ if args.saved_data == False:
         #------get corrected offsets-----
         idx_correction = info[pulse_idx][3] - 100000
         if idx_correction>0:
-            idx_ref_v = idx_ref + idx_correction
-            idx2_v = idx2
+            idx_ref = idx_ref + idx_correction
         else:
-            idx2_v = idx2 + np.abs(idx_correction)
-            idx_ref_v = idx_ref
+            idx2 = idx2 + np.abs(idx_correction)
         #print("Corrected Starting Indices:", idx1_v, idx2_v)
 
         #-------set up channels-------
@@ -180,12 +197,14 @@ if args.saved_data == False:
         chan_smallidx = np.where(chanmap == chan_bigidx)[0][0] #index in small list, e.g. 2 (for data selection)
 
         #--------open object----------
-        ant_ref = bdc.BasebandFileIterator(files_ref, 0, idx_ref_v, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
-        ant2 = bdc.BasebandFileIterator(files_a2, 0, idx2_v, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
+        ant_ref = bdc.BasebandFileIterator(files_ref, 0, idx_ref, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
+        ant2 = bdc.BasebandFileIterator(files_a2, 0, idx2, v_acclen, nchunks= v_nchunks, chanstart = chanstart, chanend = chanend, type='float')
 
         #--------get visibilities-----
         m_ref = ant_ref.spec_num_start
-        m2 = ant2.spec_num_start
+        m2 = m_ref + specnumoffset
+        print(specnumoffset)
+        print(m_ref - ant2.spec_num_start)
 
         visibility_phased = np.zeros((v_nchunks,len(ant_ref.channel_idxs)), dtype='complex64')
         time_pulse=time.time()
@@ -205,6 +224,21 @@ if args.saved_data == False:
         vis_phase = np.angle(visibility_phased)
         obs = np.unwrap(vis_phase[0:pulse_duration_chunks, chan_smallidx])
         observed_data.append(obs)
+
+        if pulse_idx == 2:
+            break
+
+    
+
+    with h5py.File(f'vis_all_{global_start_time}_.h5', 'w') as f:
+        for pulse_idx, observed in enumerate(observed_data):
+            satID = info[pulse_idx][1]
+            chan = info[pulse_idx][2]
+            start_time = info[pulse_idx][0][0]
+            end_time = info[pulse_idx][0][1]
+            
+            pulse_array = f.create_dataset(f'{start_time}_{chan}', data=observed)
+            pulse_array.attrs['pulse_info'] = [start_time, end_time, satID, chan]
     
 
 
@@ -228,8 +262,7 @@ if args.saved_data:
     
 
 
-
-print("Done with everything. Time taken:", time.time() - time_total)
+print("Done extracting observed visibilities. Time taken:", time.time() - time_total)
 
 if args.debug:
     fig, ax = plt.subplots(int(np.ceil(len(observed_data)/2)), 2)
@@ -252,28 +285,59 @@ if args.pre_plots_only:
 
     
 #----------------FITTING---------------
+#clean up when I have time, there is a much better way to structure this, I know. There's just quite a few options I want to build into this.
 
-#calculate both fit types
-coords_trf_OG = ch.fitting_all(observed_data, a2_coords, ch.phase_pred, info, context, method='trf')[0]
-coords_lm_OG =  ch.fitting_all(observed_data, a2_coords, ch.phase_pred, info, context, method='lm')[0]
+print("Initial Coords:", a2_coords)
 
-#option to create some fuzz around your guess as a sanity check
-if args.coordinate_fuzz:
-    fuzzed_coords = ch.make_fuzzed_coords(a2_coords, meters=100)
-    fitted_trf_rand = []
-    for coords in fuzzed_coords:
-        print(coords)
-        single_fit = ch.fitting_all(observed_data, coords, ch.phase_pred, info, context, method='trf')[0]
-        fitted_trf_rand.append(single_fit)
+#depending on what fit type is called, make certain fits
+if (args.fit_type == 'trf') or (args.fit_type == 'both'):
+    trf_fit1 = ch.fitting_all(observed_data, a2_coords, ch.phase_pred, info, context, method='trf')[0]
+    print("First TRF:", trf_fit1)
+
+    if args.improved_guess:
+        improved_guess = []
+        improved_guess = [a2_coords[0], a2_coords[1], trf_fit1[2]]
+        trf_fit2 = ch.fitting_all(observed_data, improved_guess, ch.phase_pred, info, context, method='trf')[0]
+        print("Seconds TRF:", trf_fit2)
+
+    #sanity check, fuzz guess coordinates around inital guess coordinate.
+    if args.coordinate_fuzz:
+        fuzzed_coords = ch.make_fuzzed_coords(a2_coords, meters=100)
+        fitted_trf_rand = []
+        for coords in fuzzed_coords:
+            print(coords)
+            single_fit = ch.fitting_all(observed_data, coords, ch.phase_pred, info, context, method='trf')[0]
+            fitted_trf_rand.append(single_fit)
+
+
+#same thing but for LM
+if (args.fit_type == 'lm') or (args.fit_type == 'both'):
+    lm_fit1 = ch.fitting_all(observed_data, a2_coords, ch.phase_pred, info, context, method='lm')[0]
+    print("First LM:", lm_fit1)
+
+    if args.improved_guess:
+        improved_guess = []
+        improved_guess = [a2_coords[0], a2_coords[1], lm_fit1[2]]
+        lm_fit2 = ch.fitting_all(observed_data, improved_guess, ch.phase_pred, info, context, method='lm')[0]
+        print("Second LM:", lm_fit2)
+
+    if args.coordinate_fuzz:
+        fuzzed_coords = ch.make_fuzzed_coords(a2_coords, meters=100)
+        lm_fuzzed_list = []
+        for coords in fuzzed_coords:
+            single_fit = ch.fitting_all(observed_data, coords, ch.phase_pred, info, context, method='lm')[0]
+            lm_fuzzed_list.append(single_fit)
+
+
 
 #-------Debug plots--------
 
 if args.debug:
     fit_types = []
     if (args.fit_type == 'trf') or (args.fit_type == 'both'):
-        fit_types.append(('trf', coords_trf_OG))
+        fit_types.append(('trf', trf_fit1))
     if (args.fit_type== 'lm') or (args.fit_type == 'both'):
-        fit_types.append(('lm', coords_lm_OG))
+        fit_types.append(('lm', lm_fit2))
 
     for fit_type_tuple in fit_types:
 
@@ -325,14 +389,19 @@ if args.debug:
 
 print("OG :", a2_coords)
 if (args.fit_type == 'trf') or (args.fit_type == 'both'):
-    print("trf:", coords_trf_OG)
+    print("trf:", trf_fit1)
+    if args.improved_guess:
+        print("trf second:", trf_fit2)
+
 if (args.fit_type == 'lm') or (args.fit_type == 'both'):
-    print("lm: ", coords_lm_OG)
+    print("lm: ", lm_fit1)
+    if args.improved_guess:
+        print("lm second:", lm_fit2)
 
 
 if args.coordinate_fuzz:
     print("---fuzzed guesses")
-    for coord in range(fitted_trf_rand):
+    for coord in range(len(fitted_trf_rand)):
         print(coord)
 
 
