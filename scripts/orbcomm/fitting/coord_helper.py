@@ -17,6 +17,8 @@ import json
 import random
 
 
+
+
 def phase_pred(fit_coords, pulse_idx, info_list, context_list):
     
     ''' 
@@ -34,32 +36,38 @@ def phase_pred(fit_coords, pulse_idx, info_list, context_list):
     pred:   list of total phase of the pulse, with one entry for each chunk that goes by. length of array depends on the duration of the pulse, in units of chunks.
             these are in units of radians. 
     '''
-    global_start_time = context_list[0]
-    visibility_window = context_list[1]
-    T_SPECTRA, v_acclen, v_nchunks = context_list[2]
-    ref_coords = context_list[3]
-    tle_path = context_list[4]
-    
+    #unpack from info list 
+    relative_start_time = info_list[pulse_idx][0]
+    relative_end_time = info_list[pulse_idx][1]
+    sat_ID = info_list[pulse_idx][2]
+    pulse_channel_idx = info_list[pulse_idx][3]
+    global_start_time = info_list[pulse_idx][4]
+    tle_path = info_list[pulse_idx][5]
 
-    relative_start_time = info_list[pulse_idx][0][0]
-    pulse_duration_sec = info_list[pulse_idx][0][1] - info_list[pulse_idx][0][0]
-    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+    #unpack from context list
+    visibility_window = context_list[0]
+    T_SPECTRA = context_list[1]
+    v_acclen = context_list[2]
+    v_nchunks = context_list[3]
+    ref_coords = context_list[4]
 
-
+    pulse_duration_sec = relative_end_time - relative_start_time
     time_start = global_start_time + relative_start_time
-    sat_ID = info_list[pulse_idx][1]
 
-    pulse_channel_idx = info_list[pulse_idx][2]
+    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
     pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
 
     # 'd' has one entry per second
-    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, visibility_window+1, sat_ID)
+    
+    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
     # 'delay' has one entry per chunk (~0.5s) 
-    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(visibility_window)+1), d)
+    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
     #thus 'pred' has one entry for each chunk
-    pred = (-delay[:pulse_duration_chunks]+ delay[0]) *  2*np.pi * pulse_freq
+    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
 
     return pred
+
+
 
 
 
@@ -105,9 +113,9 @@ def fitting_all(observed_data, initial_coordinates, phase_pred, info_list, conte
 
     Outputs:
 
-
     optimized_coordinates:  the fitted coordinates of the non-ref antenna
     '''
+
     result = least_squares(
         lambda coords: residuals_all(coords, observed_data, phase_pred, info_list, context_list),  # Pass a lambda that calls residuals
         initial_coordinates,
@@ -115,6 +123,30 @@ def fitting_all(observed_data, initial_coordinates, phase_pred, info_list, conte
     )
     optimized_coordinates = result.x
     return optimized_coordinates, result
+
+
+def fitting_latlon_only(observed_data, initial_coordinates, phase_pred, info_list, context_list, method='trf'):
+    """
+    Fit only latitude and longitude, keeping altitude fixed.
+    """
+    fixed_alt = initial_coordinates[2]
+    print(initial_coordinates[:2])
+
+    def latlon_residuals(latlon):
+        coords = [latlon[0], latlon[1], fixed_alt]
+        return residuals_all(coords, observed_data, phase_pred, info_list, context_list)
+
+    result = least_squares(
+        latlon_residuals,
+        x0=initial_coordinates[:2],  # Only lat and lon
+        method=method
+    )
+
+    # Reconstruct full coordinate with fixed altitude
+    optimized_coordinates = [result.x[0], result.x[1], fixed_alt]
+    return optimized_coordinates, result
+
+
 
 
 def residuals_individual(coords, observed_data, phase_pred, pulse_idx, info_list, context_list):
@@ -230,6 +262,27 @@ def avg_xcorr_4bit_2ant_float(pol0,pol1,specnum0,specnum1,idxstart0,idxstart1,de
 
 
 
+#some experimental shit
+
+def fitting_all_with_offsets(observed_data, initial_coords, phase_pred, info_list, context_list, method='trf'):
+    n_pulses = len(info_list)
+    x0 = np.concatenate([initial_coords, np.zeros(n_pulses)])  # coords + N offsets
+
+    result = least_squares(
+        lambda x: residuals_with_offsets(x[:3], x[3:], observed_data, phase_pred, info_list, context_list),
+        x0,
+        method=method
+    )
+    return result.x[:3], result
+
+
+def residuals_with_offsets(coords, offsets, observed_data, phase_pred, info_list, context_list):
+    residuals = []
+    for i, obs in enumerate(observed_data):
+        pred = phase_pred(coords, i, info_list, context_list)
+        phase_res = obs - (pred + offsets[i])
+        residuals.append(phase_res)
+    return np.concatenate(residuals)
 
 
 
