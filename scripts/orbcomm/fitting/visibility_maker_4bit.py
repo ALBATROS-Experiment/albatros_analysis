@@ -39,18 +39,26 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "config_file",
+        "working_directory",
         type=str,
-        help="Config file containing all required data.",
+        help="where the magic happens",
     )
 
-    #later make this configurable for multiple, ig.
+    parser.add_argument(
+        "day",
+        type=str,
+        help="what day we are looking at. in form day_month, such as 24_07",
+    )
+
+    parser.add_argument(
+        "config",
+        type=str,
+        help="contains all the info we care about",
+    )
+
+    #currently only works for the one baseline.
     parser.add_argument(
         "baseline", type=int, help="Which baseline we are getting visibilities for"
-    )
-
-    parser.add_argument(
-        "-o", "--output_path", type=str, default="/project/s/sievers/thomasb", help="Output directory for data and debug"
     )
 
     parser.add_argument(
@@ -60,7 +68,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-with open(f"{args.config_file}", "r") as f:
+
+#-----------UNPACK FROM CONFIG FILE---------------
+
+with open(f"{args.working_directory}/{args.day}/{args.config}", "r") as f:
     config = json.load(f)
     dir_parents = []
     coords = []
@@ -97,7 +108,9 @@ a2_path = dir_parents[1]
 #context = [global_start_time, visibility_window, [T_SPECTRA, v_acclen, v_nchunks], ref_coords, tle_path]
 
 
-with open(f"./pulsedata/pulsedata_{global_start_time}_1748962214.json", "r") as f:
+#---------------UNPACK FROM PULSE DATA-----------------
+
+with open(f"{working_dir}/{day}/pulsedata_{global_start_time}_{end_t}.json", "r") as f:
         pulsedata = json.load(f)
         
         info = []
@@ -139,6 +152,7 @@ print(offsets)
 specnumoffset = int(stats.mode(offsets)[0])
 print(specnumoffset)
 print(len(info))
+
 
 #note that I'm just writing absolutely everything into the h5 file. no pulse filtering is done here. 
 #also notice that in principle, the info list should be modular: can get visibilities purely from these. 
@@ -226,14 +240,14 @@ for pulse_idx in range(len(info)):
 
 #ALSO ALSO save the WRAPPED visibility stuff, not the unwrapped. otherwise it's a huge pain
 
-with h5py.File(f'{args.output_path}/vis_all_{global_start_time}.h5', 'w') as f:
+with h5py.File(f'{args.working_dir}/{args.day}/visraw_bline{args.baseline}_{global_start_time}.h5', 'w') as f:
     for pulse_idx, observed in enumerate(observed_data):
         pulse_array = f.create_dataset(f'{start_time}_{chan}', data=observed)
 
         pulse_array.attrs['start_time'] = info[pulse_idx][0]
         pulse_array.attrs['end_time'] = info[pulse_idx][1]
         pulse_array.attrs['satID'] = info[pulse_idx][2]
-        pulse_array.attrs['chan'] = info[pulse_idx][3]
+        pulse_array.attrs['chans'] = info[pulse_idx][3]
         pulse_array.attrs['global_start_time'] = info[pulse_idx][4]
         pulse_array.attrs['tle_path'] = info[pulse_idx][5]
 

@@ -111,3 +111,54 @@ info =  [[[715, 1110], 28654, 1836, 86568],
        # [[13600, 13905], 33591, 1850, 79705], 
        # [[14150, 14695], 59051, 1837, 79731], 
         #[[17330, 17605], 28654, 1836, 79705]]
+
+
+
+        with open(f"{working_directory}/{day1}/pulsedata_{global_start_time}_{global_end_time}.json", "r") as f:
+    pulsedata = json.load(f)
+    
+    info = []
+    reliable_offsets = []
+
+    for pulse_idx, details in enumerate(pulsedata[f"{global_start_time}"]["antenna 1"]):
+        print(details)
+        #print(f"\n--------pulse idx {pulse_idx}---------")
+        start_time = details["start"] * 5
+        end_time = details["end"] * 5
+        timestream_offset = details["timestream_offset"]
+        offsets.append(timestream_offset)
+        rel = False
+
+        #For now, disregard multiple sat passes. amend in v2.
+        if len(details["sats_present"]) > 1:
+            continue
+
+        pulse_info.append((start_time, end_time, global_start_time))
+        
+        
+        for satID, values in details["sats_present"].items():
+            
+            for i in range(len(values)):
+                #setup
+                pulse_info = []
+                if values[i][2][0] > 0.9:
+                    rel = True
+
+                pulse_info.append((values[i][1], timestream_offset)) #relative offset, total offset
+                pulse_info.append()
+                pulse_info.append(values[i][0]) #channel
+                pulse_info.append(int(satID))  #satID
+                pulse_info.append(tle_path)
+
+                info.append(pulse_info)
+
+        if rel==True:
+            reliable_offsets.append(timestream_offset)
+        
+        break
+        
+            
+print(info)
+print(offsets)
+print(len(info))
+print(len(offsets))

@@ -10,12 +10,12 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 from albatros_analysis.src.utils import baseband_utils as butils
 import json
-from helper_gpu import *
+#from helper_gpu import *
 
 
 def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
     # spec offset definition:
-    # offset in actual spdcrum numbers from two antennas that line up the two timestreams
+    # offset in actual spectrum numbers from two antennas that line up the two timestreams
 
     f_start0, idx0 = butils.get_file_from_timestamp(init_t, dir_parent0, "f")
     f_end0, _ = butils.get_file_from_timestamp(end_t, dir_parent0, "f")
