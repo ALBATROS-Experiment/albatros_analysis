@@ -76,7 +76,6 @@ if __name__ == "__main__":
     T_SCAN = args.T_scan #seconds between each pulse scan -- look for sat rise/set every 5 sec.
     altitude_cutoff = args.alt_cutoff  #cutoff when looking for satellites
     out_path = args.output_path
-    array_time =  args.hours*3600  #
 
 
 
@@ -105,7 +104,7 @@ if __name__ == "__main__":
 
 
     #----Define Reference Antenna----
-
+    array_time =  end_t - init_t
     a1_coords = coords[0] 
     a1_path = dir_parents[0]
 
@@ -141,6 +140,7 @@ if __name__ == "__main__":
 
 
     tstart = init_t #define start time (observer frame) 
+    tend = end_t
     nrows = int((array_time)/T_SCAN)
     arr = np.zeros((nrows, len(satlist)), dtype="int64") #array 
     tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
@@ -601,7 +601,7 @@ if __name__ == "__main__":
     #          because as of now, no antenna information encoded directly. 
     #          could add an extra dictionary element which gives the antenna, may be a move.
 
-    json_output = path.join(out_path,f"pulsedata_{tstart}_{int(time.time())}.json")
+    json_output = path.join(out_path,f"pulsedata_{tstart}_{tend}.json")
     with open(json_output, "w") as file:
         json.dump(sat_data, file, indent=4)
         if args.verbose:

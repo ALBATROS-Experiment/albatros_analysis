@@ -15,6 +15,93 @@ from src.utils import orbcomm_utils as outils
 from scipy.optimize import least_squares
 import json
 import random
+from datetime import datetime, timezone
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+from skyfield.api import load, EarthSatellite, Topos, wgs84
+
+
+
+def satpass_plotter(info_list, obscoords, step_seconds=5, hard_list = [28654, 25338, 33591, 57166, 59051, 44387]):
+
+    obslat, obslon, obselev = obscoords
+    observer = wgs84.latlon(obslat, obslon, obselev)
+
+    pulse_data = []
+    
+    for pulse in info_list:
+        satID, tle_path = pulse[2], pulse[6]
+        t_start, t_end, global_start_time = pulse[0], pulse[1], pulse[5]
+        
+
+        #times
+        global_pulse_start = t_start + global_start_time
+        pulse_duration_secs = t_end - t_start
+        ts = load.timescale()
+        dt = datetime.fromtimestamp(global_pulse_start, tz=timezone.utc) #careful with time zone!!
+        t0 = ts.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second + dt.microsecond / 1e6)
+    
+        seconds = np.arange(0, pulse_duration_secs, step_seconds)
+        times = t0 + seconds / (24 * 60 * 60)
+
+        #get sat info
+        sats = load.tle_file(tle_path)
+        for sat in sats:
+            if sat.model.satnum == satID:
+                diff = sat - observer
+                topocentric = diff.at(times)
+                alt, az, _ = topocentric.altaz()
+
+        #conversion
+        az_rad = np.radians(az.degrees)
+        el = alt.degrees
+
+        pulse_data.append((satID, az_rad, el))
+
+    
+    #set up colors for label
+    satIDs = sorted(set(pulse[0] for pulse in pulse_data))
+    cmap = cm.get_cmap('tab10', len(satIDs)) 
+    id2colour = {sat_id: cmap(i) for i, sat_id in enumerate(satIDs)}
+
+
+    #plot
+    fig = plt.figure(figsize=(8, 8))
+    ax = plt.subplot(111, polar=True)
+
+    #loop over pulses
+    for pulse in pulse_data:
+        color = id2colour[pulse[0]]
+        ax.plot(pulse[1], 90 - pulse[2], label=f"{pulse[0]}", color=color)
+
+    # Zenith at center, horizon at outer edge
+    ax.set_rlim(0, 90)
+    ax.set_rlabel_position(225)  # Move radial labels away from overlap
+
+    # Azimuth 0° = North at top, increase clockwise
+    ax.set_theta_zero_location('N')
+    ax.set_theta_direction(-1)
+
+    # Add labels for cardinal directions
+    ax.set_xticks(np.radians([0, 90, 180, 270]))
+    ax.set_xticklabels(['N', 'E', 'S', 'W'])
+
+    # Add grid and title
+    ax.grid(True)
+
+    handles, labels = ax.get_legend_handles_labels()
+    good_labels = []
+    good_handles = []
+    for i in range(len(labels)):
+        if labels[i] not in good_labels:
+            good_labels.append(labels[i])
+            good_handles.append(handles[i])
+    ax.legend(good_handles, good_labels)
+    
+    plt.show()
+
+
+
 
 
 
@@ -37,12 +124,12 @@ def phase_pred(fit_coords, pulse_idx, info_list, context_list):
             these are in units of radians. 
     '''
     #unpack from info list 
-    relative_start_time = info_list[pulse_idx][0]
-    relative_end_time = info_list[pulse_idx][1]
-    sat_ID = info_list[pulse_idx][2]
-    pulse_channel_idx = info_list[pulse_idx][3]
-    global_start_time = info_list[pulse_idx][4]
-    tle_path = info_list[pulse_idx][5]
+    relative_start_time = info_list[pulse_idx][0][0]
+    relative_end_time = info_list[pulse_idx][0][1]
+    global_start_time = info_list[pulse_idx][0][2]
+    sat_ID = info_list[pulse_idx][1][0]
+    pulse_channel_idx = info_list[pulse_idx][1][1]
+    tle_path = info_list[pulse_idx][2]
 
     #unpack from context list
     visibility_window = context_list[0]
@@ -68,6 +155,32 @@ def phase_pred(fit_coords, pulse_idx, info_list, context_list):
     return pred
 
 
+def phase_pred_manual(fit_coords, times, sat_ID, pulse_channel_idx, tle_path, context_list):
+
+    relative_start_time, relative_end_time, global_start_time = times
+
+    #unpack from context list
+    visibility_window = context_list[0]
+    T_SPECTRA = context_list[1]
+    v_acclen = context_list[2]
+    v_nchunks = context_list[3]
+    ref_coords = context_list[4]
+
+    pulse_duration_sec = relative_end_time - relative_start_time
+    time_start = global_start_time + relative_start_time
+
+    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
+
+    # 'd' has one entry per second
+    
+    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
+    # 'delay' has one entry per chunk (~0.5s) 
+    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
+    #thus 'pred' has one entry for each chunk
+    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
+
+    return pred
 
 
 
@@ -217,6 +330,19 @@ def make_fuzzed_coords(initial_guess, meters=10, reps=5):
         random_coords.append([new_lat, new_lon, new_alt])
 
     return random_coords
+
+
+def split_array(array, tolerance):
+    for i in range(1, len(array)):
+        if abs(array[i] - array[i - 1]) > tolerance:
+            return array[:i], array[i:]
+    
+    return array, []
+
+def get_overflow_index(array, tolerance):
+    for i in range(1, len(array)):
+        if abs(array[i] - array[i - 1]) > tolerance:
+            return i
 
 
 @nb.njit()

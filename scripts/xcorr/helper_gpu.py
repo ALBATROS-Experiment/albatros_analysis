@@ -1,7 +1,7 @@
 import sys
 import os
 from os import path
-sys.path.insert(0, path.expanduser("~"))
+sys.path.append(os.path.expanduser('~/albatros_analysis'))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 import cupy as cp
