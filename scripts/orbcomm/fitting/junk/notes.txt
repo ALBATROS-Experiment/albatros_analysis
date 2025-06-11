@@ -162,3 +162,10 @@ print(info)
 print(offsets)
 print(len(info))
 print(len(offsets))
+
+
+
+#IMPORTANT!! FOR TESTER BATCH
+
+#good_pulse_idxs1 = [ 2, 4, 7, 11, 12, 17, 20, 24, 25, 27]  #DAY 1
+#good_pulse_idxs2 = [0, 2, 4, 7, 8, 11,26, 28, 29, 30, 36, 38] #DAY 2

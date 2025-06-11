@@ -9,6 +9,7 @@ sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.src.utils import orbcomm_utils as outils
 import json
 #from helper_gpu import *
 
@@ -187,6 +188,100 @@ def get_avg_fast(
     print("Time taken final:", time.time() - st)
     pols = np.ma.masked_invalid(pols)
     return pols, rowcounts, ant1.obj.channels
+
+
+
+def thomas_get_avg_fast(
+    path1, path2, init_t, end_t, delay, acclen, nchunks, chanstart=0, chanend=None
+):
+    files1, idxstart1, files2, idxstart2 = get_init_info_2ant(
+        init_t, end_t, delay, path1, path2
+    )
+
+    print("Starting at: ", idxstart1, "in filenum: ", files1[0], "for antenna 1")
+    print("Starting at: ", idxstart2, "in filenum: ", files2[0], "for antenna 2")
+    # print(files[fileidx])
+    fileidx1 = 0
+    fileidx2 = 0
+    ant1 = bdc.BasebandFileIterator(
+        files1,
+        fileidx1,
+        idxstart1,
+        acclen,
+        nchunks=nchunks,
+        chanstart=chanstart,
+        chanend=chanend,
+    )
+    ant2 = bdc.BasebandFileIterator(
+        files2,
+        fileidx2,
+        idxstart2,
+        acclen,
+        nchunks=nchunks,
+        chanstart=chanstart,
+        chanend=chanend,
+    )
+    ncols = ant1.obj.chanend - ant1.obj.chanstart
+    npols = 2
+    polmap = {0: ["pol0", "pol0"], 1: ["pol1", "pol1"]}
+    pols = np.zeros((npols, nchunks, ncols), dtype="complex64", order="c")
+    rowcounts = np.empty(nchunks, dtype="int64")
+    m1 = ant1.spec_num_start
+    m2 = ant2.spec_num_start
+    st = time.time()
+    for i, (chunk1, chunk2) in enumerate(zip(ant1, ant2)):
+        # t1=time.time()
+        # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
+        # pol00[i,:] = cr.avg_xcorr_4bit_2ant(chunk1['pol0'], chunk2['pol0'],chunk1['specnums'],chunk2['specnums'],m1+i*acclen,m2+i*acclen)
+
+        a1_start = ant1.spec_num_start
+        a2_start = ant2.spec_num_start
+
+        c1 = np.zeros((acclen, 5), dtype="complex128")
+        c2 = np.zeros((acclen, 5), dtype="complex128")
+
+        print("newarr shape:", c1.shape)
+        print("comparison shape:", chunk1[polmap[pp][0]].shape)
+        assert c1.shape == chunk1[polmap[pp][0]].shape
+
+        
+        print(chunk1["specnums"] - a1_start)
+
+        outils.make_continuous(
+            c1, chunk1['pol0'], chunk1["specnums"] - a1_start
+        )
+        outils.make_continuous(
+            c2, chunk2['pol0'], chunk2["specnums"] - a2_start
+        )
+
+        xcorr, rowcount = cr.avg_xcorr_1bit_vanvleck_2ant(
+            c1,
+            c2,
+            ncols,
+            chunk1["specnums"],
+            chunk2["specnums"],
+            m1 + i * acclen,
+            m2 + i * acclen,
+            )
+
+        if rowcount < 100:
+            pols[pp, i, :] = np.nan
+        else:
+            pols[pp, i, :] = cr.van_vleck_correction(
+                *xcorr, rowcount
+            )  # Van Vleck needs unpacked R0,R1,I0,I1
+        rowcounts[i] = rowcount
+        # t2=time.time()
+        # print("time taken for one loop", t2-t1)
+        j = ant1.spec_num_start
+        # print("After a loop spec_num start at:", j, "Expected at", m1+(i+1)*acclen)
+        if i % 1000 == 0:
+            print(i + 1, "CHUNK READ")
+    print("Time taken final:", time.time() - st)
+    pols = np.ma.masked_invalid(pols)
+    return pols, rowcounts, ant1.obj.channels
+
+
 
 def get_avg_fast2(idxs,files,acclen,nchunks,chanstart,chanend):
     nant = len(idxs)

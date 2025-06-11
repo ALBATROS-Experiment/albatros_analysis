@@ -19,6 +19,213 @@ from datetime import datetime, timezone
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from skyfield.api import load, EarthSatellite, Topos, wgs84
+import math
+
+
+#------the MVP-------
+
+
+def phase_pred(fit_coords, pulse_idx, data_list, context_list):
+    
+    ''' 
+    Function that returns the predicted phase with time of a satellite pass.
+
+    Inputs:
+
+    fit_coords: coordinates of the non-reference antenna. this is the fitting parameter
+    pulse_idx: the index (with respect to the list info_list) of which pulse we want to predcit the phase of
+    info_list: list with all pulse data, for each pulse we consider. this list is different for each baseline
+    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
+    
+    Outputs:
+
+    pred:   list of total phase of the pulse, with one entry for each chunk that goes by. length of array depends on the duration of the pulse, in units of chunks.
+            these are in units of radians. 
+    '''
+    #unpack from info list 
+    relative_start_time = data_list[pulse_idx][1][0]
+    relative_end_time = data_list[pulse_idx][1][1]
+    global_start_time = data_list[pulse_idx][1][2]
+    sat_ID = data_list[pulse_idx][2][0]
+    pulse_channel_idx = data_list[pulse_idx][2][1]
+    tle_path = data_list[pulse_idx][3]
+
+    #unpack from context list
+    visibility_window = context_list[0]
+    T_SPECTRA = context_list[1]
+    v_acclen = context_list[2]
+    v_nchunks = context_list[3]
+    ref_coords = context_list[4]
+
+    pulse_duration_sec = relative_end_time - relative_start_time
+    time_start = global_start_time + relative_start_time
+
+    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
+
+    # 'd' has one entry per second
+    
+    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
+    # 'delay' has one entry per chunk (~0.5s) 
+    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
+    #thus 'pred' has one entry for each chunk
+    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
+
+    return pred
+
+
+
+#---------fitting and residuals---------
+
+def residuals_all(coords, phase_pred, data_list, context_list):
+    ''' 
+    Get all residuals (for all pulses in the info_list) in one long array.
+
+    Inputs:
+    
+    coords: physical coordinates of the non-reference antenna
+    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
+    data_list : list with all pulse data, for each pulse we consider. at the end contains all the observed data for that pulse. this list is different for each baseline
+    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
+
+
+    Outputs:
+
+    massive array of all residuals for each pulse, all concatenated, in order
+    '''
+    residuals_all = []
+    for pulse_idx, data in enumerate(data_list):
+        
+        predicted = phase_pred(coords, pulse_idx, data_list, context_list)  
+        res = data[4] - predicted
+        residuals_all.append(res.flatten())
+
+    return np.concatenate(residuals_all)
+
+
+
+def fitting_all(initial_coordinates, phase_pred, data_list, context_list, method='trf'):
+    ''' 
+    Calls least squares to optimize antenna coordinates for every pulse
+
+    Inputs:
+
+    observed_data: list of (list of unwrapped phase data for a pulse) for each pulse in info_list
+    initial_coordinates: the initial guess of where the non-reference antenna is located
+    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
+    info_list : list with all pulse data, for each pulse we consider. this list is different for each baseline
+    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
+
+
+    Outputs:
+
+    optimized_coordinates:  the fitted coordinates of the non-ref antenna
+    '''
+
+    result = least_squares(
+        lambda coords: residuals_all(coords, phase_pred, data_list, context_list),  # Pass a lambda that calls residuals
+        initial_coordinates,
+        method = method
+    )
+    optimized_coordinates = result.x
+    return optimized_coordinates, result
+
+
+
+def residuals_individual(coords, phase_pred, pulse_idx, data_list, context_list):
+    ''' 
+    Get residuals of only one specific pulse
+    '''
+    predicted = phase_pred(coords, pulse_idx, data_list, context_list)
+    res = data_list[pulse_idx][4] - predicted
+    return res
+
+
+def fitting_individual(initial_coordinates, phase_pred, pulse_idx, data_list, context_list, method = 'trf'):
+    ''' 
+    Calls least squares to optimize coordinates for one pulse only
+    '''
+    result = least_squares(
+        lambda coords: residuals_individual(coords, observed_data, phase_pred, pulse_idx, data_list, context_list), 
+        initial_coordinates,
+        method = method
+    )
+    optimized_coordinates = result.x
+    return optimized_coordinates, result
+
+
+
+
+
+
+
+
+
+#---------auxilary stuff---------
+
+
+def distance_calculator(coord1, coord2):
+    ''' 
+    Returns the actual physical distance between two coordinates. 
+    Seperates the superficial component (latitude and longitude) and the altitude component into two seperate measurements
+    '''
+
+    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
+    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
+
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
+
+    c = 2 * np.arcsin(np.sqrt(a))
+    meters_flat = 6367 * c *1000
+    meters_alt = np.abs(alt1-alt2)
+
+    return float(meters_flat), float(meters_alt)
+
+
+def dist_components(coord1, coord2):
+    ''' 
+    Returns the actual physical distance between two coordinates. 
+    Seperates the superficial component (latitude and longitude) and the altitude component into two seperate measurements
+    '''
+
+    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
+    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
+
+    mean_lat = math.radians((lat1 + lat2) / 2.0)
+
+    # Approximate meters per degree
+    meters_per_deg_lat = 111_320  # constant
+    meters_per_deg_lon = 111_320 * math.cos(mean_lat)  # varies with latitude
+
+    # Differences in degrees
+    delta_lat_deg = lat2 - lat1
+    delta_lon_deg = lon2 - lon1
+    delta_alt = alt2 - alt1  # already in meters
+
+    # Convert angular differences to meters
+    delta_lat_m = delta_lat_deg * meters_per_deg_lat
+    delta_lon_m = delta_lon_deg * meters_per_deg_lon
+
+    return delta_lat_m, delta_lon_m, delta_alt
+
+
+def split_array(array, tolerance):
+    for i in range(1, len(array)):
+        if abs(array[i] - array[i - 1]) > tolerance:
+            return array[:i], array[i:]
+    
+    return array, []
+
+def get_overflow_index(array, tolerance):
+    for i in range(1, len(array)):
+        if abs(array[i] - array[i - 1]) > tolerance:
+            return i
+
 
 
 
@@ -30,9 +237,9 @@ def satpass_plotter(info_list, obscoords, step_seconds=5, hard_list = [28654, 25
     pulse_data = []
     
     for pulse in info_list:
-        satID, tle_path = pulse[2], pulse[6]
-        t_start, t_end, global_start_time = pulse[0], pulse[1], pulse[5]
-        
+        t_start, t_end, global_start_time = pulse[1]
+        satID, chanbig = pulse[2]
+        tle_path = pulse[3]
 
         #times
         global_pulse_start = t_start + global_start_time
@@ -102,211 +309,6 @@ def satpass_plotter(info_list, obscoords, step_seconds=5, hard_list = [28654, 25
 
 
 
-
-
-
-
-def phase_pred(fit_coords, pulse_idx, info_list, context_list):
-    
-    ''' 
-    Function that returns the predicted phase with time of a satellite pass.
-
-    Inputs:
-
-    fit_coords: coordinates of the non-reference antenna. this is the fitting parameter
-    pulse_idx: the index (with respect to the list info_list) of which pulse we want to predcit the phase of
-    info_list: list with all pulse data, for each pulse we consider. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
-    
-    Outputs:
-
-    pred:   list of total phase of the pulse, with one entry for each chunk that goes by. length of array depends on the duration of the pulse, in units of chunks.
-            these are in units of radians. 
-    '''
-    #unpack from info list 
-    relative_start_time = info_list[pulse_idx][0][0]
-    relative_end_time = info_list[pulse_idx][0][1]
-    global_start_time = info_list[pulse_idx][0][2]
-    sat_ID = info_list[pulse_idx][1][0]
-    pulse_channel_idx = info_list[pulse_idx][1][1]
-    tle_path = info_list[pulse_idx][2]
-
-    #unpack from context list
-    visibility_window = context_list[0]
-    T_SPECTRA = context_list[1]
-    v_acclen = context_list[2]
-    v_nchunks = context_list[3]
-    ref_coords = context_list[4]
-
-    pulse_duration_sec = relative_end_time - relative_start_time
-    time_start = global_start_time + relative_start_time
-
-    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
-    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
-
-    # 'd' has one entry per second
-    
-    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
-    # 'delay' has one entry per chunk (~0.5s) 
-    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
-    #thus 'pred' has one entry for each chunk
-    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
-
-    return pred
-
-
-def phase_pred_manual(fit_coords, times, sat_ID, pulse_channel_idx, tle_path, context_list):
-
-    relative_start_time, relative_end_time, global_start_time = times
-
-    #unpack from context list
-    visibility_window = context_list[0]
-    T_SPECTRA = context_list[1]
-    v_acclen = context_list[2]
-    v_nchunks = context_list[3]
-    ref_coords = context_list[4]
-
-    pulse_duration_sec = relative_end_time - relative_start_time
-    time_start = global_start_time + relative_start_time
-
-    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
-    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
-
-    # 'd' has one entry per second
-    
-    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
-    # 'delay' has one entry per chunk (~0.5s) 
-    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
-    #thus 'pred' has one entry for each chunk
-    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
-
-    return pred
-
-
-
-def residuals_all(coords, observed_data, phase_pred, info_list, context_list):
-    ''' 
-    Get all residuals (for all pulses in the info_list) in one long array.
-
-    Inputs:
-    
-    coords: physical coordinates of the non-reference antenna
-    observed_data: list of (list of unwrapped phase data for a pulse) for each pulse in info_list
-    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
-    info_list : list with all pulse data, for each pulse we consider. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
-
-
-    Outputs:
-
-    massive array of all residuals for each pulse, all concatenated, in order
-    '''
-    residuals_all = []
-    for pulse_idx, observed in enumerate(observed_data):
-        
-        predicted = phase_pred(coords, pulse_idx, info_list, context_list)  
-        res = observed - predicted
-        residuals_all.append(res.flatten())
-
-    return np.concatenate(residuals_all)
-
-
-def fitting_all(observed_data, initial_coordinates, phase_pred, info_list, context_list, method='trf'):
-    ''' 
-    Calls least squares to optimize antenna coordinates for every pulse
-
-    Inputs:
-
-    observed_data: list of (list of unwrapped phase data for a pulse) for each pulse in info_list
-    initial_coordinates: the initial guess of where the non-reference antenna is located
-    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
-    info_list : list with all pulse data, for each pulse we consider. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
-
-
-    Outputs:
-
-    optimized_coordinates:  the fitted coordinates of the non-ref antenna
-    '''
-
-    result = least_squares(
-        lambda coords: residuals_all(coords, observed_data, phase_pred, info_list, context_list),  # Pass a lambda that calls residuals
-        initial_coordinates,
-        method = method
-    )
-    optimized_coordinates = result.x
-    return optimized_coordinates, result
-
-
-def fitting_latlon_only(observed_data, initial_coordinates, phase_pred, info_list, context_list, method='trf'):
-    """
-    Fit only latitude and longitude, keeping altitude fixed.
-    """
-    fixed_alt = initial_coordinates[2]
-    print(initial_coordinates[:2])
-
-    def latlon_residuals(latlon):
-        coords = [latlon[0], latlon[1], fixed_alt]
-        return residuals_all(coords, observed_data, phase_pred, info_list, context_list)
-
-    result = least_squares(
-        latlon_residuals,
-        x0=initial_coordinates[:2],  # Only lat and lon
-        method=method
-    )
-
-    # Reconstruct full coordinate with fixed altitude
-    optimized_coordinates = [result.x[0], result.x[1], fixed_alt]
-    return optimized_coordinates, result
-
-
-
-
-def residuals_individual(coords, observed_data, phase_pred, pulse_idx, info_list, context_list):
-    ''' 
-    Get residuals of only one specific pulse
-    '''
-    predicted = phase_pred(coords, pulse_idx, info_list, context_list)
-    res = observed_data[pulse_idx] - predicted
-    return res
-
-
-def fitting_individual(observed_data, initial_coordinates, phase_pred, pulse_idx, info_list, context_list, method = 'trf'):
-    ''' 
-    Calls least squares to optimize coordinates for one pulse only
-    '''
-    result = least_squares(
-        lambda coords: residuals_individual(coords, observed_data, phase_pred, pulse_idx, info_list, context_list), 
-        initial_coordinates,
-        method = method
-    )
-    optimized_coordinates = result.x
-    return optimized_coordinates, result
-
-
-def distance_calculator(coord1, coord2):
-    ''' 
-    Returns the actual physical distance between two coordinates. 
-    Seperates the superficial component (latitude and longitude) and the altitude component into two seperate measurements
-    '''
-
-    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
-    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
-
-    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
-
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
-
-    c = 2 * np.arcsin(np.sqrt(a))
-    meters_flat = 6367 * c *1000
-    meters_alt = np.abs(alt1-alt2)
-
-    return float(meters_flat), float(meters_alt)
-
-
 def make_fuzzed_coords(initial_guess, meters=10, reps=5):
 
     ''' 
@@ -332,18 +334,9 @@ def make_fuzzed_coords(initial_guess, meters=10, reps=5):
     return random_coords
 
 
-def split_array(array, tolerance):
-    for i in range(1, len(array)):
-        if abs(array[i] - array[i - 1]) > tolerance:
-            return array[:i], array[i:]
-    
-    return array, []
 
-def get_overflow_index(array, tolerance):
-    for i in range(1, len(array)):
-        if abs(array[i] - array[i - 1]) > tolerance:
-            return i
 
+#--------visibility stuff-------------
 
 @nb.njit()
 def get_common_rows(specnum0,specnum1,idxstart0,idxstart1):
@@ -370,7 +363,7 @@ def get_common_rows(specnum0,specnum1,idxstart0,idxstart1):
 
 @nb.njit(parallel=True)
 def avg_xcorr_4bit_2ant_float(pol0,pol1,specnum0,specnum1,idxstart0,idxstart1,delay=None,freqs=None):
-    row_count,rownums0,rownums1,rowidx=get_common_rows(specnum0,specnum1,idxstart0,idxstart1)
+    row_count,rownums0,rownums1,rowidx = get_common_rows(specnum0,specnum1,idxstart0,idxstart1)
     ncols=pol0.shape[1]
 #     print("ncols",ncols)
     assert pol0.shape[1]==pol1.shape[1]
@@ -388,25 +381,48 @@ def avg_xcorr_4bit_2ant_float(pol0,pol1,specnum0,specnum1,idxstart0,idxstart1,de
 
 
 
-#some experimental shit
 
-def fitting_all_with_offsets(observed_data, initial_coords, phase_pred, info_list, context_list, method='trf'):
-    n_pulses = len(info_list)
+#--------misc/old-------
+
+def fitting_latlon_only(observed_data, initial_coordinates, phase_pred, info_list, context_list, method='trf'):
+    """
+    Fit only latitude and longitude, keeping altitude fixed.
+    """
+    fixed_alt = initial_coordinates[2]
+    print(initial_coordinates[:2])
+
+    def latlon_residuals(latlon):
+        coords = [latlon[0], latlon[1], fixed_alt]
+        return residuals_all(coords, observed_data, phase_pred, info_list, context_list)
+
+    result = least_squares(
+        latlon_residuals,
+        x0=initial_coordinates[:2],  # Only lat and lon
+        method=method
+    )
+
+    # Reconstruct full coordinate with fixed altitude
+    optimized_coordinates = [result.x[0], result.x[1], fixed_alt]
+    return optimized_coordinates, result
+
+
+def fitting_all_with_offsets(initial_coords, phase_pred, data_list, context_list, method='trf'):
+    n_pulses = len(data_list)
     x0 = np.concatenate([initial_coords, np.zeros(n_pulses)])  # coords + N offsets
 
     result = least_squares(
-        lambda x: residuals_with_offsets(x[:3], x[3:], observed_data, phase_pred, info_list, context_list),
+        lambda x: residuals_with_offsets(x[:3], x[3:], phase_pred, data_list, context_list),
         x0,
         method=method
     )
     return result.x[:3], result
 
 
-def residuals_with_offsets(coords, offsets, observed_data, phase_pred, info_list, context_list):
+def residuals_with_offsets(coords, offsets, phase_pred, data_list, context_list):
     residuals = []
-    for i, obs in enumerate(observed_data):
-        pred = phase_pred(coords, i, info_list, context_list)
-        phase_res = obs - (pred + offsets[i])
+    for i, obs in enumerate(data_list):
+        pred = phase_pred(coords, i, data_list, context_list)
+        phase_res = obs[4] - (pred + offsets[i])
         residuals.append(phase_res)
     return np.concatenate(residuals)
 
