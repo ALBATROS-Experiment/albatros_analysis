@@ -660,6 +660,102 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False
         return sim_delay, altaz1, altaz2
     return sim_delay
 
+
+def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnorad, altaz=False):
+    from skyfield.api import wgs84, load
+    import numpy as np
+
+    c = 299792458 
+
+    sats_objects = sf.load.tle_file(tle_path)
+    
+    obs1 = wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    obs2 = wgs84.latlon(pos2[0], pos2[1], pos2[2])
+
+    target_sat = None
+    for sat in sats_objects:
+        if sat.model.satnum == satnorad:
+            target_sat = sat
+            break
+
+    if target_sat is None:
+        raise ValueError(f"sat not in TLE list")
+
+    ts = load.timescale()
+
+    jd_start = ctime2mjd(time_start, type="JD")
+    jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
+    t = ts.ut1_jd(jd_times)
+
+   
+    diff1 = target_sat - obs1
+    diff2 = target_sat - obs2
+
+    topo1 = diff1.at(t)
+    topo2 = diff2.at(t)
+
+    alt1, az1, dist1 = topo1.altaz()
+    alt2, az2, dist2 = topo2.altaz()
+
+    sim_delay = (dist2.m - dist1.m) / c
+
+    if altaz:
+        altaz1 = np.stack([alt1.degrees, az1.degrees], axis=1)
+        altaz2 = np.stack([alt2.degrees, az2.degrees], axis=1)
+        return sim_delay, altaz1, altaz2
+
+    return sim_delay
+
+
+
+
+def get_sat_delay2(pos1, pos2, sats_objects, time_start, duration_seconds, satnorad, altaz=False):
+    from skyfield.api import wgs84, load
+    import numpy as np
+
+    c = 299792458 
+    
+    obs1 = wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    obs2 = wgs84.latlon(pos2[0], pos2[1], pos2[2])
+
+    target_sat = None
+    for sat in sats_objects:
+        if sat.model.satnum == satnorad:
+            target_sat = sat
+            break
+
+    if target_sat is None:
+        raise ValueError(f"sat not in TLE list")
+
+    ts = load.timescale()
+
+    jd_start = ctime2mjd(time_start, type="JD")
+    jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
+    print(jd_times)
+    print(len(jd_times))
+    t = ts.ut1_jd(jd_times)
+
+   
+    diff1 = target_sat - obs1
+    diff2 = target_sat - obs2
+
+    topo1 = diff1.at(t)
+    topo2 = diff2.at(t)
+
+    alt1, az1, dist1 = topo1.altaz()
+    alt2, az2, dist2 = topo2.altaz()
+
+    sim_delay = (dist2.m - dist1.m) / c
+
+    if altaz:
+        altaz1 = np.stack([alt1.degrees, az1.degrees], axis=1)
+        altaz2 = np.stack([alt2.degrees, az2.degrees], axis=1)
+        return sim_delay, altaz1, altaz2
+
+    return sim_delay
+
+
+
 def delay_corrector(idx1, idx2, delay, dN):
     # convetion is xcorr = <a(t)b(t-delay)>
     # where a = antenna1 and b = antenna2

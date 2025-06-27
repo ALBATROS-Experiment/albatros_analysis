@@ -203,6 +203,10 @@ if __name__ == "__main__":
         #----Iterate over each Pulse----
 
         for pnum, [(pstart, pend), sats_present] in enumerate(pulses):
+
+            if pnum == 15:
+                continue
+
             print(f"------Pulse Number {pnum}-------")
             print("Pulse Start Idx:", pstart)
             print("Pulse End Idx:", pend)

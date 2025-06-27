@@ -12,141 +12,239 @@ from datetime import datetime as dt
 from src.correlations import baseband_data_classes as bdc
 from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, minimize_scalar
 import json
 import random
 from datetime import datetime, timezone
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from skyfield.api import load, EarthSatellite, Topos, wgs84
+import skyfield.api as sf
+from scipy.linalg import block_diag
 import math
+from scipy.linalg import cho_factor, cho_solve, inv
+from scipy.interpolate import interp1d
+import numbers
 
 
-#------the MVP-------
+#--------------------------------PHASE PREDICTORS------------------------
 
 
-def phase_pred(fit_coords, pulse_idx, data_list, context_list):
-    
-    ''' 
-    Function that returns the predicted phase with time of a satellite pass.
+def phase_pred(fit_coords, pulse_idx, data_list, context_list, satdict = None):
 
-    Inputs:
-
-    fit_coords: coordinates of the non-reference antenna. this is the fitting parameter
-    pulse_idx: the index (with respect to the list info_list) of which pulse we want to predcit the phase of
-    info_list: list with all pulse data, for each pulse we consider. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
-    
-    Outputs:
-
-    pred:   list of total phase of the pulse, with one entry for each chunk that goes by. length of array depends on the duration of the pulse, in units of chunks.
-            these are in units of radians. 
     '''
+    gives a predicted phase, with no time offsets
+    '''
+    
+    start_time = time.time()
+
     #unpack from info list 
-    relative_start_time = data_list[pulse_idx][1][0]
-    relative_end_time = data_list[pulse_idx][1][1]
-    global_start_time = data_list[pulse_idx][1][2]
-    sat_ID = data_list[pulse_idx][2][0]
-    pulse_channel_idx = data_list[pulse_idx][2][1]
+    relative_start_time, relative_end_time, global_start_time = data_list[pulse_idx][1][0], data_list[pulse_idx][1][1], data_list[pulse_idx][1][2]
+    sat_ID, pulse_channel_idx = data_list[pulse_idx][2][0], data_list[pulse_idx][2][1]
     tle_path = data_list[pulse_idx][3]
 
     #unpack from context list
     visibility_window = context_list[0]
-    T_SPECTRA = context_list[1]
-    v_acclen = context_list[2]
-    v_nchunks = context_list[3]
+    T_SPECTRA, v_acclen, v_nchunks = context_list[1], context_list[2], context_list[3]
     ref_coords = context_list[4]
 
+    #--------------------------------------------------------------------------
+
+
+    #basic setup
     pulse_duration_sec = relative_end_time - relative_start_time
     time_start = global_start_time + relative_start_time
 
-    pulse_duration_chunks = int( pulse_duration_sec / (T_SPECTRA * v_acclen) )
+    #give this a buffer to ensure no problems with observed_length
+    pulse_duration_chunks = np.ceil(pulse_duration_sec / (T_SPECTRA * v_acclen)) + 5
     pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
 
     # 'd' has one entry per second
     
-    d = outils.get_sat_delay(ref_coords, fit_coords, tle_path, time_start, (2*visibility_window)+1, sat_ID)
+    
+
+
+    d = outils.get_sat_delay_new(ref_coords, fit_coords, tle_path, time_start, visibility_window+1, sat_ID)
+
+    interpolation_chunk_times = np.arange(0, pulse_duration_chunks) * v_acclen * T_SPECTRA
+    
     # 'delay' has one entry per chunk (~0.5s) 
-    delay = np.interp(np.arange(0, v_nchunks) * v_acclen * T_SPECTRA, np.arange(0, int(2*visibility_window)+1), d)
+    delay = np.interp(interpolation_chunk_times, np.arange(0, visibility_window+1), d)
     #thus 'pred' has one entry for each chunk
-    pred = (-delay[:pulse_duration_chunks]+ delay[0]) * 2 * np.pi * pulse_freq
+    pred = (-delay + delay[0]) * 2 * np.pi * pulse_freq
+
+    print("time taken for one prediction", time.time() - start_time)
 
     return pred
 
 
 
-#---------fitting and residuals---------
 
-def residuals_all(coords, phase_pred, data_list, context_list):
-    ''' 
-    Get all residuals (for all pulses in the info_list) in one long array.
+def pred(fit_coords, ds, pulse_idx, data_list, context_list, satdict = None):
 
-    Inputs:
-    
-    coords: physical coordinates of the non-reference antenna
-    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
-    data_list : list with all pulse data, for each pulse we consider. at the end contains all the observed data for that pulse. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
-
-
-    Outputs:
-
-    massive array of all residuals for each pulse, all concatenated, in order
     '''
+    gives a predicted phase, with time offsets thrown in for each pulse.
+    recall that dc is in fact a fit parameter
+    '''
+
+    extension = 2
+    
+    start_time = time.time()
+
+    #unpack from info list 
+    relative_start_time, relative_end_time, global_start_time = data_list[pulse_idx][1][0], data_list[pulse_idx][1][1], data_list[pulse_idx][1][2]
+    sat_ID, pulse_channel_idx = data_list[pulse_idx][2][0], data_list[pulse_idx][2][1]
+    tle_path = data_list[pulse_idx][3]
+
+    #unpack from context list
+    visibility_window = context_list[0]
+    T_SPECTRA, v_acclen, v_nchunks = context_list[1], context_list[2], context_list[3]
+    ref_coords = context_list[4]
+
+    #---------------------------------------------------------------------------------
+
+
+    pulse_duration_sec = relative_end_time - relative_start_time
+    time_start = global_start_time + relative_start_time
+
+    #get delay with extension at the front, and large buffer at the back
+    d = outils.get_sat_delay_new(ref_coords, fit_coords, tle_path, time_start - extension, np.ceil(pulse_duration_sec + 10), sat_ID)
+
+    #add a couple chunks to ensure this is not shorter than the observed data length
+    pulse_duration_chunks = int(pulse_duration_sec / (T_SPECTRA * v_acclen)) + 5
+    pulse_freq = outils.chan2freq(pulse_channel_idx, alias=True)
+
+    #number of chunks we need to shift the interpolation array forward to match with the actual time_start zero (cancel out extension)
+    buffer_chunks = extension / ((v_acclen * T_SPECTRA))
+
+    #each entry represents a chunk index, but their value is in seconds that corresponds to that chunk in the d (delay) array
+    interp_chunk_times = (np.arange(buffer_chunks, pulse_duration_chunks + buffer_chunks) * v_acclen * T_SPECTRA) + ds
+
+    #get the delay values for each of these chunks
+    delay = np.interp(interp_chunk_times, np.arange(len(d)), d)
+
+    #get the predicted phase at each chunk
+    pred = (-delay + delay[0]) * 2 * np.pi * pulse_freq
+
+    print("time taken for one prediction", time.time() - start_time)
+
+    return pred
+
+
+
+
+
+
+
+
+
+
+
+
+#--------------------------------------------------RESIDUALS------------------------------
+
+def res_ind(coords, phase_pred, pulse_idx, data_list, context_list):
+    ''' 
+    Get residuals of only one specific pulse
+    '''
+    predicted = phase_pred(coords, 0, pulse_idx, data_list, context_list)
+    res = data_list[pulse_idx][4] - predicted
+    return res
+
+
+
+def res_ds(fit_coords, pred, ds, pulse_idx, data_list, context_list):
+
+    predicted = pred(fit_coords, ds, pulse_idx, data_list, context_list)[:len(data_list[pulse_idx][4])]
+    res = data_list[pulse_idx][4] - predicted
+
+    return res
+
+
+
+def res_all(coords, phase_pred, data_list, context_list, satdict = None):
+
     residuals_all = []
     for pulse_idx, data in enumerate(data_list):
-        
-        predicted = phase_pred(coords, pulse_idx, data_list, context_list)  
+
+        if satdict == None:
+            predicted = phase_pred(coords, 0, pulse_idx, data_list, context_list)[:len(data[4])]  
+        else:
+            predicted = phase_pred(coords, pulse_idx, data_list, context_list, satdict = satdict)[:len(data[4])]
+            
         res = data[4] - predicted
+        residuals_all.append(res.flatten())
+    return np.concatenate(residuals_all)
+
+
+def res_ds_all(fit_coords, ds, phase_pred_ds, data_list, context_list):
+
+    residuals_all = []
+    for p_idx, data in enumerate(data_list):
+
+        if isinstance(ds, numbers.Number):
+            predicted = pred(fit_coords, ds, p_idx, data_list, context_list)[:len(data[4])]
+        else:
+            predicted = pred(fit_coords, ds[p_idx], p_idx, data_list, context_list)[:len(data[4])]
+        res = data[4] - predicted
+        
         residuals_all.append(res.flatten())
 
     return np.concatenate(residuals_all)
 
 
 
-def fitting_all(initial_coordinates, phase_pred, data_list, context_list, method='trf'):
-    ''' 
-    Calls least squares to optimize antenna coordinates for every pulse
 
-    Inputs:
+def res_cov(coords, pred, data_list, context_list):
 
-    observed_data: list of (list of unwrapped phase data for a pulse) for each pulse in info_list
-    initial_coordinates: the initial guess of where the non-reference antenna is located
-    phase_pred: function that predicts the unwrapped phase depending on the non-ref antenna position
-    info_list : list with all pulse data, for each pulse we consider. this list is different for each baseline
-    context_list: list of relevant data we get from the config file. examples include the spectrum period and the accumulation length (aka integration time)
+    residuals_all = []
+    R_all = []
+    for pulse_idx, data in enumerate(data_list):
+        predicted = pred(coords, 0, pulse_idx, data_list, context_list)[:len(data[4])]  
+  
+        res = data[4] - predicted
+        residuals_all.append(res.flatten())
 
-
-    Outputs:
-
-    optimized_coordinates:  the fitted coordinates of the non-ref antenna
-    '''
-
-    result = least_squares(
-        lambda coords: residuals_all(coords, phase_pred, data_list, context_list),  # Pass a lambda that calls residuals
-        initial_coordinates,
-        method = method
-    )
-    optimized_coordinates = result.x
-    return optimized_coordinates, result
+        var = np.var(res, ddof=1)
+        R_ind = np.eye(len(res)) * var
+        R_all.append(R_ind)
+        
+    R = block_diag(*R_all)
+    
+    return np.concatenate(residuals_all), R
 
 
 
-def residuals_individual(coords, phase_pred, pulse_idx, data_list, context_list):
-    ''' 
-    Get residuals of only one specific pulse
-    '''
-    predicted = phase_pred(coords, pulse_idx, data_list, context_list)
-    res = data_list[pulse_idx][4] - predicted
-    return res
+def weighted_res(coords, pred, data_list, context_list):
+    coords = np.array(coords)
+    residuals = []
+
+    for pulse_idx, data in enumerate(data_list):
+        predicted = pred(coords, 0, pulse_idx, data_list, context_list)[:len(data[4])]
+        res = data[4] - predicted
+        std = np.std(res, ddof=1)  # standard deviation for whitening
+        res_weighted = res / std
+        residuals.append(res_weighted.flatten())
+
+    return np.concatenate(residuals)
 
 
-def fitting_individual(initial_coordinates, phase_pred, pulse_idx, data_list, context_list, method = 'trf'):
+
+
+
+
+
+
+
+#---------------------------------------FITTING--------------------------------------
+
+
+def fitting_individual(initial_coordinates, pred, pulse_idx, data_list, context_list, method = 'trf'):
     ''' 
     Calls least squares to optimize coordinates for one pulse only
     '''
     result = least_squares(
-        lambda coords: residuals_individual(coords, observed_data, phase_pred, pulse_idx, data_list, context_list), 
+        lambda coords: residuals_individual(coords, observed_data, pred, pulse_idx, data_list, context_list), 
         initial_coordinates,
         method = method
     )
@@ -155,36 +253,191 @@ def fitting_individual(initial_coordinates, phase_pred, pulse_idx, data_list, co
 
 
 
+def fit_ds(coords, pred, pulse_idx, data_list, context_list, method='trf'):
 
 
+    result = least_squares(
+        lambda ds: res_ds(coords, pred, ds, pulse_idx, data_list, context_list), 
+        0,
+        bounds=(-2.0, 2.0),
+        method = method
+    )
+    ds_fit = result.x
+    return ds_fit, result
+
+
+
+def fit_all(initial_coordinates, pred, data_list, context_list, method='trf', tle_path_list = None):
+
+    if tle_path_list == None:
+        
+        result = least_squares(
+            lambda coords: res_all(coords, pred, data_list, context_list),
+            initial_coordinates,
+            method = method
+        )
+
+    else:
+        satdict = {}
+        for tle_path in tle_path_list:
+            satdict[tle_path] = sf.load.tle_file(tle_path)
+
+        result = least_squares(
+            lambda coords: res_all(coords, pred, data_list, context_list, satdict = satdict),
+            initial_coordinates,
+            method = method
+        )
+
+
+    optimized_coordinates = result.x
+    return optimized_coordinates, result
+
+
+
+def fit_ds_all(initial_coords, pred, data_list, context_list, method='trf'):
+
+    ds_list = []
+    for pulse_idx, data in enumerate(data_list):
+        result = least_squares(
+            lambda ds: res_ds(initial_coords, pred, ds, pulse_idx, data_list, context_list), 
+            0,
+            bounds=(-2.0, 2.0),
+            method = method
+        )
+        ds_list.append(result.x)
+    return ds_list
+
+
+def fit_4p(initial_coords, pred, data_list, context_list, method='trf'):
+
+    n_pulses = len(data_list)
+    x0 = np.concatenate([initial_coords, np.zeros(n_pulses)])  # coords + N time offsets
+
+
+    #clever bounding thing that I cannot claim responsibility for
+    coord_bounds = ([-np.inf]*3, [np.inf]*3)
+    ds_bounds = ([-1.0]*n_pulses, [1.0]*n_pulses)
+
+    lower = coord_bounds[0] + ds_bounds[0]
+    upper = coord_bounds[1] + ds_bounds[1]
+
+    
+    result = least_squares(
+        lambda x: res_ds_all(x[:3], x[3:], pred, data_list, context_list),
+        x0,
+        bounds = (lower, upper),
+        method=method
+    )
+
+    return result.x[:3], result
+
+
+def fit_4p_fixed(initial_coords, pred, data_list, context_list, method='trf'):
+
+    x0 = np.zeros(4)
+    x0[:3] = initial_coords  # coords + single clock offset
+
+    bounds = (
+        [-np.inf, -np.inf, -np.inf, -5.0],  # lower
+        [ np.inf,  np.inf,  np.inf,  5.0],  # upper
+    )
+
+    result = least_squares(
+        lambda x: res_ds_all(x[:3], x[3], pred, data_list, context_list),
+        x0,
+        bounds = bounds,
+        method=method
+    )
+
+    return result.x, result
+
+
+def fit_given_offsets(initial_coords, pred, ds_list, data_list, context_list, method='trf'):
+
+    result = least_squares(
+            lambda coords: res_ds_all(coords, ds_list, pred, data_list, context_list),
+            initial_coords,
+            method = method
+        )
+
+    
+    optimized_coordinates = result.x
+    return optimized_coordinates, result
+
+
+
+
+
+def fit_cov(initial_coordinates, pred, data_list, context_list, method='trf'):
+
+    initial_coordinates = np.array(initial_coordinates)
+
+
+
+    result = least_squares(
+        fun = whitened_res,
+        x0 = initial_coordinates,
+        args=(pred, data_list, context_list)
+        )
+
+    optimized_coordinates = result.x
+
+    final_residuals, final_cov_matrix = res_cov(optimized_coordinates, pred, data_list, context_list)
+
+    return optimized_coordinates, final_cov_matrix
+
+
+
+
+
+
+
+
+
+
+
+
+
+#-------------------------------INTERPOLATION FOR 1BIT--------------------------
+
+
+def interp_rect(vis):
+
+    #interpolates rectangular form
+    t = np.arange(len(vis))
+    valid = ~vis.mask
+
+    real_interp = interp1d(t[valid], vis[valid].real, kind='linear', fill_value="extrapolate")
+    imag_interp = interp1d(t[valid], vis[valid].imag, kind='linear', fill_value="extrapolate")
+    
+    vis_interp = real_interp(t) + 1j * imag_interp(t) 
+    return vis_interp  
+
+
+
+def interp_polar(vis):
+
+    #interpolates phase and magnitude, so in polar form
+    t = np.arange(len(vis))
+    valid = ~(np.isnan(vis.real) | np.isnan(vis.imag))
+    amps = np.abs(vis)
+    phases = np.angle(vis)
+
+    amp_interp = interp1d(t[valid], amps[valid], kind='linear', fill_value="extrapolate")
+
+    phase_unwrapped = np.unwrap(phases[valid])
+    phase_interp = interp1d(t[valid], phase_unwrapped, kind='linear', fill_value="extrapolate")
+
+    interp_amp = amp_interp(t)
+    interp_phase = phase_interp(t)
+    vis_interp = interp_amp * np.exp(1j * interp_phase)
+
+    return vis_interp
 
 
 
 
 #---------auxilary stuff---------
-
-
-def distance_calculator(coord1, coord2):
-    ''' 
-    Returns the actual physical distance between two coordinates. 
-    Seperates the superficial component (latitude and longitude) and the altitude component into two seperate measurements
-    '''
-
-    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
-    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
-
-    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
-
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
-
-    c = 2 * np.arcsin(np.sqrt(a))
-    meters_flat = 6367 * c *1000
-    meters_alt = np.abs(alt1-alt2)
-
-    return float(meters_flat), float(meters_alt)
 
 
 def dist_components(coord1, coord2):
@@ -205,11 +458,11 @@ def dist_components(coord1, coord2):
     # Differences in degrees
     delta_lat_deg = lat2 - lat1
     delta_lon_deg = lon2 - lon1
-    delta_alt = alt2 - alt1  # already in meters
+    delta_alt = float(alt2 - alt1)  # already in meters
 
     # Convert angular differences to meters
-    delta_lat_m = delta_lat_deg * meters_per_deg_lat
-    delta_lon_m = delta_lon_deg * meters_per_deg_lon
+    delta_lat_m = float(delta_lat_deg * meters_per_deg_lat)
+    delta_lon_m = float(delta_lon_deg * meters_per_deg_lon)
 
     return delta_lat_m, delta_lon_m, delta_alt
 
@@ -305,7 +558,36 @@ def satpass_plotter(info_list, obscoords, step_seconds=5, hard_list = [28654, 25
             good_handles.append(handles[i])
     ax.legend(good_handles, good_labels)
     
-    plt.show()
+    return fig
+
+
+
+def make_coord_plot(initial_coordinate, tuple_list, title):
+
+    labels = ['guess']
+    lats = [0]
+    lons = [0]
+
+    for pair in tuple_list:
+        labels.append(pair[0])
+        lat_delta, lon_delta = dist_components(initial_coordinate, pair[1])[:2]
+        lats.append(lat_delta)
+        lons.append(lon_delta)
+
+    fig, ax = plt.subplots()
+
+    ax.scatter(lons, lats)
+
+    for lon, lat, label in zip(lons, lats, labels):
+        ax.text(lon, lat, label, fontsize=9, ha='right')
+
+    ax.set_title(title)
+    ax.set_xlabel("Delta meters lon direction")
+    ax.set_ylabel("Delta meters lat direction")
+    ax.grid(True)
+
+    return fig
+
 
 
 
@@ -332,6 +614,31 @@ def make_fuzzed_coords(initial_guess, meters=10, reps=5):
         random_coords.append([new_lat, new_lon, new_alt])
 
     return random_coords
+
+
+
+def add_to_json(day, bline, fits, path_to_json):
+    #this loop is smth I looked up to make sure the json exists and is in the form we want
+    if os.path.exists(path_to_json):
+        with open(path_to_json, 'r') as f:
+            try:
+                all_data = json.load(f)
+                if not isinstance(all_data, dict):
+                    raise ValueError("not a dict")
+            except json.JSONDecodeError:
+                all_data = {}
+    else:
+        all_data = {}
+
+    
+    if day not in all_data:
+        all_data[day] = {}
+
+    all_data[day][f'bline{bline}'] = fits
+
+    with open(path_to_json, 'w') as f:
+        json.dump(all_data, f, indent=4)
+
 
 
 
@@ -382,7 +689,13 @@ def avg_xcorr_4bit_2ant_float(pol0,pol1,specnum0,specnum1,idxstart0,idxstart1,de
 
 
 
-#--------misc/old-------
+
+
+
+
+
+
+#---------------------------OLD AND MISC---------------------
 
 def fitting_latlon_only(observed_data, initial_coordinates, phase_pred, info_list, context_list, method='trf'):
     """
@@ -406,26 +719,57 @@ def fitting_latlon_only(observed_data, initial_coordinates, phase_pred, info_lis
     return optimized_coordinates, result
 
 
-def fitting_all_with_offsets(initial_coords, phase_pred, data_list, context_list, method='trf'):
-    n_pulses = len(data_list)
-    x0 = np.concatenate([initial_coords, np.zeros(n_pulses)])  # coords + N offsets
-
-    result = least_squares(
-        lambda x: residuals_with_offsets(x[:3], x[3:], phase_pred, data_list, context_list),
-        x0,
-        method=method
-    )
-    return result.x[:3], result
 
 
-def residuals_with_offsets(coords, offsets, phase_pred, data_list, context_list):
+def get_std_meters(fit, predictor, data_list, context_list, satdict = None):
+
+    meta = fit[1]
+
+    jacobian = meta.jac  
+
+    res, R = res_cov(fit[0], phase_pred, data_list, context_list, satdict = satdict)
+    
+    cov_matrix = inv(jacobian.T @ R @ jacobian)
+
+    param_errors = np.sqrt(np.diag(cov_matrix))
+
+    print("Parameter uncertainties:", param_errors) 
+
+
+
+def res_offsets(coords, offsets, phase_pred, data_list, context_list, satdict = None):
     residuals = []
     for i, obs in enumerate(data_list):
-        pred = phase_pred(coords, i, data_list, context_list)
+        if satdict == None:
+            pred = phase_pred(coords, i, data_list, context_list, satdict=satdict)
+        else:
+            pred = phase_pred(coords, i, data_list, context_list, satdict=satdict)
+
         phase_res = obs[4] - (pred + offsets[i])
         residuals.append(phase_res)
     return np.concatenate(residuals)
 
+def fit_offsets(initial_coords, phase_pred, data_list, context_list, method='trf', tle_path_list = None):
 
+    n_pulses = len(data_list)
+    x0 = np.concatenate([initial_coords, np.zeros(n_pulses)])  # coords + N offsets
 
+    if tle_path_list == None:
+        result = least_squares(
+            lambda x: residuals_with_offsets(x[:3], x[3:], phase_pred, data_list, context_list),
+            x0,
+            method=method
+        )
 
+    else:
+        satdict = {}
+        for tle_path in tle_path_list:
+            satdict[tle_path] = sf.load.tle_file(tle_path)
+
+        result = least_squares(
+            lambda x: residuals_with_offsets(x[:3], x[3:], phase_pred, data_list, context_list, satdict=satdict),
+            x0,
+            method=method
+        )
+
+    return result.x[:3], result
