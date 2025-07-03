@@ -1,0 +1,80 @@
+\documentclass[12pt, openany]{book}
+
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{wrapfig}
+\usepackage{cancel}
+\usepackage{fancyhdr}
+\usepackage{siunitx}
+\usepackage{float} 
+\usepackage{subcaption}
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {\chaptername\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-10pt}{20pt}
+\usepackage[margin=1in]{geometry}
+
+\setlength{\oddsidemargin}{0.025in}
+\setlength{\evensidemargin}{0.025in}
+\setlength{\textwidth}{6.75in}
+\setlength{\topmargin}{0.0in}
+\setlength{\textheight}{8.5in}
+\setlength{\headheight}{0.25in}
+\setlength{\headsep}{0.25in}
+\setlength{\topskip}{0.0in}
+\setcounter{tocdepth}{3}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}  
+
+\title{Albatros Pipeline \\(tentative)}
+
+\author{Thomas Jamieson Bolder}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Introduction}
+
+
+This paper aims to be a resource of informal, high-level documentation on the data analysis pipeline of the ALBATROS low-frequency radio interferometry project. 
+It should facilitate outside understanding of the project, whilst providing a solid framework for internal structuring.
+This paper is written by a third-year undergraduate in Mathematics and Physics, meaning the level of technical sophistication is reasonably surface-level. 
+The author, although having contributed to the project, in no way claims full responsibility for the work outlined here. 
+
+Figure~\ref{fig:project_flow} outlines the general data flow of the overall pipeline.
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{Figures/project_flow.jpeg}
+    \caption{Overall pipeline data flow. Data is in green, whereas processes are in blue.}
+    \label{fig:project_flow}
+\end{figure}
+
+%add colour and info also. 
+
+
+
+\input{Sections/antenna}
+\input{Sections/channelization}
+\input{Sections/baseband}
+\input{Sections/timing}
+\input{Sections/baseline_calibration}
+\input{Sections/fine_timing}
+
+
+
+
+\end{document}

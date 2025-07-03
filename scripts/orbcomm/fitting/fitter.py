@@ -15,7 +15,7 @@ from src.utils import orbcomm_utils as outils
 import json
 import argparse
 from scipy.optimize import least_squares
-import cord_helper as ch
+import extra_functions as ef
 import h5py
 import numbers
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "day",
         type = str, 
-        default = "mars_2024_ant1_day1/vis_all_1721800002.h5"
+        default = "07_11"
     )
 
     parser.add_argument(
@@ -101,7 +101,7 @@ with h5py.File(f'{working_directory}/{bits}bit/{day}/vis_selected_bline_{baselin
     for p in f:
         pulse_info = []
         pulse_info.append(p)
-        pulse_info.append([int(f[p].attrs['start_time']), int(f[p].attrs['end_time']), int(f[p].attrs['global_start_time'])])
+        pulse_info.append([f[p].attrs['start_time'], f[p].attrs['end_time'], int(f[p].attrs['global_start_time'])])
         pulse_info.append([int(f[p].attrs['sat']), int(f[p].attrs['chan'])])
         pulse_info.append(f[p].attrs['tle_path'])
         pulse_info.append(f[f'/{p}'][:])
@@ -123,7 +123,7 @@ if args.debug:
     fig.suptitle(f"Before Fitting")
     for pulse_idx in range(len(observed_data)):
         print(pulse_idx)
-        predicted_data = ch.pred(a2_coords, 0, pulse_idx, info, context)
+        predicted_data = ef.pred(a2_coords, 0, pulse_idx, info, context)
         ax[pulse_idx].set_title(f"Pulse Idx {pulse_idx}")
         ax[pulse_idx].plot(observed_data[pulse_idx])
         ax[pulse_idx].plot(predicted_data)
@@ -132,39 +132,25 @@ if args.debug:
     print(path.join(out_path,f"prefit_plot_coordfit_{global_start_time}.jpg"))
 
 
-    fig = ch.satpass_plotter(pulse_list, coords[baseline])
+    fig = ef.satpass_plotter(pulse_list, coords[baseline])
     fig.savefig(f'satpass_{day}_bline{baseline}')
 
 
-
 print("--------------------SOLID-----------------")
-solid = ch.solid_fit(coords[baseline], 0, ch.pred, pulse_list, context)
+solid = ef.solid_irls(coords[baseline], 0, ef.pred, pulse_list, context, iterations = 10)
 
 print("--------------------JOINT-----------------")
-joint = ch.joint_fit(coords[baseline], ch.pred, pulse_list, context)
-
-print("-------------------GET DTS----------------")
-dts1 = ch.offset_fit(solid[0], ch.pred, pulse_list, context)
-
-print("-------------------SPLIT 1----------------")
-split1 = ch.solid_fit(solid[0], dts1, ch.pred, pulse_list, context)
-
-print("-------------------SPLIT 2----------------")
-dts2 = ch.offset_fit(split1[0], ch.pred, pulse_list, context)
-split2 = ch.solid_fit(split1[0], dts2, ch.pred, pulse_list, context)
-
+joint = ef.joint_irls(coords[baseline], ef.pred, pulse_list, context, iterations = 0)
 
 
 fits = {}
-fits['solid'] = solid[0].tolist()
-fits['joint'] = joint[0].tolist()
-fits['split1'] = split1[0].tolist()
-fits['split2'] = split2[0].tolist()
+fits['solid'] = solid.tolist()
+fits['joint'] = joint.tolist()
 
 
-path_to_json = f'{working_directory}/{bits}bit/coords_v2.json'
+path_to_json = f'{working_directory}/{bits}bit/coords_v3.json'
 
-ch.add_to_json(day, baseline, fits, path_to_json)
+ef.add_to_json(day, baseline, fits, path_to_json)
 
 
 

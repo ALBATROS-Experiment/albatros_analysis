@@ -30,7 +30,7 @@ import numbers
 #--------------------------------PHASE PREDICTORS------------------------
 
 
-def phase_pred(fit_coords, pulse_idx, data_list, context_list, satdict = None):
+def phase_pred(fit_coords, dt, pulse_idx, data_list, context_list, satdict = None):
 
     '''
     gives a predicted phase, with no time offsets
@@ -234,8 +234,6 @@ def weighted_res(coords, pred, data_list, context_list):
 
 
 
-
-
 #---------------------------------------FITTING--------------------------------------
 
 
@@ -372,10 +370,8 @@ def fit_cov(initial_coordinates, pred, data_list, context_list, method='trf'):
 
     initial_coordinates = np.array(initial_coordinates)
 
-
-
     result = least_squares(
-        fun = whitened_res,
+        fun = weighted_res,
         x0 = initial_coordinates,
         args=(pred, data_list, context_list)
         )
@@ -385,11 +381,6 @@ def fit_cov(initial_coordinates, pred, data_list, context_list, method='trf'):
     final_residuals, final_cov_matrix = res_cov(optimized_coordinates, pred, data_list, context_list)
 
     return optimized_coordinates, final_cov_matrix
-
-
-
-
-
 
 
 

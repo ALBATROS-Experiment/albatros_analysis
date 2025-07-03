@@ -39,7 +39,6 @@ def pred(fit_coords, ds, pulse_idx, data_list, context_list, zeroing = True):
     assert isinstance(zeroing, bool), "zeroing gotta be true/false"
 
     extension = 6
-    
     start_time = time.time()
 
     #unpack from info list 
@@ -59,9 +58,8 @@ def pred(fit_coords, ds, pulse_idx, data_list, context_list, zeroing = True):
     time_start = global_start_time + relative_start_time
 
     #get delay with extension at the front, and large buffer at the back
-    print('ref_coords', ref_coords)
-    print('fit coords', fit_coords)
-    d = outils.get_sat_delay_new(ref_coords, fit_coords, tle_path, time_start - extension, np.ceil(pulse_duration_sec + 10), sat_ID)
+
+    d = outils.get_sat_delay_new(ref_coords, fit_coords, tle_path, time_start - extension, np.ceil(pulse_duration_sec + 2*extension), sat_ID)
 
     #add a couple chunks to ensure this is not shorter than the observed data length
     pulse_duration_chunks = int(pulse_duration_sec / (T_SPECTRA * v_acclen)) + 5
@@ -143,11 +141,14 @@ def std_res_all(guess_coords, dt_list, pred, data_list, context_list, zeroing = 
     res_all = []
     for pulse_idx, data in enumerate(data_list):
 
-        
+        #add zeroing back??
+
         if isinstance(dt_list, (list, np.ndarray)):
-            predicted = pred(guess_coords, dt_list[pulse_idx], pulse_idx, data_list, context_list, zeroing = zeroing)[:len(data[4])]
+            predicted = pred(guess_coords, dt_list[pulse_idx], pulse_idx, data_list, context_list)[:len(data[4])]
         elif np.isscalar(dt_list) and dt_list == 0:
-            predicted = pred(guess_coords, 0, pulse_idx, data_list, context_list, zeroing = zeroing)[:len(data[4])]
+            predicted = pred(guess_coords, 0, pulse_idx, data_list, context_list)[:len(data[4])]
+
+        assert predicted.shape == data[4].shape
 
         res = data[4] - predicted
         std = np.std(res, ddof=1) 
@@ -202,29 +203,28 @@ def get_res_and_cov_blockwise(coords, dt_list, pred, data_list, context_list):
 #if I want it to be streamlined. so if I feed in 
 
 
-def solid_fit(initial_coordinates, dt_list, pred, data_list, context_list, weight_type = 'std'):
+def solid_fit(initial_coordinates, dt_list, pred, data_list, context_list):
     '''fits for coordinates only, optionally given a certain per-pulse time offset
     if you want no dt time offsets, just set it to zero'''
 
     initial_coordinates = np.array(initial_coordinates)
 
-    if weight_type == 'std':
-        fit = least_squares(
-            fun = std_res_all,
-            x0 = initial_coordinates,
-            args=(dt_list, pred, data_list, context_list)
-            )
+    fit = least_squares(
+        fun = std_res_all,
+        x0 = initial_coordinates,
+        args=(dt_list, pred, data_list, context_list)
+        )
 
-        #this part is a little sketchy so double check
-        R, S = get_res_and_cov_blockwise(fit.x, dt_list, pred, data_list, context_list)
-        
+    #this part is a little sketchy so double check
+    R, S = get_res_and_cov_blockwise(fit.x, dt_list, pred, data_list, context_list)
+    
 
     J = fit.jac
 
-    print(J.shape)
-    print(S.shape)
     param_S = inv(J.T @ S @ J)
     param_err = np.sqrt(np.diag(param_S))
+
+    print("DONE")
 
     return fit.x, param_err
 

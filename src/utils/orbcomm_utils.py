@@ -618,6 +618,9 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
 
 
 def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False):
+
+    program_start = time.time()
+
     obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
     obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
@@ -658,12 +661,16 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False
         tt += 1
     if altaz:
         return sim_delay, altaz1, altaz2
+
+    print('one delay prediction:', time.time() - program_start)
     return sim_delay
 
 
 def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnorad, altaz=False):
     from skyfield.api import wgs84, load
     import numpy as np
+
+    program_start = time.time()
 
     c = 299792458 
 
@@ -704,6 +711,7 @@ def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnor
         altaz2 = np.stack([alt2.degrees, az2.degrees], axis=1)
         return sim_delay, altaz1, altaz2
 
+    print("time for one delay pred:", time.time() - program_start)
     return sim_delay
 
 
