@@ -72,56 +72,42 @@ Thus, the signal measured in the Antenna 1 timestream is $E_1 (t) = E_0 e^{2 \pi
 Our objective here is to find $\tau_c(t)$ given our knowledge of $\tau_g$ (which is easily derived from the satellite's position).
 The general idea is removing $\tau_g$ by applying a phase to $E_1$, and then performing a coarse cross-correlation with 
 several different spectrum number offsets. 
+We are essentially beamforming our antenna towards the expected direction of the satellite, and searching for a signal response. 
 The maximal absolute value of the coarse cross-correlation will be attained at the correct offset, as seen below:
 
 \begin{eqnarray}
     (E_0*E_1)(\tau) &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) E_1^*(t+\tau) dt, \\\nonumber
-    &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) \left[ E_0(t+\tau) e^{-2\pi i \nu_0 \tau_g(t) } \right]^* , \\\nonumber
-    &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) \left[ E_0(t + \tau_c) \right]^*
+    &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) {\left[ E_0(t+\tau) e^{-2\pi i \nu_0 \tau_g(t) + \tau_c(t)} e^{-2\pi i \nu_0 \tau_g(t) } \right]}^* , \\\nonumber
+    &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) {\left[ E_0(t + \tau + \tau_c) \right]}^ *, \\\nonumber
+    &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t)  E_0^*(t + \tau + \tau_c)
 \end{eqnarray}
+Clearly, if $\tau = \tau_c$, we expect the maximal value of the absolute value of the integral, as $E_0$ is correlated with itself. 
+It is important to note that we assume both $\tau_c(t)$ and $\tau_g(t)$ remain constant over the course of the cross-correlation.
+In general, this holds as the accumulation length $t_{\text{acc}}$ is much smaller than the period of the phasor $e^{2\pi i \nu_0 \tau_g(t)}$.
 
-This implies that the clock delay is found as the input of the maximum of the convolution of the two signals.
-This is a relatively rudimentary analysis of how this is done, a more detailed version is found in Mohan's notes
-on the coarse cross correlation. 
-
-
-We are assuming that the geometric time delay does not change significantly over the course of the convolution.
-This is true as the accumulation length $t_{\text{acc}}$ is much smaller than the period of the phasor $e^{2\pi i \nu_0 \tau_g(t)}$.
-Also expressed as sayng the spectrum interval is smaller than a period of the fringe phase.
+This approach is a significant simplification of the method far better explained in a document by Mohan Agrawal, found here XX. 
 
  
-As a conceptual sidenote, when first approaching this derivation one can wonder: 
-$\tau_g(t)$ is order 100ns, and a spectrum is about 16 $\mu s$, so how in the world does such a small shift make a difference? 
-You remove add a phase which compensates for this path difference. 
-This is easily computable given the TIME difference, the ANGLE difference is then just $e^{2 i \pi f \tau_g}$ or something like that. 
-So that lets you get a clean lineup between the two antenna datastreams. 
-Once you get a clean lineup, I think you basically pretend that the antenna are "pointing in the same direction", 
-i.e. are sensitive to signals from that exact direction (or at least with that same phase offset).  
-Then can get a super nice SNR to get the offset of specnums. I think this is what's called a beamformed visibility.
+As an aside, it is easy to confuse the application of a geometric delay (order 100ns) as being insignificant to a single spectrum
+offset (order 16 $\mu s$).
+So, why would the removal of 100ns affect a measurement made by shifting in units of 16 $\mu s$?
+The geometric delay is better thought of as a phase which compensates for this path difference.
+We can easily find the signal arrival's time difference between the antenna, which can be turned into the angle difference
+$e^{2 i \pi f \tau_g}$ between the two antenna.
+This angle compensation is akin to tilting the (so to say) direction of focus of the antenna.
 
-
-
-%call the total offset the relative spectrum number offset, and the number we get from the cx the correlation offset. 
-%these are different numbers but reasonably subtle.
-
-
-Beware! In the previous section, we work in phase delay. 
-Now, we identify the peak with the spectrum number offset, as you take the DFT to get the power spectrum with a time offset. 
-WITH the above section, you use $\tau = \tau_g + \tau_c$ and actually remove the $\tau_g$ part. 
-The coarse xcorr should give you the last part, the clock ($\tau_c$) offset. 
+It is also important to consider that this derivation only holds for the narrowband limit, since a real signal
+contains many frequencies. 
+Offsets are not quite as simply added for such layered signals.
 
 
 
 \section{Practical Implementation}
 
-Must use a discrete coarse cross-correlation.
+\subsection{Nomenclature}
 
-%Justify why satellies are a good idea here, and fit the description of the method I outlined above.
-
-A large part of the efficacy of this method relies on accurate and reliable information on the satellites' 
-exact coordinates at all points in time. 
-This does two things. First, it allows us to know what satellites are risen and when.
-
+Before any correlation can be done, we require accurate and reliable satellite position information. 
+The first step of detection is knowing what satellites the antenna can see.
 If we know that a satellite is in the field of view of the antenna, we say it is \textbf{risen}. 
 The duration over which this satellite is risen is referred to as a \textbf{pass}. 
 However, not all risen satellites are visible in the satellite data. 
@@ -130,35 +116,55 @@ and the duration of time it is risen is a \textbf{pulse}, since we observe a pea
 Our analysis therefore starts with a long list of risen satellites, with their pass times and satellite ID. 
 We aim to detect these. 
 
-Secondly, the TLE files allow us to calculate the geometric delay between the antenna using this TLE file data. 
-Applying the expected geometric offset of the satellite pulse to one of the antenna improves the signal strength 
-received in the coarse cross correlation. 
+Next, TLE files allow us to calculate the geometric delay between the antenna using this TLE file data.
 Moreover, if there are multiple satellites present in the pass, applying the different expected geometric delays helps 
-differentiate between them. 
-Therefore, our analysis resumes by finding the antenna data for the approximate time of the pass taking one appropriately 
-sized chunk from each antenna, and applying the appropriate phase to one of the steams before correlation. 
+differentiate between them.
 
-We now have one chunk of data, at a time where we know the satellite should be visible, with the appropriate expected phase applied. 
-Before continuing, we resolve a couple intricacies of this approach.
-
-\begin{itemize}
-\item well why does the geometric delay play such a large role if it's so much smaller (time delay) than the actual length of a spectrum number? Because it's a complex number, so a delay is just applying a phase change. Way more conceptual understanding to develop earlier to then have this make sense
-\item if we don't know the time, how can you then know when to apply what offset and where? This is unresolved in my head, but I suspect that it doesn't matter too much, and that in fact just the ballpark changes the result quite a lot since the time it takes for the satellite to go through a full $2\pi$ phase change is way larger than the error in time. Might be wrong, and certainly worth looking into.
-\end{itemize}
+Thus, we can find a period of data where we know a satellite is risen, and know exactly what the geometric delay is at that time.
 
 
+\subsection{Discrete Computation}
+
+In practice, spectrum number alignment is done by discrete coarse cross correlation.
+We take a chunk of $10^6$ spectra, and consider the central XXXXX spectra.
+Since we are shifting the data, we need a buffer such that we don't run out of data for the offset timestream.
+We shift the two timestreams by up to 100 000 spectra in either direction, each time correlating these XXXX spectra.
+Thus, we end up with 200 001 different correlations (where the extra correlation comes from the zero-offset),
+each corresponding to a different spectrum number offset.
+Below is the discrete version of one single such correlation, for spectrum number offset k.
+
+\begin{eqnarray}
+    (E_0*E_1)(k) &=& \sum_{n=-N}^N E_0[k]E_1^*[n+k]
+\end{eqnarray}
+
+Here $N$ is the maximum spectrum offset we will go to, so $N=100000$. 
+Figure~\ref{fig:sat_cxcorr_example} shows an example of such a coarse cross-correlation.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{Figures/american_1.jpeg}
+    \caption{A typical cross-correlation for a satellite pass. The x-axis indices are actually -100000 to 100000, 
+    matplotlib has just indexed them with natural numbers. The title gives the correlation offset index, 86568, which corresponds to 
+    a spectrum number offset of -13432} 
+    \label{fig:sat_cxcorr_example}
+\end{figure}
+
+There is a clear peak, but as we will later see, this peak may be ambiguous.
+Moreover, it is important to realize the spectrum number offset between the antenna, -13432, gives the difference between expected
+and measured antenna spectra. 
+However, the actual global indices of the antenna are different, and must be adjusted by this value.
+For example, let's say the baseband data tells us that at 4pm, Antenna 0 is at spectrum 100000, Antenna 1 is at spectrum 200000, 
+and we found an offset of -13432. 
+Our convention is that offsets are Ant0 - Ant1, so we know the adjusted global spectrum number offset is 113432.
 
 
 \section{Analyzing Pulses}
 
-We now do a coarse cross-correlation for this chunk. We obtain this type of plot:
-
-%usual image of a russian satellite
-
-The convention is that 100'000 is a zero spectrum number offset. Clearly we see a peak at a specific correlation offset, which implies the initial spectrum number offset was wrong by that much, which implies the relative spectrum number offset is (initial - relative). 
-
-However, not all plots look like this. There are russian satellites and american satellites, and have reliable or unreliable peaks. Can differentiate between them using what we call a \textbf{reliability ratio}. A crude but effective way of measuring if a satellite pulse can confidently tell us the offset. 
-
+Unfortunately, not all pulses are born equal. 
+It turns out that US NORAD satellites have ambiguous peaks, making the spectrum number offset alignment a relatively noisy 
+value when considering multiple pulses.
+Figure~\ref{fig:american_sats} shows a typical American satellite pulse.
 
 
 \begin{figure}[H]
@@ -178,8 +184,10 @@ However, not all plots look like this. There are russian satellites and american
     \label{fig:american_sats}
 \end{figure}
 
+At high resolution, the peak consists of several smaller, sharp peaks. This means the offset can often get confused.
 
-Talk about this for a bit, then move to next:
+Fortunately, Russian satellites have a strong and distinct pulse in the coarse cross correlation, as seen in Figure~\ref{fig:russian_sats}.
+
 
 %\begin{figure}[H]
 %    \centering
@@ -197,13 +205,17 @@ Talk about this for a bit, then move to next:
 %    \caption{A usual Russian satellite pulse. Left is most zoomed out, right is most zoomed in. Can see the sharp peak.}
 %    \label{fig:three_images}
 %\end{figure}
+ 
+Clearly, such Russian peaks are far better for spectrum number alignment.
+We can differentiate between them using what we call a \textbf{reliability ratio}.
+This crude but effective method provides a measure of the sharpness of the peak.
+It zooms into the closest 200 spectra from the main peak and finds the position of the five next-tallest peaks.
+It then find the mean (normalized) difference between the main peak and the other next-tallest peaks.
+If this value is high, then there are likely other similarly sized peaks bunched together, indicating an American-style pulse.
+If this value if low, then there is only a single dominant peak, and we can trust the offset value it provides.
+The reliability ratio is recorded alongside all other pulse information in the detection process.
 
 
-Important to record all pulses and their times for later visibility correction. Will get to that later. 
-
-
-
-%Visibility plot directly from the baseband data
 
 
 
