@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021 Gentoo Linux) (preloaded format=pdflatex 2023.8.23)  3 JUL 2025 16:16
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021 Gentoo Linux) (preloaded format=pdflatex 2023.8.23)  4 JUL 2025 10:53
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -504,11 +504,11 @@ Chapter 4.
 
 ]
 Chapter 5.
-<Figures/offset_diagram.jpg, id=160, 615.4995pt x 348.1005pt>
+<Figures/offset_diagram.jpg, id=160, 596.4684pt x 326.1786pt>
 File: Figures/offset_diagram.jpg Graphic file (type jpg)
 <use Figures/offset_diagram.jpg>
 Package pdftex.def Info: Figures/offset_diagram.jpg  used on input line 21.
-(pdftex.def)             Requested size: 341.47424pt x 193.129pt.
+(pdftex.def)             Requested size: 341.47424pt x 186.73996pt.
 [7
 
  <./Figures/offset_diagram.jpg>]
@@ -521,17 +521,17 @@ Package pdftex.def Info: Figures/sat_det_plot.jpg  used on input line 49.
 <Figures/american_1.jpeg, id=190, 531.9875pt x 344.28625pt>
 File: Figures/american_1.jpeg Graphic file (type jpg)
 <use Figures/american_1.jpeg>
-Package pdftex.def Info: Figures/american_1.jpeg  used on input line 168.
+Package pdftex.def Info: Figures/american_1.jpeg  used on input line 167.
 (pdftex.def)             Requested size: 146.34824pt x 94.7079pt.
 <Figures/american_2.jpeg, id=191, 531.9875pt x 344.28625pt>
 File: Figures/american_2.jpeg Graphic file (type jpg)
 <use Figures/american_2.jpeg>
-Package pdftex.def Info: Figures/american_2.jpeg  used on input line 172.
+Package pdftex.def Info: Figures/american_2.jpeg  used on input line 171.
 (pdftex.def)             Requested size: 146.34824pt x 94.7079pt.
 <Figures/american_3.jpeg, id=192, 976.64874pt x 706.64pt>
 File: Figures/american_3.jpeg Graphic file (type jpg)
 <use Figures/american_3.jpeg>
-Package pdftex.def Info: Figures/american_3.jpeg  used on input line 176.
+Package pdftex.def Info: Figures/american_3.jpeg  used on input line 175.
 (pdftex.def)             Requested size: 146.34824pt x 105.88359pt.
  [10]) (./Sections/baseline_calibration.tex [11 <./Figures/american_1.jpeg> <./Figures/american_2.jpeg> <./Figures/american_3.jpeg>]
 Chapter 6.
@@ -648,7 +648,7 @@ Here is how much of TeX's memory you used:
  36 hyphenation exceptions out of 8191
  71i,12n,75p,877b,748s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}</cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmti12.pfb></cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb>
-Output written on main.pdf (21 pages, 3725769 bytes).
+Output written on main.pdf (21 pages, 3599557 bytes).
 PDF statistics:
  345 PDF objects out of 1000 (max. 8388607)
  289 compressed objects within 3 object streams

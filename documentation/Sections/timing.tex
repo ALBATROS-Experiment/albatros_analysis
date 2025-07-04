@@ -24,12 +24,12 @@ Figure~\ref{fig:offset_diagram} illustrates this visually.
 \end{figure}
 Note that in this case, the exact observer time loses its significance, since all we really care about is the 
 alignment between timestreams. 
-This game of finding the spectrum index offset between antenna timestreams is called "spectrum number alignment".
+We call this game of finding the spectrum index offset between antenna timestreams "spectrum number alignment".
 
 
 As a side note, since spectra have some finite duration (about 16 $\mu s$ in our case), we cannot align the datastreams
 to an infinite level of precision, rather simply to the closest spectrum number integer.  
-However, it gives an excellent approximation of the clock offset, and will lead us into 
+Despite lacking perfect accuracy, it gives an excellent approximation of the clock offset, leading us into 
 more precise corrections later in the analysis (see Chapter~\ref{chap:fine_timing}).
 
 
@@ -51,29 +51,28 @@ Figure~\ref{fig:sat_pulse}   Let us visualize what a satellite pass looks like f
     \label{fig:sat_pulse}
 \end{figure}
 
-Consider a very strong satellite signal at frequency channel $\nu_0$, in direction $\vec{s_0}$. 
-Let us assume that the incoming wave is flat, i.e. let us apply the flat sky approximation.
-In the interest of theoretical understanding, let us also assume the satellite signal is
-far brighter than anything else the antenna sees.
-Thus, we let the sky brightness function $I(\nu, \vec{s})$ be a delta function in the satellite's direction $\vec{s_0}$ 
+Consider a very strong narrowband satellite signal at frequency channel $\nu_0$, in direction $\vec{s_0}$. 
+Let us apply the flat sky approximation.
+Let us also assume the satellite signal is far brighter than anything else the antenna sees,
+such that the sky brightness function $I(\nu, \vec{s})$ is a delta function in the satellite's direction $\vec{s_0}$ 
 and at its frequency $\nu_0$. 
 We make no assumption on the brightness function in other channels.
 Moreover, we also assume the antenna response is uniform.
 
 
-Let's assume the electric field measured by Antenna 0 is $E_0 (t) = a(t) e ^{2 \pi i \nu_0 t}$. 
-Let's also assume that at a given time t, the total delay between arriving at Antenna 0 and Antenna 1 
-for any given wavefront is $\tau(t)$. 
-Thus, the signal measured at Antenna 1 is $E_1 (t) = E_0 e^{2 \pi i \nu_0 \tau(t)}$. 
-This delay takes into account the datastream offset ($\tau_c$), as well as a geometrically generated
-offset ($\tau_g$) we can see in Figure~\ref{fig:sat_pulse}. 
-The total delay, as expected, is given as the sum of geometric delay and clock delay: $\tau(t) = \tau_c(t) + \tau_g(t)$. 
+Let's assume the electric field measured by Antenna 0 is a function of time, $E_0 (t) = a(t) e ^{2 \pi i \nu_0 t}$. 
+As we can see in Figure~\ref{fig:sat_pulse}, there is a geometric delay ($\tau_g(t)$)
+between the signal arriving at Antenna 0 and Antenna 1, caused by the angle of the satellite in the sky.
+Note that $\tau_g(t)$ is a function of time as the satellite's position changes over the duration of its pulse. 
+We let the clock offset between the antenna timestreams be $\tau_c(t)$, such that for the satellite signal, 
+the total offset between the antenna data streams is $\tau(t) = \tau_c(t) + \tau_g(t)$.
+Thus, the signal measured in the Antenna 1 timestream is $E_1 (t) = E_0 e^{2 \pi i \nu_0 \tau(t)}$. 
 
-Our objective here is to find $\tau_c(t)$ given our knowledge of $\tau_g$ (easily derived from the satellite's position).
-The general idea is to remove the known geometric delay by applying a phase to one of the timestreams. 
-Thus, we correct the second antenna timestream such that $E_1(t) = E_0 -e^ {2 \pi i \nu_0 \tau_g(t)}$
-We beamform in the suspected direction of a
-satellite pulse, and try several time delays. 
+
+Our objective here is to find $\tau_c(t)$ given our knowledge of $\tau_g$ (which is easily derived from the satellite's position).
+The general idea is removing $\tau_g$ by applying a phase to $E_1$, and then performing a coarse cross-correlation with 
+several different spectrum number offsets. 
+The maximal absolute value of the coarse cross-correlation will be attained at the correct offset, as seen below:
 
 \begin{eqnarray}
     (E_0*E_1)(\tau) &=& \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) E_1^*(t+\tau) dt, \\\nonumber

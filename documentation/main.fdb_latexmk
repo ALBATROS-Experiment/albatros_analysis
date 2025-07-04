@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1751573807 "/home/s/sievers/thomasb/albatros_analysis/documentation/main.tex" "main.pdf" "main" 1751573808 0
+["pdflatex"] 1751640826 "/home/s/sievers/thomasb/albatros_analysis/documentation/main.tex" "main.pdf" "main" 1751640827 0
   "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/share/texmf-dist/fonts/tfm/jknappen/ec/tcrm1200.tfm" 1136768653 1536 74b7293ec3713bb7fdca8dd1bd1f469c ""
@@ -128,7 +128,7 @@
   "Figures/flowchart.jpeg" 1751555167 211548 16b0224f3d572b5fcda5a080a84ce271 ""
   "Figures/obs_vs_unfitted_pred_2.jpeg" 1751555167 83705 2bfa8128559f3147801c56bf28c75d3f ""
   "Figures/observed_vs_unfitted_predicted_phase.jpeg" 1751555167 81189 5b42971dc5320166c36d53800a52df0b ""
-  "Figures/offset_diagram.jpg" 1751566819 738382 67a0b944d2e98c7f6a242291dfd44890 ""
+  "Figures/offset_diagram.jpg" 1751636365 612281 4084f2e65bf99be8f3bb245549684198 ""
   "Figures/post_fit_calib_plots_tlm_1721900002.jpg" 1751555167 60347 7d4860ede18de530d90bff88b268899e ""
   "Figures/project_flow.jpeg" 1751564697 179724 fab16d2be7ee6500b40a2d17d8be78cb ""
   "Figures/residuals_individual_tlm_coordfit_1721900002.jpg" 1751555167 96267 9b15a6e80f81dd707c83240d6443a1e6 ""
@@ -141,11 +141,11 @@
   "Sections/baseline_calibration.tex" 1751573805 14923 063e269ca76cdafd409f033caec42e5f ""
   "Sections/channelization.tex" 1751565297 124 96ca23ea22f1ce31b24cb8fa916d9ac2 ""
   "Sections/fine_timing.tex" 1751567284 46 0c2f0bfa3c2f0c8d37ac6a96b0e5688d ""
-  "Sections/timing.tex" 1751573678 11664 edfe6ca2b7fd5e3fa70a9867a2b737dd ""
-  "main.aux" 1751573808 10483 d19fdddec29e822e6d63044854e7a942 "pdflatex"
-  "main.out" 1751573808 3131 ba85d8b1643d1f6d0d4a6ebaef5087d8 "pdflatex"
+  "Sections/timing.tex" 1751640826 11694 648b4ba03b0746986009a4acd0703a4d ""
+  "main.aux" 1751640827 10483 d19fdddec29e822e6d63044854e7a942 "pdflatex"
+  "main.out" 1751640827 3131 ba85d8b1643d1f6d0d4a6ebaef5087d8 "pdflatex"
   "main.tex" 1751567301 2108 12434e57024316191f17167199d36b4d ""
-  "main.toc" 1751573808 1854 8e2c8ddd815e4de9c59c996882ca58d4 "pdflatex"
+  "main.toc" 1751640827 1854 8e2c8ddd815e4de9c59c996882ca58d4 "pdflatex"
   (generated)
   "main.aux"
   "main.log"
