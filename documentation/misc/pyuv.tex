@@ -34,96 +34,90 @@
 \fancyhf{}
 \fancyhead[R]{\thepage}  
 \begin{document}
-\section{All the variables}
+
+%------------------------------------------------------------------------------------------------
+\section{Main Data Stuff}
 
 
-
-\subsection{Nants\_data}
-
-Number of antennas with data present (i.e. number of unique entries in ant\_1\_array and ant\_2\_array). May be smaller than the number of antennas in the array. 
+\subsection{data\_array}
+Array of the visibility data, shape: (Nblts, Nfreqs, Npols), type = complex float, in units of self.vis\_units.
 
 
-    
-\subsection{Nbls}
-
-Number of baselines.
-
-\subsection{Nblts}
-
-Number of baseline-times (i.e. number of spectra). Not necessarily equal to Nbls * Ntimes.
-
-    
-\subsection{Nfreqs}
-
-Number of frequency channels.
-    
-\subsection{Nphase}
-
-Specifies the number of phase centers contained within the data set.
- 
-\subsection{Npols}
-
-Number of polarizations.
+\subsection{flag\_array}
+Boolean flag, True is flagged, same shape as data\_array.
 
 
-\subsection{Nspws}
+\subsection{time\_array}
+Array of times, center of integration, shape (Nblts), units Julian Date.
 
-Number of spectral windows (ie non-contiguous spectral chunks). This is a fancy name for our chunks. Visibilities are computed by chunk. You get one visibility value per chunk per basline per frequency channel.
-
-\subsection{Ntimes}
-
-Number of times.
 
 \subsection{ant\_1\_array}
-
 Array of numbers for the first antenna, which is matched to that in the antenna\_numbers attribute. Shape (Nblts), type = int.
 
     
 \subsection{ant\_2\_array}
-
 Array of numbers for the second antenna, which is matched to that in the antenna\_numbers attribute. Shape (Nblts), type = int.
 
-    
-\subsection{baseline\_array}
 
-Array of baseline numbers, shape (Nblts), type = int; by default baseline = 2048 * ant1 + ant2 + $2^16$, though other conventions are available. This is to give each baseline a distinct code/value, I'm imagining.
-
-\subsection{channel\_width}
-
-Width of frequency channels (Hz). Array of shape (Nfreqs), type = float.
-
-\subsection{data\_array}
-
-Array of the visibility data, shape: (Nblts, Nfreqs, Npols), type = complex float, in units of self.vis\_units.
-    
-\subsection{flag\_array}
-Boolean flag, True is flagged, same shape as data\_array.
-
-\subsection{flex\_spw\_id\_array}
-Maps individual channels along the frequency axis to individual spectral windows, as listed in the spw\_array. Shape (Nfreqs), type = int.
-    
 \subsection{freq\_array}
-
 Array of frequencies, center of the channel, shape (Nfreqs,), units Hz.
 
 
-\subsection{history}
+%--------------------------------------------------------------------------------------------------------------------------------------
+\section{Super Important Variables that contribute to data}
 
-    String of history, units English.
+\subsection{Nbls}
+Number of baselines.
+
+\subsection{Nblts}
+Number of baseline-times (i.e. number of spectra). Not necessarily equal to Nbls * Ntimes.
+
+\subsection{baseline\_array}
+Array of baseline numbers, shape (Nblts), type = int; by default baseline = 2048 * ant1 + ant2 + $2^16$, though other conventions are available. This is to give each baseline a distinct code/value, I'm imagining.
 
     
+\subsection{Nfreqs}
+Number of frequency channels.
+
+\subsection{Npols}
+Number of polarizations.
+
+
+\subsection{polarization\_array}
+Array of polarization integers, shape (Npols). AIPS Memo 117 says: pseudo-stokes 1:4 (pI, pQ, pU, pV); circular -1:-4 (RR, LL, RL, LR); linear -5:-8 (XX, YY, XY, YX). NOTE: AIPS Memo 117 actually calls the pseudo-Stokes polarizations “Stokes”, but this is inaccurate as visibilities cannot be in true Stokes polarizations for physical antennas. We adopt the term pseudo-Stokes to refer to linear combinations of instrumental visibility polarizations (e.g. pI = xx + yy). A value of 0 indicates that the polarization is different for different spectral windows and is only allowed if flex\_spw\_polarization\_array is defined (not None).
+
+
+
+\subsection{Ntimes}
+Number of times.
+
+\subsection{channel\_width}
+Width of frequency channels (Hz). Array of shape (Nfreqs), type = float.
+
+
 \subsection{integration\_time}
-
-Length of the integration in seconds, shape (Nblts). The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. Best practice is for the integration\_time to reflect the length of time a visibility was integrated over (so it should vary in the case of baseline-dependent averaging and be a way to do selections for differently integrated baselines).Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
-
-
-\subsection{lst\_array}
-Array of local apparent sidereal times (LAST) at the center of integration, shape (Nblts), units radians.
+Length of the integration in seconds, shape (Nblts). 
+The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. 
+Best practice is for the integration\_time to reflect the length of time a visibility was integrated over (so it should vary in the case of baseline-dependent averaging and be a way to do selections for differently integrated baselines).
+Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
 
 
 \subsection{nsample\_array}
+Number of data points averaged into each data element.
+NOT required to be an integer, type = float, same shape as data\_array. 
+The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. 
+Best practice is for the nsample\_array to be used to track flagging within an integration\_time (leading to a decrease of the nsample array value below 1) and LST averaging (leading to an increase in the nsample array value). 
+So datasets that have not been LST averaged should have nsample array values less than or equal to 1.
+Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
 
-Number of data points averaged into each data element, NOT required to be an integer, type = float, same shape as data\_array. The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. Best practice is for the nsample\_array to be used to track flagging within an integration\_time (leading to a decrease of the nsample array value below 1) and LST averaging (leading to an increase in the nsample array value). So datasets that have not been LST averaged should have nsample array values less than or equal to 1.Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
+
+
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\section{Phase Center Stuff}
+
+
+\subsection{Nphase}
+Specifies the number of phase centers contained within the data set.
 
 
 \subsection{phase\_center\_app\_dec}
@@ -131,43 +125,83 @@ Apparent Declination of phase center in the topocentric frame of the observatory
 
 
 \subsection{phase\_center\_app\_ra}
-
 Apparent right ascension of phase center in the topocentric frame of the observatory, units radians. Shape (Nblts,), type = float.
 
-\subsection{phase\_center\_catalog}
 
-Dictionary that acts as a catalog, containing information on individual phase centers. Keys are the catalog IDs of the different phase centers in the object (matched to the parameter phase\_center\_id\_array). At a minimum, each dictionary must contain the keys: ‘cat\_name’ giving the phase center name (this does not have to be unique, non-unique values can be used to indicate sets of phase centers that make up a mosaic observation), ‘cat\_type’, which can be ‘sidereal’ (fixed position in RA/Dec), ‘ephem’ (position in RA/Dec which moves with time), ‘driftscan’ (fixed postion in Az/El, NOT the same as the old phase\_type = ‘drift’) or ‘unprojected’ (baseline coordinates in ENU, but data are not phased, similar to the old phase\_type = ‘drift’) ‘cat\_lon’ (longitude coord, e.g. RA, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers), ‘cat\_lat’ (latitude coord, e.g. Dec., either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers), ‘cat\_frame’ (coordinate frame, e.g. icrs, must be a frame supported by astropy). Other optional keys include ‘cat\_epoch’ (epoch and equinox of the coordinate frame, not needed for frames without an epoch (e.g. ICRS) unless the there is proper motion), ‘cat\_times’ (times for the coordinates, only used for ‘ephem’ types), ‘cat\_pm\_ra’ (proper motion in RA), ‘cat\_pm\_dec’ (proper motion in Dec), ‘cat\_dist’ (physical distance to the source in parsec, useful if parallax is important, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers.), ‘cat\_vrad’ (rest frame velocity in km/s, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers.), and ‘info\_source’ (describes where catalog info came from). See the documentation of the phase method for more details.
+\subsection{phase\_center\_catalog}
+Dictionary that acts as a catalog, containing information on individual phase centers. 
+Keys are the catalog IDs of the different phase centers in the object (matched to the parameter phase\_center\_id\_array). 
+At a minimum, each dictionary must contain the keys: 
+‘cat\_name’ giving the phase center name (this does not have to be unique, non-unique values can be used to indicate sets of phase centers that make up a mosaic observation), 
+‘cat\_type’, which can be ‘sidereal’ (fixed position in RA/Dec), ‘ephem’ (position in RA/Dec which moves with time), ‘driftscan’ (fixed postion in Az/El, NOT the same as the old phase\_type = ‘drift’) or ‘unprojected’ (baseline coordinates in ENU, but data are not phased, similar to the old phase\_type = ‘drift’) 
+‘cat\_lon’ (longitude coord, e.g. RA, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers), 
+‘cat\_lat’ (latitude coord, e.g. Dec., either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers), 
+‘cat\_frame’ (coordinate frame, e.g. icrs, must be a frame supported by astropy). 
+Other optional keys include 
+‘cat\_epoch’ (epoch and equinox of the coordinate frame, not needed for frames without an epoch (e.g. ICRS) unless the there is proper motion), 
+‘cat\_times’ (times for the coordinates, only used for ‘ephem’ types), 
+‘cat\_pm\_ra’ (proper motion in RA), 
+‘cat\_pm\_dec’ (proper motion in Dec), 
+‘cat\_dist’ (physical distance to the source in parsec, useful if parallax is important, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers.), 
+‘cat\_vrad’ (rest frame velocity in km/s, either a single value or a one dimensional array of length Npts –the number of ephemeris data points– for ephem type phase centers.), and 
+‘info\_source’ (describes where catalog info came from). See the documentation of the phase method for more details.
+
 
 \subsection{phase\_center\_frame\_pa}
-
 Position angle between the hour circle (which is a great circle that goes through the target postion and both poles) in the apparent/topocentric frame, and the frame given in the phase\_center\_frame attribute.Shape (Nblts,), type = float.
 
 \subsection{phase\_center\_id\_array}
-
 Maps individual indices along the Nblt axis to a key in phase\_center\_catalog, which maps to a dict containing the other metadata for each phase center.Shape (Nblts), type = int.
 
-\subsection{polarization\_array}
 
-Array of polarization integers, shape (Npols). AIPS Memo 117 says: pseudo-stokes 1:4 (pI, pQ, pU, pV); circular -1:-4 (RR, LL, RL, LR); linear -5:-8 (XX, YY, XY, YX). NOTE: AIPS Memo 117 actually calls the pseudo-Stokes polarizations “Stokes”, but this is inaccurate as visibilities cannot be in true Stokes polarizations for physical antennas. We adopt the term pseudo-Stokes to refer to linear combinations of instrumental visibility polarizations (e.g. pI = xx + yy). A value of 0 indicates that the polarization is different for different spectral windows and is only allowed if flex\_spw\_polarization\_array is defined (not None).
+
+
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\section{Spectral Window}
+
+\subsection{Nspws}
+Number of spectral windows (ie non-contiguous spectral chunks). 
+These are how we slice the frequency channels, i.e. which ones we look at.
+We usually don't overlap them
+
 
 \subsection{spw\_array}
-
 Array of spectral window numbers, shape (Nspws).
+Gives them a name.
+  
+\subsection{flex\_spw\_id\_array}
+Maps individual channels along the frequency axis to individual spectral windows, as listed in the spw\_array. Shape (Nfreqs), type = int.
+So we can tell which channel is in which spectral window.
 
-\subsection{telescope}
 
-pyuvdata.Telescope object containing the telescope metadata.
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\section{Not as Important}
 
-\subsection{time\_array}
-Array of times, center of integration, shape (Nblts), units Julian Date.
+
+\subsection{lst\_array}
+Array of local apparent sidereal times (LAST) at the center of integration, shape (Nblts), units radians.
+Kind of an alternate to time\_array. Does the same thing, but in a different measure of time.
+
 
 \subsection{uvw\_array}
+Projected baseline vectors relative to phase center, shape (Nblts, 3), units meters. 
+Convention is: uvw = xyz(ant2) - xyz(ant1).
+Note that this is the Miriad convention but it is different from the AIPS/FITS convention (where uvw = xyz(ant1) - xyz(ant2)).
 
-Projected baseline vectors relative to phase center, shape (Nblts, 3), units meters. Convention is: uvw = xyz(ant2) - xyz(ant1).Note that this is the Miriad convention but it is different from the AIPS/FITS convention (where uvw = xyz(ant1) - xyz(ant2)).
+
+\subsection{telescope}
+pyuvdata.Telescope object containing the telescope metadata.
+
+
+\subsection{history}
+String of history, units English.
+
 
 \subsection{vis\_units}
-
 Visibility units, options are: “uncalib”, “Jy” or “K str”.
+
+\subsection{Nants\_data}
+Number of antennas with data present (i.e. number of unique entries in ant\_1\_array and ant\_2\_array). May be smaller than the number of antennas in the array. 
 
 
 \end{document}

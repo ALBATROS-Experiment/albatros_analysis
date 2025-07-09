@@ -52,7 +52,7 @@ if __name__ == "__main__":
         "-w", 
         "--working_directory", 
         type=str, 
-        default="/project/s/sievers/thomasb/mars_data_24", 
+        default="/project/s/sievers/thomasb/mars_data_23", 
         help="where the magic happens. where it goes and grabs data, and also where it throws it out."
     )
 
@@ -67,6 +67,7 @@ working_directory = args.working_directory
 bits = args.bits
 day = args.day
 baseline = args.baseline
+chanlist = np.arange(1834, 1852, dtype=int)
 
 
 with open(f"{working_directory}/{bits}bit/{day}/config_{day}.json", "r") as f:
@@ -95,17 +96,23 @@ context = [visibility_window, T_SPECTRA, v_acclen, v_nchunks, coords[0]]
 
 
 # if I want to run multiple baselines at once, then I should make pulse list an array with one entry for each baseline
-pulse_list = []
+pl = []
 
-with h5py.File(f'{working_directory}/{bits}bit/{day}/vis_selected_bline_{baseline}_{global_start_time}.h5', 'r') as f:
+with h5py.File(f'{working_directory}/{bits}bit/{day}/vis_autoselected_bline_{baseline}_{global_start_time}.h5', 'r') as f:
     for p in f:
         pulse_info = []
+        chan_big_idx = int(f[p].attrs['chan'])
+        chan_small_idx = np.where(chanlist == chan_big_idx)[0][0]
+
         pulse_info.append(p)
         pulse_info.append([f[p].attrs['start_time'], f[p].attrs['end_time'], int(f[p].attrs['global_start_time'])])
-        pulse_info.append([int(f[p].attrs['sat']), int(f[p].attrs['chan'])])
+        pulse_info.append([int(f[p].attrs['sat']), chan_big_idx])
         pulse_info.append(f[p].attrs['tle_path'])
+        vis = np.angle(f[f'/{p}'])
+        angle = np.unwrap(vis[:,chan_small_idx])
+        pulse_info.append(np.unwrap(angle - angle[0]))
         pulse_info.append(f[f'/{p}'][:])
-        pulse_list.append(pulse_info)
+        pl.append(pulse_info)
 
 
 
@@ -132,23 +139,23 @@ if args.debug:
     print(path.join(out_path,f"prefit_plot_coordfit_{global_start_time}.jpg"))
 
 
-    fig = ef.satpass_plotter(pulse_list, coords[baseline])
+    fig = ef.satpass_plotter(pl, coords[baseline])
     fig.savefig(f'satpass_{day}_bline{baseline}')
 
 
 print("--------------------SOLID-----------------")
-solid = ef.solid_irls(coords[baseline], 0, ef.pred, pulse_list, context, iterations = 10)
+solid = ef.solid_irls(coords[baseline], 0, ef.pred, pl, context, iterations = 20)
 
 print("--------------------JOINT-----------------")
-joint = ef.joint_irls(coords[baseline], ef.pred, pulse_list, context, iterations = 0)
+#joint = ef.joint_irls(coords[baseline], ef.pred, pl, context, iterations = 0)
 
 
 fits = {}
 fits['solid'] = solid.tolist()
-fits['joint'] = joint.tolist()
+#fits['joint'] = joint.tolist()
 
 
-path_to_json = f'{working_directory}/{bits}bit/coords_v3.json'
+path_to_json = f'{working_directory}/{bits}bit/coords_auto.json'
 
 ef.add_to_json(day, baseline, fits, path_to_json)
 

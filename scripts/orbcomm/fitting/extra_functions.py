@@ -338,6 +338,51 @@ def solid_irls_test(initial_coordinates, dt_list, pred, data_list, context_list,
 
 
 
+
+def solid_irls_verbose(initial_coordinates, dt_list, pred, data_list, context_list, iterations = 'none'):
+    '''WEIGHTED SOLID FIT. governed by iterations'''
+    initial_coordinates = np.array(initial_coordinates)
+
+    fit = least_squares(
+            fun = res_all,
+            x0 = initial_coordinates,
+            args=(dt_list, pred, data_list, context_list)
+            )
+
+    if iterations == 'none':
+        return fit.x
+
+    testing_coords = make_fuzzed_coords(fit.x, meters=5, reps=3)
+
+    counter = 0
+    fits = []
+    while counter < iterations: 
+        std_list = []
+        for idx, pulse in enumerate(data_list):
+            std = np.std(res_ind(fit.x, idx, pred, data_list, context_list))
+            std_list.append(std)
+
+        fit = least_squares(
+            fun = w_res_list,
+            x0 = fit.x,
+            args=(dt_list, std_list, pred, data_list, context_list)
+            )
+
+        fits.append(fit.x)
+
+        counter +=1
+
+    #this part is a little sketchy so double check
+    #R, S = get_res_and_cov_blockwise(fit.x, dt_list, pred, data_list, context_list)
+    #J = fit.jac
+    #param_S = inv(J.T @ S @ J)
+    #param_err = np.sqrt(np.diag(param_S))
+
+    print("DONE")
+    return fits
+
+
+
 def offset_fit(coords, pred, data_list, context_list, weight_type = 'std', method = 'trf'):
     ''' fits for time offsets only, given a certain non-ref coordinate and (optionally) with certain initial time offset guesses
     note that this is done individually for each pulse. they are treated as having independent offsets'''
