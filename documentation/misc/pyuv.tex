@@ -35,8 +35,26 @@
 \fancyhead[R]{\thepage}  
 \begin{document}
 
+Some of this is from the pyuv documentation itself, some of it is added by me. 
+For extra context while possibly looking over the code.
+Useful to have the (quite large number of) variables explained.
+
 %------------------------------------------------------------------------------------------------
 \section{Main Data Stuff}
+
+
+\subsection{Constants}
+\begin{itemize}
+  \item Nbls: Number of baselines.
+  \item Ntimes: Number of times.
+  \item Nblts: Number of baseline-times. Not necessarily equal to Nbls * Ntimes.
+  \item Nfreqs: Number of frequency channels.
+  \item Npols: Number of polarizations.
+  \item Nspws: Number of spectral windows.
+  \item Nphase: Number of phase centers in the data.
+  \item Nants\_data: Number of antennas with data present (i.e. number of unique entries in ant\_1\_array and ant\_2\_array). May be smaller than the number of antennas in the array. 
+  \item vis\_units: Visibility units, options are: “uncalib”, “Jy” or “K str”.
+\end{itemize}
 
 
 \subsection{data\_array}
@@ -45,79 +63,71 @@ Array of the visibility data, shape: (Nblts, Nfreqs, Npols), type = complex floa
 
 \subsection{flag\_array}
 Boolean flag, True is flagged, same shape as data\_array.
+Can think of it as an accompanying array for each individual complex visibility measurement.
 
 
-\subsection{time\_array}
-Array of times, center of integration, shape (Nblts), units Julian Date.
+\subsection{time\_array, lst\_array}
+These are both arrays of shape (Nblts), where each entry gives the time of the corresponding visibility measurement.
+They give the time at the center of integration.
+Extremely useful since this information is not encoded into the data\_array itself.
+time\_array is in units of Julian Date, while lst\_array is in of local apparent sidereal time (LAST), units of radians.
 
 
-\subsection{ant\_1\_array}
-Array of numbers for the first antenna, which is matched to that in the antenna\_numbers attribute. Shape (Nblts), type = int.
+\subsection{ant\_1\_array, ant\_2\_array}
+Array of numbers for the first (or second) antenna present in a visibility. 
+The number present is matched to that in the antenna\_numbers attribute, so lets us know which antenna it is.
+Gives the antenna for each baseline-time, so it shape (Nblts), and type int.
+These just serve to know which baseline we are looking at.
 
-    
-\subsection{ant\_2\_array}
-Array of numbers for the second antenna, which is matched to that in the antenna\_numbers attribute. Shape (Nblts), type = int.
-
-
-\subsection{freq\_array}
-Array of frequencies, center of the channel, shape (Nfreqs,), units Hz.
-
-
-%--------------------------------------------------------------------------------------------------------------------------------------
-\section{Super Important Variables that contribute to data}
-
-\subsection{Nbls}
-Number of baselines.
-
-\subsection{Nblts}
-Number of baseline-times (i.e. number of spectra). Not necessarily equal to Nbls * Ntimes.
 
 \subsection{baseline\_array}
-Array of baseline numbers, shape (Nblts), type = int; by default baseline = 2048 * ant1 + ant2 + $2^16$, though other conventions are available. This is to give each baseline a distinct code/value, I'm imagining.
+Array of baseline numbers, shape (Nblts), type = int.
+These are special numbers that uniquely encode which two antenna are present.
+By default baseline = 2048 * ant1 + ant2 + $2^16$, though other conventions are available. 
+This is for compatibility with other data formats, and for efficiency in sorting methods.
 
-    
-\subsection{Nfreqs}
-Number of frequency channels.
 
-\subsection{Npols}
-Number of polarizations.
+\subsection{freq\_array, channel\_width}
+freq\_array is an array of frequencies at the center of the channel, with shape (Nfreqs,), units Hz.
+channel\_width is also an array of shape (Nfreqs), with type = float, and gives the width of the frequency channels in (Hz).
 
 
 \subsection{polarization\_array}
-Array of polarization integers, shape (Npols). AIPS Memo 117 says: pseudo-stokes 1:4 (pI, pQ, pU, pV); circular -1:-4 (RR, LL, RL, LR); linear -5:-8 (XX, YY, XY, YX). NOTE: AIPS Memo 117 actually calls the pseudo-Stokes polarizations “Stokes”, but this is inaccurate as visibilities cannot be in true Stokes polarizations for physical antennas. We adopt the term pseudo-Stokes to refer to linear combinations of instrumental visibility polarizations (e.g. pI = xx + yy). A value of 0 indicates that the polarization is different for different spectral windows and is only allowed if flex\_spw\_polarization\_array is defined (not None).
+Array of polarization integers, shape (Npols).
+There are specific integers that represent different types of polarizations.
+AIPS Memo 117 says: pseudo-stokes 1:4 (pI, pQ, pU, pV); circular -1:-4 (RR, LL, RL, LR); linear -5:-8 (XX, YY, XY, YX). 
+NOTE: AIPS Memo 117 actually calls the pseudo-Stokes polarizations “Stokes”, but this is inaccurate as visibilities cannot be in true Stokes polarizations for physical antennas.
+We adopt the term pseudo-Stokes to refer to linear combinations of instrumental visibility polarizations (e.g. pI = xx + yy). 
+A value of 0 indicates that the polarization is different for different spectral windows and is only allowed if flex\_spw\_polarization\_array is defined (not None).
 
 
+\subsection{spw\_array, flex\_spw\_id\_array}
+spw\_array is an array of spectral window numbers, shape (Nspws), which gives each spectral window some index.
+flex\_spw\_id\_array maps the individual channels along the frequency axis to individual spectral windows,
+using the indexes from spw\_array. It has shape (Nfreqs), type int.
+These two can tell us what frequency channels go into what spectral window.
 
-\subsection{Ntimes}
-Number of times.
-
-\subsection{channel\_width}
-Width of frequency channels (Hz). Array of shape (Nfreqs), type = float.
 
 
 \subsection{integration\_time}
 Length of the integration in seconds, shape (Nblts). 
-The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. 
-Best practice is for the integration\_time to reflect the length of time a visibility was integrated over (so it should vary in the case of baseline-dependent averaging and be a way to do selections for differently integrated baselines).
+For us, this remains constant since our accumulation length is constant. 
+Best practice is for the integration\_time to reflect the length of time a visibility was integrated over 
+(so it should vary in the case of baseline-dependent averaging and be a way to do selections for differently integrated baselines).
 Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
 
 
 \subsection{nsample\_array}
 Number of data points averaged into each data element.
 NOT required to be an integer, type = float, same shape as data\_array. 
-The product of the integration\_time and the nsample\_array value for a visibility reflects the total amount of time that went into the visibility. 
-Best practice is for the nsample\_array to be used to track flagging within an integration\_time (leading to a decrease of the nsample array value below 1) and LST averaging (leading to an increase in the nsample array value). 
+Best practice is for the nsample\_array to be used to track flagging within an integration\_time 
+(leading to a decrease of the nsample array value below 1) and LST averaging (leading to an increase in the nsample array value). 
 So datasets that have not been LST averaged should have nsample array values less than or equal to 1.
 Note that many files do not follow this convention, but it is safe to assume that the product of the integration\_time and the nsample\_array is the total amount of time included in a visibility.
 
 
-
 %-----------------------------------------------------------------------------------------------------------------------------------------
 \section{Phase Center Stuff}
-
-
-\subsection{Nphase}
-Specifies the number of phase centers contained within the data set.
 
 
 \subsection{phase\_center\_app\_dec}
@@ -154,33 +164,8 @@ Position angle between the hour circle (which is a great circle that goes throug
 Maps individual indices along the Nblt axis to a key in phase\_center\_catalog, which maps to a dict containing the other metadata for each phase center.Shape (Nblts), type = int.
 
 
-
-
 %-----------------------------------------------------------------------------------------------------------------------------------------
-\section{Spectral Window}
-
-\subsection{Nspws}
-Number of spectral windows (ie non-contiguous spectral chunks). 
-These are how we slice the frequency channels, i.e. which ones we look at.
-We usually don't overlap them
-
-
-\subsection{spw\_array}
-Array of spectral window numbers, shape (Nspws).
-Gives them a name.
-  
-\subsection{flex\_spw\_id\_array}
-Maps individual channels along the frequency axis to individual spectral windows, as listed in the spw\_array. Shape (Nfreqs), type = int.
-So we can tell which channel is in which spectral window.
-
-
-%-----------------------------------------------------------------------------------------------------------------------------------------
-\section{Not as Important}
-
-
-\subsection{lst\_array}
-Array of local apparent sidereal times (LAST) at the center of integration, shape (Nblts), units radians.
-Kind of an alternate to time\_array. Does the same thing, but in a different measure of time.
+\section{Other}
 
 
 \subsection{uvw\_array}
@@ -191,17 +176,11 @@ Note that this is the Miriad convention but it is different from the AIPS/FITS c
 
 \subsection{telescope}
 pyuvdata.Telescope object containing the telescope metadata.
+This will contain stuff about the telescope, such as name, location, etc. 
 
 
 \subsection{history}
 String of history, units English.
-
-
-\subsection{vis\_units}
-Visibility units, options are: “uncalib”, “Jy” or “K str”.
-
-\subsection{Nants\_data}
-Number of antennas with data present (i.e. number of unique entries in ant\_1\_array and ant\_2\_array). May be smaller than the number of antennas in the array. 
 
 
 \end{document}

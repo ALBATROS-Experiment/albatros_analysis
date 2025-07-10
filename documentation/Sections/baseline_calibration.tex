@@ -19,7 +19,10 @@ All other antenna are labeled with natural numbers 1, 2, 3, and so on.
 We only consider baselines originating from the reference antenna, and label them by the name of their connecting non-reference antenna. 
 For example, as seen in Figure~\ref{fig:ant_cluster}, the baseline connecting Antenna 0 to Antenna 5 is labeled baseline 5.
 
-Since we only require baseline vectors and not actual geodetic coordinates, a highly precise antenna position with respect to earth is of secondary importance. This allows us to fit each of these baselines individually and independently, using the non-reference coordinates as the only fitting parameter, determining the value which returns the best relative coordinates. 
+Since we only require baseline vectors and not actual geodetic coordinates, a highly precise antenna position with respect to earth is 
+of secondary importance. 
+This allows us to fit each of these baselines individually and independently, using the non-reference coordinates as the only fitting parameter, 
+determining the value which returns the best relative coordinates. 
 
 With the general layout in mind, we observe the overall Baseline Calibration data flow in Figure~\ref{fig:flow}.
 
@@ -45,19 +48,20 @@ Let us again consider a single two-dimensional satellite pulse (shown previously
 We make assumptions of a flat sky, high satellite signal brightness, and uniform antenna response to simplify the theory.
 Recall that we performed a cross cross correlation and found the exact spectrum number offset. 
 Thus, using the raw baseband data, if we correct for known clock offset $\tau_c$ and perform direct cross correlation,
-we will obtain complex visibilities with the geometric time delay $\tau_g$ encoded into them. This is derived below:
+we will obtain complex visibilities with the geometric time delay $\tau_g$ encoded into them. This is derived below, using an integration time of $t_{\text{int}}$:
 \begin{eqnarray}
-    V_{0,1} &=& \langle E_0(t) E_1(t) \rangle_{t_{\text{int}}}, \\\nonumber
-    &=& \langle E_0(t) E_0^* (t) e^{-2 \pi i \nu_0 \tau_g(t)} \rangle_{t_{\text{int}}},  \\\nonumber
-    &=& e^{-2 \pi i \nu_0 \tau_g} \langle E_0 E_0^* \rangle_{t_{\text{int}}}
+    V_{0,1} &=& \int^{t_0 + t_{\text{int}}}_{t_0}  E_0(t) E_1^*(t) dt, \\\nonumber
+    &=&  \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) \left[ E_0 (t) e^{2 \pi i \nu_0 \tau_g(t)} \right]^* dt,  \\\nonumber
+    &=&  \int^{t_0 + t_{\text{int}}}_{t_0} E_0(t) E_0^*(t) e^{-2 \pi i \nu_0 \tau_g} dt, \\\nonumber
+    &=&  e^{-2 \pi i \nu_0 \tau_g} \int^{t_0 + t_{\text{int}}}_{t_0} |E_0(t)|^2  dt
 \end{eqnarray}
-Here we assume that the satellite moves slowly with respect to the integration time. 
-Since $E_0$ correlated with itself is high, we expect a dominant presence of the $e^{-2 \pi i \nu_0 \tau_g}$ term
-even in a realistic, noisy sky.
-
+Here we assume that the satellite moves slowly with respect to the integration time, which allows us to extract the phase from the integral.
 Therefore, we consider $\tau_g(t)$ to be constant for a single visibility computation. 
 Thus, we have a complex visibility which has the geometric delay encoded into it, 
 so for many pulses we can unwrap this phase and obtain a phase plot over time.
+Moreover, even when not purely narrowband, we still expect a dominant presence of the $e^{-2 \pi i \nu_0 \tau_g}$ term as $E_0$ 
+correlated with itself is very large.
+
 
 
 
@@ -111,25 +115,31 @@ For each baseline, the total observed data is compromised of several such unwrap
 
 \subsection{Filtering}
 
-To obtain a reasonably good plot, we must often massage the data into a better form. 
-For example, we interpolate over missing chunks (directly in the visibilities), and we must also sometimes 
-cut the pulse from the front or the back to remove noisy or aliased (check if this is actually aliasing when going fast, 
-but either way) parts.
+Oftentimes, the visibility will be rather messy.
+The pulse filtering process ensures we obtain a continuous, reasonably smooth phase plot.
+It involves the following steps:
 
-Aim is to construct an automatic filter and cut for these, since the data is not fixable, and it's inherently not good at some points (I believe, again double check)
+\begin{enumerate}
+  \item There is often missing data in the 1bit visibilities, due to a lack of data in the chunk. We interpolate over the complex data
+        directly to ensure the visibility is continuous.
+  \item When unwrapping the phase, there are some parts of the pulse that have almost no distinguishable phase, and must be cut out.
+  \item Finally, in the good portions of the phase, there can be jagged jumps, which are interpolated over smoothly (in visibility?). 
+        this is either caused by bad data or by aliasing (since the satellite phase angle can change very fast).
+\end{enumerate}
 
-\begin{itemize} 
-    \item there is some data missing, happens far more often with 1bit data. we interpolate over bad data directly in the visibility. done in rectangular and then recombined. show an example plot
-    \item we must then also filter through the bad UNWRAPPED visibilities phases. the current model fits for unwrapped phases, so want to ensure we have a continuous and clear unwrapped phase plot.
-    \item in the future, implement one of, or both of, automatic slicing and interpolation over bad data. This would speed up the data pipeline and make more pulses usable for a longer time.
-\end{itemize}
+For the time being, this is all conducted manually. 
+The aim is to automate this process to improve reproducability and speed.
 
 
 
 \section{Predicted Phase}
 \label{sec:predicted}
 
-In order to correctly fit the non-reference antenna's coordinates, we must construct a function which accurately predicts the satellite pulse phase over time. Its only free parameter must be the non-reference antenna's coordinates. Once we have constructed this function, we can evaluate the 'goodness of fit' of the initial guess coordinates as a preliminary test. This can be seen in Figures~\ref{fig:unfitted1} and ~\ref{fig:unfitted2}.
+In order to correctly fit the non-reference antenna's coordinates, we must construct a function which 
+accurately predicts the satellite pulse phase over time. 
+Its only free parameter must be the non-reference antenna's coordinates. 
+Once we have constructed this function, we can evaluate the \textit{goodness of fit} of the initial guess coordinates as a preliminary test. 
+This can be seen in Figure~\ref{fig:unfitted}.
 
 
 \begin{figure}[H]
@@ -137,20 +147,18 @@ In order to correctly fit the non-reference antenna's coordinates, we must const
   \begin{minipage}{0.45\textwidth}
     \centering
     \includegraphics[width=\linewidth]{Figures/observed_vs_unfitted_predicted_phase.jpeg}
-    \caption{Unfitted predicted phase against observed phase. Visible discrepancy.}
-    \label{fig:unfitted1}
   \end{minipage}
   \hfill
   \begin{minipage}{0.45\textwidth}
     \centering
     \includegraphics[width=\linewidth]{Figures/obs_vs_unfitted_pred_2.jpeg}
-    \caption{Different predicted phase, now plotted alongside observed phase. More significant discrepancies.}
-    \label{fig:unfitted2}
   \end{minipage}
+  \caption{Two examples of unfitted predicted phases against their observed counterparts.}
+  \label{fig:unfitted}
 \end{figure}
 
-
-Some pulses will initially be rather well fit, such as Figure~\ref{fig:unfitted1}, whereas others will leave more to be desired, such as Figure~\ref{fig:unfitted2}. These illustrate the necessity of fitting for multiple satellite passes simultaneously, as different satellites will have different trajectories in the sky, and thus will favor different fits.
+Figure~\ref{fig:unfitted} illustrates the necessity of fitting for multiple satellite passes simultaneously, 
+as different satellites will have different trajectories in the sky, and thus will favor different fits.
 
 
 
@@ -243,23 +251,6 @@ These tests are conducted for each baseline, using the single baseline coordinat
 As of the writing of this section, there are several technical limitations causing difficulties in the development of a streamlined, generalized coordinate calibration script.
 
 The main issue is the inconsistency in observed phase plots. This is the result of low SNR satellite passes (which are detected but not good), unwrapping bugs, or missing data. This means pulses must be combed through manually before being passed through the calibration script, significantly slowing analysis. Figures~\ref{fig:bad_pulse_phase1} and ~\ref{bad_pulse_phase2} provide an example of such a pulse.
-
-\begin{figure}[H]
-  \centering
-  \begin{minipage}{0.45\textwidth}
-    \centering
-    \includegraphics[width=\linewidth]{Figures/bad_pulse_phase1.jpeg}
-    \caption{Unfitted predicted phase against observed phase. Visible discrepancy.}
-    \label{fig:bad_pulse_phase1}
-  \end{minipage}
-  \hfill
-  \begin{minipage}{0.45\textwidth}
-    \centering
-    \includegraphics[width=\linewidth]{Figures/obs_vs_unfitted_pred_2.jpeg}
-    \caption{Different predicted phase, now plotted alongside observed phase. More significant discrepancies.}
-    \label{fig:unfitted2}
-  \end{minipage}
-\end{figure}
 
 This issue will be resolved before making a generalized script that can fit and test coordinates multiple baselines automatically. This would be the optimal case, and would significantly facilitate any future project's baseline optimization.
 

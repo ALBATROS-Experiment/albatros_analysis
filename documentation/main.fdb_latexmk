@@ -1,5 +1,5 @@
 # Fdb version 3
-["pdflatex"] 1751656658 "/Users/thomasbolder/Documents/coding/albatros_analysis/documentation/main.tex" "main.pdf" "main" 1751656659
+["pdflatex"] 1751658599 "/Users/thomasbolder/Documents/coding/albatros_analysis/documentation/main.tex" "main.pdf" "main" 1751658600
   "/Users/thomasbolder/Documents/coding/albatros_analysis/documentation/main.tex" 1751652360 2108 12434e57024316191f17167199d36b4d ""
   "/usr/local/texlive/2022/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2022/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -115,7 +115,6 @@
   "Figures/american_1.jpeg" 1751652360 27763 4a8fa6f3d99b175c0fa1452b094f0db6 ""
   "Figures/american_2.jpeg" 1751652360 42081 a820e749780b89424f9aea08ca376a29 ""
   "Figures/american_3.jpeg" 1751652360 117284 229b43aa66201adf0116a56f4583d806 ""
-  "Figures/bad_pulse_phase1.jpeg" 1751652360 77360 031441b9d62c09e52fce8a13b142d2d5 ""
   "Figures/baseline_array_placeholder.jpg" 1751652360 787663 9007265353f935a454b01e4919e76c4b ""
   "Figures/flowchart.jpeg" 1751652360 211548 16b0224f3d572b5fcda5a080a84ce271 ""
   "Figures/obs_vs_unfitted_pred_2.jpeg" 1751652360 83705 2bfa8128559f3147801c56bf28c75d3f ""
@@ -130,14 +129,14 @@
   "Figures/wrapped_phase_example.jpeg" 1751652360 266758 fe90867686134d0194a23301417709a0 ""
   "Sections/antenna.tex" 1751652360 825 9a8bc463ed363e0dec0f02b6876fa8f1 ""
   "Sections/baseband.tex" 1751652360 1444 3b9668972fd8541c33a624e808a8837a ""
-  "Sections/baseline_calibration.tex" 1751652360 14923 063e269ca76cdafd409f033caec42e5f ""
+  "Sections/baseline_calibration.tex" 1751658599 14087 12bb723633f653e2753b641daa78bb74 ""
   "Sections/channelization.tex" 1751652360 124 96ca23ea22f1ce31b24cb8fa916d9ac2 ""
   "Sections/fine_timing.tex" 1751652360 46 0c2f0bfa3c2f0c8d37ac6a96b0e5688d ""
   "Sections/timing.tex" 1751656658 12393 42ee7658b50c57eb2f5c095a0b5fa9eb ""
-  "main.aux" 1751656658 11475 6a261671ab85fb143e57344c9eaa0af6 "pdflatex"
-  "main.out" 1751656658 3418 01b8dd2c0074d57d2d0ab76cbe2704af "pdflatex"
+  "main.aux" 1751658600 10371 325a9771a6835345147d67b4e1d69b8f "pdflatex"
+  "main.out" 1751658600 3418 01b8dd2c0074d57d2d0ab76cbe2704af "pdflatex"
   "main.tex" 1751652360 2108 12434e57024316191f17167199d36b4d ""
-  "main.toc" 1751656658 2029 e2a4c63ef27cbb3e7e664c3e8f621aa7 "pdflatex"
+  "main.toc" 1751658600 2029 e2a4c63ef27cbb3e7e664c3e8f621aa7 "pdflatex"
   (generated)
   "main.aux"
   "main.log"
