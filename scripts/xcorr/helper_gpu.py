@@ -63,9 +63,10 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
 
     # ----------------- START IPFB SETUP -----------------------#
     pfb_size = pfb_size * osamp
+    print(pfb_size)
     cut=int(pfb_size/16)
-    acclen=pfb_size - 2*cut
-    ntap=4
+    acclen = pfb_size - 2*cut
+    ntap = 4
     nn=2*2048*osamp
     assert acclen%osamp == 0
     re_pfb_size = acclen//osamp - ntap + 1
