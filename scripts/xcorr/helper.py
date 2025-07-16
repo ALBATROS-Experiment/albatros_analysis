@@ -252,6 +252,67 @@ def get_avg_fast2(idxs,files,acclen,nchunks,chanstart,chanend):
     return vis, rowcounts, aa.obj.channels
 
 
+
+
+def get_avg_fast_tb(idxs,files,acclen,nchunks,chanstart,chanend):
+    nant = len(idxs)
+    antenna_objs = []
+    for i in range(nant):
+        aa = bdc.BasebandFileIterator(
+            files[i],
+            0, #fileidx is 0 = start idx is inside the first file
+            idxs[i],
+            acclen,
+            nchunks=nchunks,
+            chanstart=chanstart,
+            chanend=chanend,
+        )
+        antenna_objs.append(aa)
+    print(antenna_objs)
+    ncols = aa.obj.chanend - aa.obj.chanstart
+    npols = 2
+    nbl = nant * (nant - 1) // 2  # 01 02 03...12, 13...
+    polmap = {0: ["pol0", "pol0"], 1: ["pol1", "pol1"]}
+    print("nant", nant, "nbl", nbl, "nchunks", nchunks, "ncols", ncols)
+    vis = np.zeros((nchunks, nbl, npols, ncols), dtype="complex64", order="c")
+    rowcounts = np.empty((nchunks, nbl, npols), dtype="int64")
+    start_specnums = [ant.spec_num_start for ant in antenna_objs]
+    st = time.time()
+    for i, chunks in enumerate(zip(*antenna_objs)):
+        bl = 0
+        for j in range(nant):
+            for k in range(j+1, nant):
+                for pp in range(npols):
+                    # print(i,bl,pp)
+                    xcorr, rowcount = cr.avg_xcorr_1bit_vanvleck_2ant(
+                        chunks[j][polmap[pp][0]],
+                        chunks[k][polmap[pp][1]],
+                        ncols,
+                        chunks[j]["specnums"],
+                        chunks[k]["specnums"],
+                        start_specnums[j] + i * acclen,
+                        start_specnums[k] + i * acclen,
+                    )
+                    if rowcount < 100:
+                        vis[i, bl, pp, :] = np.nan
+                    else:
+                        vis[i, bl, pp, :] = cr.van_vleck_correction(
+                            *xcorr, rowcount
+                        )  # Van Vleck needs unpacked R0,R1,I0,I1
+                    rowcounts[i, bl, pp] = rowcount
+                bl += 1
+        # t2=time.time()
+        # print("time taken for one loop", t2-t1)
+        # j=ant1.spec_num_start
+        # print("After a loop spec_num start at:", j, "Expected at", m1+(i+1)*acclen)
+        if i % 1000 == 0:
+            print(i + 1, "CHUNK READ")
+    print("Time taken final:", time.time() - st)
+    vis = np.ma.masked_invalid(vis)
+    return vis, rowcounts, aa.obj.channels
+
+
+
 if __name__ == "__main__":
     with open("config.json", "r") as f:
         config = json.load(f)
