@@ -55,10 +55,9 @@ class StreamingPFB():
             self.tsbuf[self.overlap + self.remptr : self.overlap + spec_size] = timestream[ : spec_size - self.remptr].copy()
             used = (spec_size - self.remptr)
             self.remptr=0
-            x = self.tsbuf[ : spec_size + self.overlap]
+            x = self.tsbuf[ : spec_size + self.overlap].reshape(-1, self.lblock)
             #onwards to pfb
-            y = x.reshape(-1,self.lblock).copy()
-            y = y * self.win[:,cp.newaxis,:]
+            y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
             out = cp.fft.rfft(y,axis=1)
             self.tsbuf[:self.overlap] = self.tsbuf[spec_size:spec_size+self.overlap].copy()
