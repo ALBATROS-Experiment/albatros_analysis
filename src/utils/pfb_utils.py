@@ -37,13 +37,13 @@ class StreamingPFB():
         self.rem = timestream_size % lblock
         self.overlap = (self.ntap - 1)*self.lblock
         # print(f"tssize: {timestream_size}\noverlap: {self.overlap}\nrem: {self.rem}\nnblock: {self.nblock}\nlblock: {self.lblock}\n")
-        self.tsbuf = cp.zeros(self.nblock*self.lblock + self.overlap + self.lblock, dtype='float32', order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
-        self.rembuf = -1*cp.ones(self.lblock + self.rem, dtype='float32', order='C') #little bit extra to accomodate rem spillover
+        self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype='float32', order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
+        self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype='float32', order='C') #little bit extra to accomodate rem spillover
         # print("rembuf size", self.rembuf.shape)
         self.tsptr = 0
         self.remptr = 0
     
-    def pfb(self, timestream):
+    def pfb(self, antidx, polidx, timestream):
         out=None
         incoming = len(timestream)
         used = 0
@@ -51,17 +51,17 @@ class StreamingPFB():
         spec_possible = total_available // self.lblock
         spec_size = spec_possible * self.lblock
         if spec_possible > 0:
-            self.tsbuf[self.overlap : self.overlap + self.remptr] = self.rembuf[ : self.remptr].copy()
-            self.tsbuf[self.overlap + self.remptr : self.overlap + spec_size] = timestream[ : spec_size - self.remptr].copy()
+            self.tsbuf[antidx, polidx, self.overlap : self.overlap + self.remptr] = self.rembuf[antidx, polidx,  : self.remptr]
+            self.tsbuf[antidx, polidx, self.overlap + self.remptr : self.overlap + spec_size] = timestream[ : spec_size - self.remptr]
             used = (spec_size - self.remptr)
             self.remptr=0
-            x = self.tsbuf[ : spec_size + self.overlap].reshape(-1, self.lblock)
+            x = self.tsbuf[antidx, polidx,  : spec_size + self.overlap].reshape(-1, self.lblock)
             #onwards to pfb
             y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
             out = pycufft.rfft(y,axis=1)
-            self.tsbuf[:self.overlap] = self.tsbuf[spec_size:spec_size+self.overlap].copy()
-        self.rembuf[self.remptr : self.remptr + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
+            self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
+        self.rembuf[antidx, polidx, self.remptr : self.remptr + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr += incoming - used
         return out
 
