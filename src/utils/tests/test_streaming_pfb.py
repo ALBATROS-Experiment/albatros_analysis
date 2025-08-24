@@ -85,11 +85,11 @@ def test_pfb_gpu_vs_cpu(mysize):
     gpu_pfb_d = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
     # gpu_pfb_d = cp.zeros((ts_specnum,lblock),dtype='float32')
     print("gpu_pfb shape", gpu_pfb_d.shape)
-    pfbobj = pu.StreamingPFB(8,2,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
+    pfbobj = pu.StreamingPFB(1,1,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
     jj=0
     for i in range(niter):
         # print(f"---------------------------iteration {i}------------------------")
-        spec=pfbobj.pfb(ts_d[i*mysize:(i+1)*mysize])
+        spec=pfbobj.pfb(0,0,ts_d[i*mysize:(i+1)*mysize])
         # print("spectra shape",spec.shape)
         if spec is not None:
             gpu_pfb_d[jj:jj+spec.shape[0],:]=spec
