@@ -474,3 +474,76 @@ def get_pfb_chans(channels,osamp):
         pfbchans=np.append(pfbchans,temp)
         start=end+1
     return pfbchans
+
+def load_antenna_power(init_t, end_t, dir_parent, chans=None, tags=['pol00', 'pol11']):
+    """
+    Load direct spectra for a given antenna. Internally, this function finds all files
+    between two timestamps, loads specified pols (00,11, 01r, 01i) for each file
+    and returns an array of dimensions (npol,nchan,ntime), 
+    where ntime ~ (end_t - init_t)/6.44.
+
+    Parameters
+    ----------
+    init_t: float
+        Unix C-time for data start.
+    end_t: float
+        Indices of channels of interest.
+    dir_parent: str
+        Parent directory for direct data (should contain 5 digit dirs)
+    chans: array-like, optional
+        List of frequency channels in range [0, 2048) that need to be loaded.
+        Default None, (set to the full range)
+    tags: list, optional
+        List of polarizations that need to be read. Default ['pol00', 'pol11']
+    Returns
+    ----------
+    large_arr: np.ndarray
+        (npol,nchan,ntime) array of all data found between two timestramps
+    ctime_arr: np.ndarray
+        (ntime,) array of C timestamps corresponding to each of the ntime spectra in the data.
+    """
+
+    if chans is None:
+        chans = np.arange(0,2048)
+    nchans = len(chans)
+    file1,idx1=butils.get_file_from_timestamp(init_t, dir_parent, 'd')
+    file2,idx2=butils.get_file_from_timestamp(end_t, dir_parent, 'd')
+    fnames=butils.time2fnames(butils.get_tstamp_from_filename(file1),butils.get_tstamp_from_filename(file2),dir_parent, "d" )
+    print(f"Found {len(fnames)} files between {init_t} and {end_t}")
+    #fnames is actually the path to the 10-digit direct spectra dir
+    for tagnum, tag in enumerate(tags):
+        print(f"Reading {tag}")
+        new_fnames = [os.path.join(ff, tag + ".scio.bz2") for ff in fnames]
+        files=[]
+        for ff in new_fnames:
+            print(ff)
+            files.append(scio.read(ff))
+        flags=[False]*len(files)
+        if tagnum==0:
+            #for the first tag, find out number of rows in files and allocate return array
+            numrows=0
+            for ii,myfile in enumerate(myfiles):
+                if myfile is None:
+                    flags[ii]=True
+                    print(f"{myfile} is None")
+                    continue
+                if myfile.shape[0] < 10 or np.min(myfile) == 0:
+                    flags[ii]=True
+                    print(f"{myfile} has too few rows or has 0 power somewhere")
+                    continue
+                numrows += myfile.shape[0]  # determine total number of rows
+            ctime_arr = np.zeros(numrows, dtype="float64")
+            large_arr = np.zeros((len(tags), nchans, numrows), dtype="float64")
+        #Now fill up the return arrays
+        curidx=0
+        for fnum, myfile in enumerate(myfiles):
+            if flags[fnum]:
+                continue
+            ss = myfile.shape[0]
+            tt = butils.get_tstamp_from_filename(fnames[fnum])
+            large_arr[tagnum, :, curidx : curidx + ss] = myfile[:, chans].T
+            ctime_arr[curidx : curidx + ss] = (
+                tt + np.arange(ss) * 6.44
+            )  # acclen 393216 = 6.44s. Each row of direct data is 6.44s long.
+            curidx += ss
+    return large_arr,ctime_arr

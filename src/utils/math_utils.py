@@ -106,10 +106,13 @@ def spline_eval(xnew, ynew, x, coeffs):
             vv *= xx
         ynew[i]=tot
 
-def cubic_spline(xnew, x, y):
+def cubic_spline(xnew, x, y, out=None):
     order=3
     cs_obj = splrep(x,y)
-    ynew = np.empty(len(xnew),dtype=y.dtype)
+    if out is not None:
+        ynew=out
+    else:
+        ynew = np.empty(len(xnew),dtype=y.dtype)
     dx = x[1]-x[0]
     nn = int((x[-1]-x[0])*3/dx + 1)
     x1 = np.linspace(x[0],x[-1],nn)

@@ -60,13 +60,13 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
     npol = 2
 
     # ----------------- START IPFB SETUP -----------------------#
-    pfb_size = pfb_size * osamp
-    cut=int(pfb_size/16)
+    cut=int(pfb_size/cutsize)
     acclen=pfb_size - 2*cut
     ntap=4
     nn=2*2048*osamp
     assert acclen%osamp == 0
     re_pfb_size = acclen//osamp - ntap + 1
+    print("re_pfb_size is", re_pfb_size)
     dwin=pu.sinc_hamming(ntap,nn)
     cupy_win_big=cp.asarray(dwin,dtype='float32',order='c')
     matft=pu.get_matft(pfb_size)
@@ -97,7 +97,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
     channels=np.asarray(aa.obj.channels,dtype='int64')
     nchan = (aa.obj.chanend - aa.obj.chanstart)*osamp #nchan -> increases due to upchannelization
     repfb_chanstart = channels[aa.obj.chanstart] * osamp
-    repfb_chanend = channels[aa.obj.chanend] * osamp
+    repfb_chanend = channels[aa.obj.chanend-1] * osamp
     # print("channels are", channels)
     print("start and end chans are", repfb_chanstart, repfb_chanend)
     # sys.exit()
@@ -148,6 +148,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
             cut_chunks[j,1,:,:] = pol1[-2*cut:,:]
             # print("xin shape", xin[j*nant,:,:].shape)
             # print("in shape",pol0_new[cut:-cut, repfb_chanstart : repfb_chanend].shape )
+            #TODO: average and save only the channels I want
             xin[j*nant,:,:] = pol0_new[:, repfb_chanstart : repfb_chanend] # BFI data is C-major for IPFB
             xin[j*nant+1,:,:] = pol1_new[:, repfb_chanstart : repfb_chanend] #gotta support arbitrary chans
         # print(xin.shape, xin.flags)
@@ -170,4 +171,4 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
         # print("CUDA IPFB+XCORR time ",cp.cuda.get_elapsed_time(start_event, end_event)/1000)
         vis[:,:,:,i]=cp.asnumpy(out) #scratch should still be on the device
     vis = np.ma.masked_invalid(vis)
-    return vis, missing_fraction, np.arange(repfb_chanstart, repfb_chanend)
+    return vis, missing_fraction, np.arange(repfb_chanstart, repfb_chanend) #TODO: for really large BW/delta-nu, we should probably store only start and end

@@ -1,16 +1,14 @@
 CC := gcc
-CFLAGS := -fPIC -O3 -std=c99
+CFLAGS := -fPIC -O3 -std=c99 -march=native
 LIBS := -lfftw3_omp -lm
 objects := lib_unpacking.so lib_correlations_cpu.so#Always build unpacking
 
 ifeq (${USE_GPU}, 1)
 objects += libpycufft.so
 objects += lib_correlations_gpu.so
-CFLAGS += -mcpu=native #On MIST
 else
 objects += libmath.so
 objects += libfftw.so
-CFLAGS += -march=native #On NIAGARA
 
 endif
 
