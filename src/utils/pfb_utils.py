@@ -59,7 +59,7 @@ class StreamingPFB():
             #onwards to pfb
             y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
-            out = cp.fft.rfft(y,axis=1)
+            out = pycufft.rfft(y,axis=1)
             self.tsbuf[:self.overlap] = self.tsbuf[spec_size:spec_size+self.overlap].copy()
         self.rembuf[self.remptr : self.remptr + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr += incoming - used
