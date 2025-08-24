@@ -13,6 +13,8 @@ def sinc_hamming(ntap,lblock):
     return np.hamming(ntap*lblock)*np.sinc(w/lblock)
 
 def pfb(timestream,  window, nchan=2049, ntap=4):
+    # old cpu pfb from Steve.
+    # Slow but true.
 
     # number of samples in a sub block
     lblock = 2*(nchan-1)
@@ -64,17 +66,21 @@ def test_pfb_manual():
         #     plt.savefig(f"./test_pfb_{i}.jpg")
         # print(spec)
 
-def test_pfb_vs_cpu():
-    # mysize = 500 + 0 #1000 extra
+def test_pfb_gpu_vs_cpu(mysize):
+    # mysize simulates how many timestream samples we'll get each time we ipfb a small chunk
+    # PFB of ENTIRE timestream SHOULD BE THE SAME
+    # whole timestream at once  ==  lots of small timesteram chunks
+
     ts_specnum = 5000
     lblock = 4096
+    assert mysize < ts_specnum * lblock
     ts = np.random.randn(ts_specnum*lblock).astype('float32')
     # ts = np.arange(ts_specnum*lblock).astype('float32')/10000
     ts_d = cp.asarray(ts)
     assert ts_d.dtype == 'float32'
-    cpu_pfb = pfb(ts,sinc_hamming,nchan=lblock//2+1)
+    cpu_pfb = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
     print("cpu pfb shape", cpu_pfb.shape)
-    mysize = 629
+
     niter = len(ts)//mysize+1
     gpu_pfb_d = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
     # gpu_pfb_d = cp.zeros((ts_specnum,lblock),dtype='float32')
@@ -82,39 +88,24 @@ def test_pfb_vs_cpu():
     pfbobj = pu.StreamingPFB(8,2,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
     jj=0
     for i in range(niter):
-        print(f"---------------------------iteration {i}------------------------")
+        # print(f"---------------------------iteration {i}------------------------")
         spec=pfbobj.pfb(ts_d[i*mysize:(i+1)*mysize])
         # print("spectra shape",spec.shape)
         if spec is not None:
             gpu_pfb_d[jj:jj+spec.shape[0],:]=spec
             jj+=spec.shape[0]
-        # if spec:
-        #     print("mean spec", cp.abs(cp.mean(spec,axis=0)))
-        #     plt.plot(cp.asnumpy(cp.abs(cp.mean(spec,axis=0))),marker='o')
-        #     plt.xlim(0,5)
-        #     plt.ylim(0,20)
-        #     plt.savefig(f"./test_pfb_{i}.jpg")
-        # print(spec)
     gpu_pfb = cp.asnumpy(gpu_pfb_d)
-    print(cpu_pfb)
-    print(gpu_pfb[3:])
-    print("Max error\n", np.max(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:])))
-    arg = np.argmax(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))
-    argrow = arg//lblock
-    argcol = arg%lblock
-    print(gpu_pfb[3+argrow,argcol-5:argcol+5])
-    print("------------------------------")
-    print(cpu_pfb[argrow, argcol-5:argcol+5])
-    gpu_win = cp.asnumpy(pfbobj.win.ravel())
-    cpu_win = sinc_hamming(4,lblock).astype("float32")
-    print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
+    print("Max error\n", np.max(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))) #discard top 3 rows
+    # arg = np.argmax(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))
+    # argrow = arg//lblock
+    # argcol = arg%lblock
+    # print(gpu_pfb[3+argrow,argcol-5:argcol+5])
+    # print("------------------------------")
+    # print(cpu_pfb[argrow, argcol-5:argcol+5])
+    # gpu_win = cp.asnumpy(pfbobj.win.ravel())
+    # cpu_win = sinc_hamming(4,lblock).astype("float32")
+    # print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
 if __name__=="__main__":
-    test_pfb_vs_cpu()
 
-# Cpu will pfb [15.962238 16.002884 16.078419 16.122477 16.09763  16.010254 15.909212
-#  15.868957]
-# Cpu will pfb [23.943357 23.988358 24.099424 24.175674 24.155144 24.039167 23.893332
-#  23.824871]
-
-# [[15.962238 16.002886 16.07842  16.122478 16.09763  16.010256 15.90921 15.868957]]
-# [[23.943357 23.988358 24.099426 24.175678 24.155144 24.03917  23.89333 23.824871]]
+    test_pfb_gpu_vs_cpu(5000) #some timestream value > lblock
+    test_pfb_gpu_vs_cpu(714) #some timestream value < lblock
