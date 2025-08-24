@@ -18,8 +18,10 @@ def _print_class_mem_usage(arr_dict, header):
     return "\n".join(lines)
 
 class StreamingPFB():
+    """
+    Works for arbitrary timestream sizes. Can be less than lblock.
+    """
     def __init__(self, nant, npol, chans, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
-        
         self.nant = nant
         self.npol = npol
         self.nchan =lblock//2+1
@@ -40,71 +42,6 @@ class StreamingPFB():
         # print("rembuf size", self.rembuf.shape)
         self.tsptr = 0
         self.remptr = 0
-
-    # def pfb(self, timestream):
-    #     # print(pycufft.pycufft_cache)
-    #     #input timestream, fill spectra
-    #     #timestream = external timestream that is ONLY tsize long
-    #     #may be JIT this thing too()
-    #     # assert ~cp.any(cp.isnan(timestream)==True)
-    #     # assert ~cp.any(cp.isnan(self.rembuf)==True)
-    #     # assert ~cp.any(cp.isnan(self.tsbuf)==True)
-    #     assert timestream.size == self.timestream_size
-    #     print(f"remptr @ {self.remptr}.")
-    #     if self.spec_size > 0:
-    #         self.tsbuf[self.overlap : self.overlap + self.remptr] = self.rembuf[ : self.remptr] #first use old rembuf
-    #         if self.remptr > 0 :
-    #             print(self.tsbuf[self.overlap+self.remptr-4:self.overlap+self.remptr], self.rembuf[self.remptr-4:self.remptr])
-    #             print(self.tsbuf[self.overlap:self.overlap+4], self.rembuf[:4])
-    #             print("Loaded rembuf into tsbuf")
-    #             assert self.tsbuf[self.overlap + self.remptr-1] == self.rembuf[self.remptr-1]
-    #         print(f"Loading {self.spec_size - self.remptr} FROM timestream INTO tsbuf")
-    #         self.tsbuf[self.overlap + self.remptr : self.overlap + self.spec_size] = timestream[ : self.spec_size - self.remptr] #then fill remaining with fresh timestream
-    #         self.remptr=0
-    #     #technically remptr went to 0 went we offloaded, but back to previous value + rem when we load again.
-    #     if self.rem > 0:
-    #         self.remptr += self.rem
-    #         print(f"Loading {self.remptr} FROM timestream INTO rembuf")
-    #         self.rembuf[ self.remptr : self.remptr + self.rem] = timestream[-self.remptr : ] #move tail end of fresh timestream into rembuf for future
-
-    #     if self.remptr > self.lblock:
-    #         #purge buffer to get an extra spectras
-    #         self.tsbuf[self.spec_size + self.overlap:] = self.rembuf[ : self.lblock]
-    #         print(f"remptr {self.remptr} > {self.lblock}.")
-    #         a=self.rembuf[self.remptr-4:self.remptr+4]
-    #         print("rembuf used from tail (4) (unused must be 514586):", a)
-    #         print(f"Loading {self.remptr-self.lblock} FROM rembuf tail INTO rembuf head")
-    #         self.rembuf[:self.remptr-self.lblock] = self.rembuf[self.lblock : self.remptr]
-    #         b=self.rembuf[self.remptr-self.lblock-4:self.remptr-self.lblock]
-    #         print("rembuf head:",b )
-    #         assert cp.all(a[:4]==b)
-    #         self.remptr = self.remptr-self.lblock
-    #         nn=self.nblock+1
-    #         x=self.tsbuf
-    #     else:
-    #         nn=self.nblock
-    #         x=self.tsbuf[:-self.lblock]
-    #     assert ~cp.any(cp.isnan(self.tsbuf)==True)
-    #     if nn>0:
-    #         y = x.reshape(-1,self.lblock)
-    #         print("y is ", y)
-    #         print("y.shape", y.shape, "nn", nn)
-    #         # print("y shape", y.shape, y.flags)
-    #         # print("win shape", self.win.shape, self.win.flags)
-    #         print("new win shape", self.win[:,cp.newaxis,:].shape)
-    #         y = y * self.win[:,cp.newaxis,:]
-    #         print("y new shape", y.shape)
-    #         # print(y)
-    #         # print(y)
-    #         y = y[0,:nn,:]+y[1,1:nn+1,:]+y[2,2:nn+2,:]+y[3,3:nn+3,:]
-    #         # print(y.flags)
-    #         print("y added shape", y.shape)
-    #         out1=pycufft.rfft(y, axis=1)
-    #         out2=cp.fft.rfft(y,axis=1)
-    #         print(out1-out2)
-    #         self.tsbuf[:self.overlap]=x[-self.overlap:]
-    #         return out1
-    #     # self.timestream[:(self.ntap-1)*self.lblock] = timestream[-(self.ntap-1)*self.lblock:]
     
     def pfb(self, timestream):
         out=None
@@ -113,13 +50,7 @@ class StreamingPFB():
         total_available = self.remptr + incoming
         spec_possible = total_available // self.lblock
         spec_size = spec_possible * self.lblock
-        # print(f"remptr: {self.remptr}, incoming: {incoming}, total: {total_available}, spec_possible: {spec_possible}, spec_size: {spec_size}")
-        #fill the buf
-        # print("rembuf", self.rembuf)
-        # print("incoming", timestream)
-        # win=self.win.ravel()
         if spec_possible > 0:
-            # print("tsbuf shape", self.tsbuf.shape, self.tsbuf.flags)
             self.tsbuf[self.overlap : self.overlap + self.remptr] = self.rembuf[ : self.remptr].copy()
             self.tsbuf[self.overlap + self.remptr : self.overlap + spec_size] = timestream[ : spec_size - self.remptr].copy()
             used = (spec_size - self.remptr)
@@ -127,30 +58,10 @@ class StreamingPFB():
             x = self.tsbuf[ : spec_size + self.overlap]
             #onwards to pfb
             y = x.reshape(-1,self.lblock).copy()
-            # y = y * self.win[:,cp.newaxis,:]
-            # print("y shape",y.shape)
-            # print(f"len x = {len(x)}, len tsbuf = {len(self.tsbuf)}")
-            # print(f"Will pfb x =\n{x.reshape(-1,self.lblock)}")
-            
-            # out = cp.zeros((spec_possible, self.lblock//2+1), dtype='complex64')
-            # out = cp.zeros((spec_possible, self.lblock), dtype='float32')
-            # for bi in range(spec_possible):
-            #     z=cp.sum(y[bi:bi+self.ntap]*self.win,axis=0)
-            #     # out[bi] = cp.fft.rfft(z)
-            #     out[bi] = z
             y = y * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
             out = cp.fft.rfft(y,axis=1)
-            # print("Max error cupyinternal: ", cp.max(cp.abs(y-out)))
-            # print("overlapvalues to move1:\n", x[-self.overlap:].reshape(-1, self.lblock))
-            # print("Full tsbuf before move:\n", self.tsbuf[:].reshape(-1, self.lblock))
-            # self.tsbuf[:self.overlap] = x[-self.overlap:]
             self.tsbuf[:self.overlap] = self.tsbuf[spec_size:spec_size+self.overlap].copy()
-            # print("move error", self.tsbuf[:self.overlap]-self.tsbuf[self.spec_size:self.spec_size+self.overlap])
-            # print("Full tsbuf after move:\n", self.tsbuf[:].reshape(-1, self.lblock))
-            
-        # assert incoming - used == new_rem #incoming - what's already read = remainder
-        # print(f"incoming: {incoming}, used: {used}")
         self.rembuf[self.remptr : self.remptr + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr += incoming - used
         return out
