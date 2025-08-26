@@ -578,7 +578,6 @@ if __name__ == "__main__":
 
 
 
-
             offs_1, offs_2 = split_array(all_SO, 100000)
             reloffs_1, reloffs_2 = split_array(rel_SO, 100000)
 
