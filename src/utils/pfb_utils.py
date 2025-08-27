@@ -2,6 +2,10 @@ import numpy as np
 import cupy as cp
 from . import pycufft
 import time
+from ..correlations import correlations_gpu
+
+
+correlation_func = correlations_gpu.avg_xcorr_all_ant_gpu
 
 def _print_class_mem_usage(arr_dict, header):
     lines = [header, f"{'Name':<10}{'Shape':<25}{'Dtype':<12}{'Size':>12}{'Memory':>12}"]
@@ -21,13 +25,13 @@ class StreamingPFB():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
-    def __init__(self, nant, npol, chans, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
+    def __init__(self, nant, npol, channels, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
         self.nant = nant
         self.npol = npol
         self.nchan =lblock//2+1
         self.ntap = ntap
         self.lblock = lblock
-        self.chans = chans
+        self.channels = channels
         self.timestream_size = timestream_size
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
@@ -40,29 +44,28 @@ class StreamingPFB():
         self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype='float32', order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
         self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype='float32', order='C') #little bit extra to accomodate rem spillover
         # print("rembuf size", self.rembuf.shape)
-        self.tsptr = 0
-        self.remptr = 0
+        self.remptr = cp.zeros((self.nant, self.npol), dtype='int32')
     
     def pfb(self, antidx, polidx, timestream):
+        remptr = self.remptr[antidx, polidx]
         out=None
         incoming = len(timestream)
         used = 0
-        total_available = self.remptr + incoming
+        total_available = remptr + incoming
         spec_possible = total_available // self.lblock
         spec_size = spec_possible * self.lblock
         if spec_possible > 0:
-            self.tsbuf[antidx, polidx, self.overlap : self.overlap + self.remptr] = self.rembuf[antidx, polidx,  : self.remptr]
-            self.tsbuf[antidx, polidx, self.overlap + self.remptr : self.overlap + spec_size] = timestream[ : spec_size - self.remptr]
-            used = (spec_size - self.remptr)
-            self.remptr=0
+            self.tsbuf[antidx, polidx, self.overlap : self.overlap + remptr] = self.rembuf[antidx, polidx,  : remptr]
+            self.tsbuf[antidx, polidx, self.overlap + remptr : self.overlap + spec_size] = timestream[ : spec_size - remptr]
+            used = (spec_size - remptr)
             x = self.tsbuf[antidx, polidx,  : spec_size + self.overlap].reshape(-1, self.lblock)
             #onwards to pfb
             y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
             out = pycufft.rfft(y,axis=1)
             self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
-        self.rembuf[antidx, polidx, self.remptr : self.remptr + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
-        self.remptr += incoming - used
+        self.rembuf[antidx, polidx,  : incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
+        self.remptr[antidx, polidx] = incoming - used
         return out
 
     def __repr__(self):
@@ -73,7 +76,7 @@ class StreamingPFB():
         }
         header = (
             f"StreamingPFB(nant={self.nant}, npol={self.npol}, "
-            f"nblock={self.nblock}, lblock={self.lblock}, #chans={len(self.chans)})"
+            f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)})"
         )
         return _print_class_mem_usage(arrays, header)
 
@@ -137,40 +140,59 @@ class StreamingIPFB():
         
 
 class StreamingCorrelator():
-    def __init__(self, nant, npol, acclen, nchan, split=1):
+    def __init__(self, nant, npol, acclen, channels, split=1, bufsize_frac = 1):
         self.nant = nant
         self.npol = npol
         self.acclen = acclen
-        self.nchan = nchan
+        self.channels = channels
+        self.nchan = len(channels)
         self.split = split
-        self.out = cp.zeros((nant*npol, nant*npol, nchan*split), dtype="complex64", order="F")
-        self.xin = cp.empty((nant*npol, acclen, nchan),dtype='complex64',order='F')
-        self.buf = self.xin.copy()
-        self.bufptr = 0
-    
-    def xcorr(self, antidx, polidx, data):
-        incoming = data.shape[0]
-        if self.bufptr == self.acclen:
-            #buffer full. purge
-            self.purge_buffer()
-    
-        #use buffer to xcorr
-        self.xin[antidx*self.nant + polidx, : self.bufptr, :] = self.buf[antidx*self.nant + polidx, :self.bufptr, :]
-        self.xin[antidx*self.nant + polidx, self.bufptr :, :] = data[ : self.acclen - self.bufptr, :]
-        used = (self.acclen - self.bufptr)
-        self.bufptr = 0
-        print(f"incoming: {incoming}, used: {used}")
-        self.buf[self.bufptr : self.bufptr + incoming - used] = data[ used : , :] #if spec_size 0, just loads the last rem of timestream = entire timestream
-        self.bufptr += incoming - used
+        self.bufsize = int(bufsize_frac * acclen)
+
+        self.inp = cp.zeros((nant*npol, acclen + 1, self.nchan), dtype="complex64", order="C") #incoming input size
+
+        # self.out = cp.zeros((nant*npol, nant*npol, nchan*split), dtype="complex64", order="F")
+        self.buf = cp.zeros((nant*npol, nant*npol, self.nchan*split), dtype='complex64',order='F') #intermediate accumulation buf
+        self.bufptr = 0 #single buffer pointer since all antennas are processed simultaneously, unlike PFB remptr
+        self.loaded_num = 0
+        print(f"acclen {self.acclen}")
+
+    def load(self, antidx, polidx, data):
+        print("load")
+        assert self.loaded_num < self.nant*self.npol #can't load if you havent purged previous data
+        if data.shape[0] > self.inp.shape[1]:
+            raise RuntimeError("Input buffersize not big enough to store the incoming number of spectra.")
+        self.incoming = data.shape[0]
+        idx = antidx*self.npol + polidx
+        self.inp[idx, :self.incoming, :] = data[:, self.channels] #save relevant channels to input buffer
+        self.loaded_num += 1
         
-        cr.avg_xcorr_all_ant_gpu(self.xin, self.nant, self.npol, self.acclen, self.nchan, split=self.split, out=self.out)
         
-        #if split > 1: sum over split time axis
-    
-    def purge_buffer(self):
-        #purge whatever remains in the buffer.
-        cr.avg_xcorr_all_ant_gpu(self.buf[:,:self.bufptr, :], self.nant, self.npol, self.bufptr, self.nchan, split=self.split, out=self.out)
-        self.bufptr = 0
+    def xcorr(self):
+        print("xcorr")
+        assert self.loaded_num == self.nant*self.npol
+        chunks = []
+        out_possible = (self.incoming + self.bufptr)//self.acclen
+        print("out possible", out_possible, "bufptr", self.bufptr, "incoming", self.incoming)
+        used = 0
+        if out_possible > 0:
+            while out_possible:
+                xin = cp.asfortranarray(self.inp[:,used:used+self.acclen-self.bufptr,:])
+                out = correlation_func(xin, self.nant, self.npol, self.acclen-self.bufptr, self.nchan)
+                if self.bufptr > 0:
+                    out[:] += self.buf #add prev buffer
+                out[:] /= self.acclen
+                chunks.append(out)
+                used += self.acclen-self.bufptr
+                print("used now", used)
+                self.bufptr = 0
+                out_possible -= 1
+        if used < self.incoming:  #this was fine without if statement in PFB, but here we don't want to invoke xcorr func if nothing to xcorr
+            xin = cp.asfortranarray(self.inp[:, used: , :])
+            self.buf = correlation_func(xin, self.nant, self.npol, self.incoming-used, self.nchan, out=self.buf)
+            self.bufptr = self.incoming - used
+        self.loaded_num = 0 #ready to load again
+        return chunks
     
     def __repr__(self):
         arrays = {
@@ -182,7 +204,7 @@ class StreamingCorrelator():
             f"StreamingCorrelator(nant={self.nant}, npol={self.npol}, "
             f"acclen={self.acclen}, nchan={self.nchan}, split={self.split})"
         )
-        _print_class_mem_usage(arrays, header)
+        return _print_class_mem_usage(arrays, header)
 
 def print_mem():
     print("Mem stats")
