@@ -12,6 +12,12 @@ def sinc_hamming(ntap,lblock):
     w=np.arange(0,N)-N/2
     return np.hamming(ntap*lblock)*np.sinc(w/lblock)
 
+def reproduce_bug():
+    N = 1 << 20
+    x = cp.arange(N,dtype='float32')
+    x[:N-100] = x[100:]
+    print(cp.sum(x[:N-100]-cp.arange(100,N))) #usually zero but not always
+
 def pfb(timestream,  window, nchan=2049, ntap=4):
     # old cpu pfb from Steve.
     # Slow but true.
@@ -75,27 +81,40 @@ def test_pfb_gpu_vs_cpu(mysize):
     lblock = 4096
     assert mysize < ts_specnum * lblock
     ts = np.random.randn(ts_specnum*lblock).astype('float32')
+    cpu_pfb1 = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
     # ts = np.arange(ts_specnum*lblock).astype('float32')/10000
-    ts_d = cp.asarray(ts)
-    assert ts_d.dtype == 'float32'
-    cpu_pfb = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
-    print("cpu pfb shape", cpu_pfb.shape)
-
+    ts_d1 = cp.asarray(ts)
+    ts = np.random.randn(ts_specnum*lblock).astype('float32')
+    cpu_pfb2 = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
+    ts_d2 = cp.asarray(ts)
+    assert ts_d1.dtype == 'float32'
+    
+    print("cpu pfb shape", cpu_pfb1.shape)
+    print("mysize", mysize)
     niter = len(ts)//mysize+1
-    gpu_pfb_d = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    gpu_pfb_d1 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    gpu_pfb_d2 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
     # gpu_pfb_d = cp.zeros((ts_specnum,lblock),dtype='float32')
-    print("gpu_pfb shape", gpu_pfb_d.shape)
-    pfbobj = pu.StreamingPFB(1,1,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
+    print("gpu_pfb shape", gpu_pfb_d1.shape)
+    pfbobj = pu.StreamingPFB(8,2,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
     jj=0
+    kk=0
     for i in range(niter):
         # print(f"---------------------------iteration {i}------------------------")
-        spec=pfbobj.pfb(0,0,ts_d[i*mysize:(i+1)*mysize])
+        spec1=pfbobj.pfb(0,0,ts_d1[i*mysize:(i+1)*mysize])
+        spec2=pfbobj.pfb(5,1,ts_d2[i*mysize:(i+1)*mysize])
         # print("spectra shape",spec.shape)
-        if spec is not None:
-            gpu_pfb_d[jj:jj+spec.shape[0],:]=spec
-            jj+=spec.shape[0]
-    gpu_pfb = cp.asnumpy(gpu_pfb_d)
-    print("Max error\n", np.max(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))) #discard top 3 rows
+        if spec1 is not None:
+            gpu_pfb_d1[jj:jj+spec1.shape[0],:]=spec1
+            jj+=spec1.shape[0]
+        if spec1 is not None:
+            gpu_pfb_d2[kk:kk+spec2.shape[0],:]=spec2
+            kk+=spec2.shape[0]
+    gpu_pfb1 = cp.asnumpy(gpu_pfb_d1)
+    gpu_pfb2 = cp.asnumpy(gpu_pfb_d2)
+    print("Max error1\n", np.max(np.abs(gpu_pfb1[3:,:]-cpu_pfb1[:,:]))) #discard top 3 rows
+    print("Max error2\n", np.max(np.abs(gpu_pfb2[3:,:]-cpu_pfb2[:,:]))) #discard top 3 rows
+    # print("Max error3\n", np.max(np.abs(gpu_pfb1[3:,:]-gpu_pfb2[3:,:]))) #discard top 3 rows
     # arg = np.argmax(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))
     # argrow = arg//lblock
     # argcol = arg%lblock
@@ -107,5 +126,6 @@ def test_pfb_gpu_vs_cpu(mysize):
     # print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
 if __name__=="__main__":
 
-    test_pfb_gpu_vs_cpu(5000) #some timestream value > lblock
-    test_pfb_gpu_vs_cpu(714) #some timestream value < lblock
+    test_pfb_gpu_vs_cpu(4096) #some timestream value > lblock
+    test_pfb_gpu_vs_cpu(4095) #some timestream value < lblock
+    # reproduce_bug()
