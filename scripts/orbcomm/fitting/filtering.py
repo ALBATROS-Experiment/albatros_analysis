@@ -98,12 +98,12 @@ def roll_curve(phase, window_size=40):
         idx = slice(i, i + window_size)
         local_rms = np.sqrt(np.mean(diff2[idx]**2))
 
-        # Assign to center of window
+        # middle of the window
         center = i + window_size // 2
         curve_rms[center] += local_rms
         count[center] += 1
 
-    # Avoid divide-by-zero
+    # don't break math
     count[count == 0] = 1
     curve_rms = curve_rms / count
 

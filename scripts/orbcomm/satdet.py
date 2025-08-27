@@ -51,17 +51,13 @@ snr_arr:         an array of the SNR for each channel for each satellite (plus u
 
 
 #will come in handy later
-def split_array(array, tolerance):
-    for i in range(1, len(array)):
-        if abs(array[i] - array[i - 1]) > tolerance:
-            return array[:i], array[i:]
-    
-    return array, []
-
-def get_overflow_index(array, tolerance):
-    for i in range(1, len(array)):
-        if abs(array[i] - array[i - 1]) > tolerance:
-            return i
+def get_mode(data):
+    nonzero_data = [x for x in data if x != 0]
+    if len(nonzero_data) < 3:
+        print("not a lot of reliable offsets, mode may be unstable")
+        return "empty"
+    else:
+        return int(stats.mode(nonzero_data)[0])
 
 
 
@@ -211,6 +207,9 @@ if __name__ == "__main__":
         #--------Iterate over each Pass--------
 
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
+
+            if pnum > 15:
+                continue
 
             print(f"------Pass Number {pnum}-------")
             print("Pass Start Idx:", pstart)
@@ -530,13 +529,13 @@ if __name__ == "__main__":
                             REL = False
                 
                 all_SO.append(ind_offset)
-                if REL == True:
+                if REL:
                     rel_SO.append(ind_offset)
-                elif REL == False:
-                    rel_SO.append(0)
+                elif not REL:
+                    rel_SO.append(0)  #done to keep indices aligned
 
-            print(all_SO)
-            print(rel_SO)
+            print("ALL Specnum Offsets", all_SO)
+            print("\nRELIABLE Specnum Offsets", rel_SO)
 
             
             # Okay here's the context and explanation.
@@ -551,92 +550,73 @@ if __name__ == "__main__":
 
             diff_all_SO = np.diff(all_SO)  #this is an array!
 
-            print(diff_all_SO)
+            print("\nDiff array", diff_all_SO)
 
-            #either choose HARD or STATS splitting difference
+            #quick and dirty fix is setting a hard limit. this has worked just fine for the Nov 2023 data, but results may differ
+            #better method is certainly some kind of outlier tracking, to do later.
 
-            sys.exit()
+            tolerance = 100000
+            split_index = 0
+            break_count = 0
+
+            for (i, delta)  in enumerate(diff_all_SO):
+                if np.abs(delta) > tolerance:
+                    break_count += 1
+                    split_index = i
+
+
+            #make sure this doesn't break
+            if break_count > 1:
+                print("you are either spanning more than two days, your tolerance is too low, or your offsets are waaay too volatile. try again!")
+                sys.exit()
+
 
             #case 1: nothing special, all just one day.
+            if break_count == 0:
+                M = get_mode(rel_SO)
+                #case 1.1: there are enough reliable offsets:
+                if M != "empty":
+                    SO = M 
 
+                #case 1.2: there are not enough reliable offsets:
+                else:
+                    SO = int(stats.mode(all_SO)[0])
 
-                #case 1.1: there are reliable offsets:
-
-                #(check to see if there are enough, and if not compare with just straighup offsets?)
-
-
-                #case 1.2: there are no reliable offsets:
+                for details in sat_data[global_start_t][f"antenna {antnum}"]:
+                    details["generalized_offset"] = SO
 
 
             #case 2: there is a split somewhere, multiple days.
-
-                #case 2.1: there are reliable offsets
-                #(check to see if there are enough, and if not compare with just straighup offsets?)
-
-                #case 2.2: there are not reliable offsets
-                #throw a warning if not enough offsets in one of the days? like if only two datapoints may not be reliable?
-
-
-
-            offs_1, offs_2 = split_array(all_SO, 100000)
-            reloffs_1, reloffs_2 = split_array(rel_SO, 100000)
-
-            #case 1: all have same offset, just set it to same value everywhere
-            if offs_2 == []:
-                #subcase 1.1: there exist reliable offsets
-                if reloffs_1 != []:
-                    SO = int(stats.mode(reloffs_1)[0])
-                #subcase 1.2: there do not exist reliable offsets
+            elif break_count == 1:
+                all_SO1, all_SO2 = all_SO[:split_index+1], all_SO[split_index+1:]
+                print(all_SO1)
+                print(all_SO2)
+                rel_SO1, rel_SO2 = rel_SO[:split_index+1], rel_SO[split_index+1:]
+                print(rel_SO1)
+                print(rel_SO2)
+                M1, M2 = get_mode(rel_SO1), get_mode(rel_SO2)
+                
+                #same subcases again 
+                if M1 != "empty":
+                    SO1 = M1
                 else:
-                    SO = int(stats.mode(offs_1)[0])
+                    SO1 = int(stats.mode(all_SO1)[0])
+                print("SO1", SO1)
 
-                for details in sat_data[tstart][f"antenna {antnum}"]:
-                    details["generalized_offset"] = SO
-                
+                if M2 != "empty":
+                    SO2 = M2
+                else:
+                    SO2 = int(stats.mode(all_SO2)[0])
+                print("SO2", SO2)
 
-            #case 2: some have different offsets, but no reliable pulses in their set
-            elif reloffs_2 == []:
+                for i, details in enumerate(sat_data[global_start_t][f"antenna {antnum}"]):
+                        if i < split_index:
+                            details["generalized_offset"] = SO1
+                        if i >= split_index:
+                            details["generalized_offset"] = SO2
 
-                #subcase 2.1: there do not exist reliable offsets in larger set
-                if reloffs_1 == []:
-                    SOs = [int(stats.mode(offs_1)[0]), int(stats.mode(offs_2)[0])]
-            
-                #subcase 2.2: there exist reliable offsets somewhere
-
-                elif reloffs_1 != []:
-                    #check where the change in spectra happens
-                    overflow_index = get_overflow_index(all_SO, 10000)
-
-                    #whichever has more pulses will almost certainly have the reliable pulses present
-                    if len(offs_1) >=len(offs_2):
-                        SOs = [int(stats.mode(reloffs_1)[0]), int(stats.mode(offs_1)[0])]
-                    elif len(offs_1) < len(offs_2):
-                        SOs = [int(stats.mode(offs_1)[0]), int(stats.mode(reloffs_1)[0])]
-
-                    #apply the SpecnumOffset for each value
-                    for i, details in enumerate(sat_data[tstart][f"antenna {antnum}"]):
-                        if i < overflow_index:
-                            details["generalized_offset"] = SOs[0]
-                            print(SOs[0])
-                        if i >= overflow_index:
-                            details["generalized_offset"] = SOs[1]
-                            print(SOs[1])
-
-
-            #case 3: two different spectrum numbers, both have reliable pulses
-            elif (reloffs_2 != []) and (offs_1 != []):
-                overflow_index = get_overflow_index(all_SO, 10000)
-                SOs = [int(stats.mode(reloffs_1)[0]), int(stats.mode(reloffs_2)[0])]
-                print("generalized spectrum number offsets", SOs)
-                for i, details in enumerate(sat_data[tstart][f"antenna {antnum}"]):
-                    if i < overflow_index:
-                        details['generalized_offset'] = SOs[0]
-                    if i >= overflow_index:
-                        details['generalized_offset'] = SOs[1]
-                
-
-
-
+                #idea: add a check if there are not a lot of data points in all_SO to see if there is ONE value in reliable
+                #just try to fix small sample size problems.
 
 
 
