@@ -208,9 +208,6 @@ if __name__ == "__main__":
 
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
 
-            if pnum > 15:
-                continue
-
             print(f"------Pass Number {pnum}-------")
             print("Pass Start Idx:", pstart)
             print("Pass End Idx:", pend)
@@ -555,7 +552,7 @@ if __name__ == "__main__":
             #quick and dirty fix is setting a hard limit. this has worked just fine for the Nov 2023 data, but results may differ
             #better method is certainly some kind of outlier tracking, to do later.
 
-            tolerance = 100000
+            tolerance = 50000
             split_index = 0
             break_count = 0
 
@@ -564,6 +561,7 @@ if __name__ == "__main__":
                     break_count += 1
                     split_index = i
 
+            print("split index", split_index)
 
             #make sure this doesn't break
             if break_count > 1:
@@ -589,11 +587,11 @@ if __name__ == "__main__":
             #case 2: there is a split somewhere, multiple days.
             elif break_count == 1:
                 all_SO1, all_SO2 = all_SO[:split_index+1], all_SO[split_index+1:]
-                print(all_SO1)
-                print(all_SO2)
+                print('all offsets before split', all_SO1)
+                print('all offsets after split', all_SO2)
                 rel_SO1, rel_SO2 = rel_SO[:split_index+1], rel_SO[split_index+1:]
-                print(rel_SO1)
-                print(rel_SO2)
+                print('all reliable offsets before split', rel_SO1)
+                print('all reliable offsets after split', rel_SO2)
                 M1, M2 = get_mode(rel_SO1), get_mode(rel_SO2)
                 
                 #same subcases again 
@@ -609,11 +607,29 @@ if __name__ == "__main__":
                     SO2 = int(stats.mode(all_SO2)[0])
                 print("SO2", SO2)
 
+                multiple_sat_counter = 0 
+
                 for i, details in enumerate(sat_data[global_start_t][f"antenna {antnum}"]):
-                        if i < split_index:
-                            details["generalized_offset"] = SO1
-                        if i >= split_index:
-                            details["generalized_offset"] = SO2
+                        print("number of sats", len(details["sats_present"]))
+
+                        # I don't use pulses with multiple sats to find offsets, so 
+                        if len(details["sats_present"]) == 1:
+                            if i <= split_index + multiple_sat_counter:
+                                details["generalized_offset"] = SO1
+                            else:
+                                details["generalized_offset"] = SO2
+                                
+                        # I don't use pulses with multiple sats to find offsets, so need to account for them in the json
+                        elif len(details["sats_present"]) > 1:
+                            multiple_sat_counter += 1
+                            current_offset = details["individual_offset"]
+                            #if there's an edge case, just assign to the closer offset
+                            if abs(current_offset - SO1) > abs(current_offset - SO2):
+                                details["generalized_offset"] = SO2
+                            else:
+                                details["generalized_offset"] = SO1
+
+                        print(multiple_sat_counter)
 
                 #idea: add a check if there are not a lot of data points in all_SO to see if there is ONE value in reliable
                 #just try to fix small sample size problems.
