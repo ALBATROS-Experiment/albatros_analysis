@@ -4,7 +4,6 @@ from . import pycufft
 import time
 from ..correlations import correlations_gpu
 
-
 correlation_func = correlations_gpu.avg_xcorr_all_ant_gpu
 
 def _print_class_mem_usage(arr_dict, header):
@@ -155,11 +154,11 @@ class StreamingCorrelator():
         self.buf = cp.zeros((nant*npol, nant*npol, self.nchan*split), dtype='complex64',order='F') #intermediate accumulation buf
         self.bufptr = 0 #single buffer pointer since all antennas are processed simultaneously, unlike PFB remptr
         self.loaded_num = 0
-        print(f"acclen {self.acclen}")
+        # print(f"acclen {self.acclen}")
 
     def load(self, antidx, polidx, data):
-        print("load")
-        assert self.loaded_num < self.nant*self.npol #can't load if you havent purged previous data
+        # print("load")
+        assert self.loaded_num < self.nant*self.npol #can't load if you havent purged previous data. NOT fool-proof. should use per ant,pol index
         if data.shape[0] > self.inp.shape[1]:
             raise RuntimeError("Input buffersize not big enough to store the incoming number of spectra.")
         self.incoming = data.shape[0]
@@ -169,11 +168,11 @@ class StreamingCorrelator():
         
         
     def xcorr(self):
-        print("xcorr")
-        assert self.loaded_num == self.nant*self.npol
+        # print("xcorr")
+        assert self.loaded_num == self.nant*self.npol #can't xcorr if you havent loaded everything.
         chunks = []
         out_possible = (self.incoming + self.bufptr)//self.acclen
-        print("out possible", out_possible, "bufptr", self.bufptr, "incoming", self.incoming)
+        # print("out possible", out_possible, "bufptr", self.bufptr, "incoming", self.incoming)
         used = 0
         if out_possible > 0:
             while out_possible:
@@ -184,7 +183,7 @@ class StreamingCorrelator():
                 out[:] /= self.acclen
                 chunks.append(out)
                 used += self.acclen-self.bufptr
-                print("used now", used)
+                # print("used now", used)
                 self.bufptr = 0
                 out_possible -= 1
         if used < self.incoming:  #this was fine without if statement in PFB, but here we don't want to invoke xcorr func if nothing to xcorr
