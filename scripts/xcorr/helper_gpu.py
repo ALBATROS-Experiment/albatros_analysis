@@ -8,21 +8,6 @@ from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
 import ctypes
 
-lib = ctypes.CDLL('./libcgemm_batch.so')
-
-# 2) Declare the C function signature
-lib.cgemm_strided_batched.argtypes = [
-    ctypes.c_void_p,  # A.ptr
-    ctypes.c_void_p,  # B.ptr
-    ctypes.c_void_p,  # C.ptr
-    ctypes.c_int,     # M
-    ctypes.c_int,     # N
-    ctypes.c_int,     # K
-    ctypes.c_int      # batchCount
-]
-lib.cgemm_strided_batched.restype = None
-
-
 def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
     nant = len(idxs)
     antenna_objs = []
