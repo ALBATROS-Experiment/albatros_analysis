@@ -225,12 +225,12 @@ void get_plan_r2c(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
         fprintf(stderr, "CUFFT setAutoAllocation returned %d", error);
     }
     // We can finally actually set up the plan
-    printf("axis 1, get plan r2c\n");
+    //printf("axis 1, get plan r2c\n");
     if (cufftMakePlan1d(*plan, ncols, CUFFT_R2C, nrows, work_size)!=CUFFT_SUCCESS)
         fprintf(stderr,"Error planning dft.\n");
-    printf("the plan in C has value %d\n", *plan);
-    printf("plan worksize in C has value %d\n", *work_size);
-    printf("plan worksize in C has size %d\n", sizeof(work_size));
+    //printf("the plan in C has value %d\n", *plan);
+    //printf("plan worksize in C has value %d\n", *work_size);
+    //printf("plan worksize in C has size %d\n", sizeof(work_size));
 }
 /*--------------------------------------------------------------------------------*/
 void get_plan_c2r(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
@@ -259,13 +259,13 @@ void get_plan_c2r(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
     {
         fprintf(stderr, "CUFFT setAutoAllocation returned %d", error);
     }
-    printf("axis 1, get plan c2r\n");
+    //printf("axis 1, get plan c2r\n");
     // We can finally actually set up the plan
     if (cufftMakePlan1d(*plan, ncols, CUFFT_C2R, nrows, work_size)!=CUFFT_SUCCESS)
         fprintf(stderr,"Error planning dft.\n");
-    printf("the plan in C has value %d\n", *plan);
-    printf("plan worksize in C has value %d\n", *work_size);
-    printf("plan worksize in C has size %d\n", sizeof(work_size));
+    //printf("the plan in C has value %d\n", *plan);
+    //printf("plan worksize in C has value %d\n", *work_size);
+    //printf("plan worksize in C has size %d\n", sizeof(work_size));
 }
 void get_plan_c2c(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
 {
@@ -293,13 +293,13 @@ void get_plan_c2c(int nrows, int ncols, cufftHandle *plan, size_t * work_size)
     {
         fprintf(stderr, "CUFFT setAutoAllocation returned %d", error);
     }
-    printf("axis 1, get plan c2c\n");
+    // printf("axis 1, get plan c2c\n");
     // We can finally actually set up the plan
     if (cufftMakePlan1d(*plan, ncols, CUFFT_C2C, nrows, work_size)!=CUFFT_SUCCESS)
         fprintf(stderr,"Error planning dft.\n");
-    printf("the plan in C has value %d\n", *plan);
-    printf("plan worksize in C has value %d\n", *work_size);
-    printf("plan worksize in C has size %d\n", sizeof(work_size));
+    // printf("the plan in C has value %d\n", *plan);
+    // printf("plan worksize in C has value %d\n", *work_size);
+    // printf("plan worksize in C has size %d\n", sizeof(work_size));
 }
         
 /*--------------------------------------------------------------------------------*/

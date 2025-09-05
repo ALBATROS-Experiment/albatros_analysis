@@ -23,16 +23,19 @@ def dumb_xcorr(x,nant, npol, nfreq):
     return truth
 
 def test_xcorr_simple():
-    niter = 10
-    specsize = 11
+    acclen = 10
+    specsize = 8 #will pass to xcorr func in chunks of specsize
+    acclen_big =  specsize * acclen
+    niter = acclen_big//specsize
+    nrows = acclen_big//acclen
     data = {
         0: {
-            0: cp.ones((specsize * niter, 4), dtype="complex64"),
-            1: 3 * cp.ones((specsize * niter, 4), dtype="complex64"),
+            0: cp.ones((acclen_big, 4), dtype="complex64"),
+            1: 3 * cp.ones((acclen_big, 4), dtype="complex64"),
         },
         1: {
-            0: 2 * cp.ones((specsize * niter, 4), dtype="complex64"),
-            1: 4 * cp.ones((specsize * niter, 4), dtype="complex64"),
+            0: 2 * cp.ones((acclen_big, 4), dtype="complex64"),
+            1: 4 * cp.ones((acclen_big, 4), dtype="complex64"),
         },
     }
     nant = 2
@@ -49,14 +52,15 @@ def test_xcorr_simple():
                 sc.load(antidx, polidx, spectra[i * specsize : (i + 1) * specsize])
         chunks = sc.xcorr()
         print(f"Got {len(chunks)} chunks")
-        print(chunks[0][:,:,0])
-        print(chunks[0][:,:,1])
-        print(chunks[0][:,:,2])
-        print(chunks[0][:,:,3])
+        if len(chunks) > 0:
+            print(chunks[0][:,:,0])
+            print(chunks[0][:,:,1])
+            print(chunks[0][:,:,2])
+            print(chunks[0][:,:,3])
 
-def test_xcorr():
+def test_xcorr(specsize, bufsize_frac=1):
     acclen = 10
-    specsize = 11 #will pass to xcorr func in chunks of specsize
+    specsize = specsize #will pass to xcorr func in chunks of specsize
     acclen_big =  specsize * acclen * 5
     niter = acclen_big//specsize
     nrows = acclen_big//acclen
@@ -67,7 +71,7 @@ def test_xcorr():
     truth = cp.empty((nant*npol,nant*npol, nchan, nrows),dtype='complex64',order='F')
     data = {}
     x = cp.empty((nant*npol,acclen_big,nchan),dtype='complex64',order='F') #full input data
-    sc = pu.StreamingCorrelator(nant, npol, acclen, np.arange(nchan))
+    sc = pu.StreamingCorrelator(nant, npol, acclen, np.arange(nchan), bufsize_frac=bufsize_frac)
     for i in range(nant):
         temp = {}
         for j in range(npol):
@@ -92,8 +96,13 @@ def test_xcorr():
             for ch in chunks:
                 out[:,:,:,idx] = ch
                 idx+=1
+    print("max error", cp.max(cp.abs(out-truth)))
     assert cp.allclose(out,truth,atol=1e-5,rtol=1e-6)
 
 
 if __name__ == "__main__":
-    test_xcorr()
+    # test_xcorr_simple()
+    test_xcorr(11,bufsize_frac=1.1)
+    test_xcorr(9)
+    test_xcorr(8)
+    test_xcorr(25, bufsize_frac=10)

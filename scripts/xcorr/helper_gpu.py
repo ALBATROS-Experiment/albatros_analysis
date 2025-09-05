@@ -2,11 +2,10 @@ import sys
 from os import path
 sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
-from albatros_analysis.src.correlations import correlations as cr
 import cupy as cp
 from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
-import ctypes
+import time
 
 def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
     nant = len(idxs)
@@ -40,7 +39,7 @@ def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
     vis = np.ma.masked_invalid(vis)
     return vis, rowcounts, aa.obj.channels
 
-def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=16,filt_thresh=0.45):
+def repfb_xcorr_avg_old(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=16,filt_thresh=0.45):
     nant = len(idxs)
     npol = 2
 
@@ -157,3 +156,122 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
         vis[:,:,:,i]=cp.asnumpy(out) #scratch should still be on the device
     vis = np.ma.masked_invalid(vis)
     return vis, missing_fraction, np.arange(repfb_chanstart, repfb_chanend) #TODO: for really large BW/delta-nu, we should probably store only start and end
+
+def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45):
+    """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
+
+    Parameters
+    ----------
+    idxs : _type_
+        _description_
+    files : _type_
+        _description_
+    pfb_size : _type_
+        _description_
+    nchunks : _type_
+        _description_
+    channels : _type_
+        Channel numbers to feed IPFB [0,2048), should be present in baseband file.
+    osamp : _type_
+        Up-resolution factor. 64 means 64x times longer PFBs and 64x higher frequency resolution: 61 kHz/64 ~ 1 kHz.
+    lblock : int, optional
+        Length of a one "original" PFB tap, by default 4096
+    ntap : int, optional
+        Number of PFB taps (for both inverse and forward PFBs), by default 4
+    cutsize : int, optional
+        Number of spectra to snip after IPFB to avoid, by default 16.
+        Number of samples snipped from the reconstructed timestream = cutsize*lblock.
+        IPFB algorithm forces circularity, causing the edges of recons. timestream to be bad.
+    filt_thresh : float, optional
+        IPFB Wiener filter threshold, by default 0.45
+    """
+    nant = len(idxs)
+    npol = 2
+
+    read_size = pfb_size - 2*cutsize
+    timestream_size = read_size * lblock
+    nchan = len(channels)
+    new_channels = np.arange(osamp) + channels[:, None] * osamp
+    new_channels = new_channels.ravel()
+    new_nchan = len(new_channels)
+    #needs channels that are in the read data
+    ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
+    fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
+    #needs channels you want to cross-correlate in re-PFB'd data
+    nrows_total = nchunks * pfb_size // (osamp * new_acclen)
+    xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 10)
+
+    #on HOST
+    vis = np.zeros((nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64", order="F")
+    rowidx=0
+    print(ipfb)
+    print(fpfb)
+    print(xcorr)
+    
+    header = bdc.get_header(files[0][0])
+    channel_indices = np.where(np.isin(header['channels'],channels))[0] #channels that are in requested channels
+    antenna_objs = []
+    for i in range(nant):
+        aa = bdc.BasebandFileIterator(
+            files[i],
+            0, #fileidx is 0 = start idx is inside the first file
+            idxs[i],
+            read_size,
+            nchunks=nchunks,
+            channels=channel_indices,
+            type='float'
+        )
+        antenna_objs.append(aa)
+    print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
+    start_specnums = [ant.spec_num_start for ant in antenna_objs]
+
+    start_event = cp.cuda.Event()
+    end_event = cp.cuda.Event()
+    for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
+        # start_event.record()
+        for ant_idx in range(nant):
+            chunk=chunks[ant_idx]
+            start_specnum = start_specnums[ant_idx]
+            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
+            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
+            # print("continuous pol0 shape", pol0.shape)
+            start_event.record()
+            spec0=ipfb.ipfb(ant_idx,0,pol0,thresh=filt_thresh)
+            spec1=ipfb.ipfb(ant_idx,1,pol1,thresh=filt_thresh)
+            end_event.record()
+            end_event.synchronize()
+            print("tot ipfb time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+            start_event.record()
+            pol0_new = fpfb.pfb(ant_idx,0, spec0)
+            end_event.record()
+            end_event.synchronize()
+            print("pfb time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+            pol1_new = fpfb.pfb(ant_idx,1, spec1)
+            # print("PFB returned shape", pol0_new.shape, pol1_new.shape)
+            start_event.record()
+            xcorr.load(ant_idx, 0, pol0_new)
+            end_event.record()
+            end_event.synchronize()
+            print("load time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+            xcorr.load(ant_idx, 1, pol1_new)
+        start_event.record()
+        rows = xcorr.xcorr()
+        end_event.record()
+        end_event.synchronize()
+        print("xcorr time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+        n = len(rows)
+        # end_event.record()
+        # end_event.synchronize()
+        # print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+        if n > 0:
+        #     end_event.record()
+        #     end_event.synchronize()
+            print(f"chunk {chunk_idx}/{nchunks}, rcv {n}")
+        #     print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+            for row in rows:
+                t1=time.time()
+                vis[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
+                t2=time.time()
+                print("dev to host time", t2-t1)
+                rowidx+=1
+    return vis, new_channels
