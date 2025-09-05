@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from os import path
-sys.path.insert(0, "/home/s/sievers/thomasb/")
+sys.path.insert(0, "/home/mohanagr/")
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     #------------------get and plot risen sats-----------------
     nrows = int((array_time)/T_SCAN)
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
-    tle_path = outils.get_tle_file(global_start_t, "/project/s/sievers/mohanagr/OCOMM_TLES")
+    tle_path = outils.get_tle_file(global_start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     print("Using TLE path:", tle_path, '\n')
     rsats = outils.get_risen_sats(tle_path, ra_coords, global_start_t, dt=T_SCAN, niter=nrows, good=satlist, altitude_cutoff=altitude_cutoff)
     num_sats_risen = [len(x) for x in rsats]

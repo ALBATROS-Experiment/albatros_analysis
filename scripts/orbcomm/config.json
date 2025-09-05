@@ -2,23 +2,38 @@
         "antennas": {
             "ALB1": {
                 "name": "Antenna 1",
-                "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_1_central",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars1",
                 "coordinates": [79.41718333333333, -90.76735, 189]
             },
             "ALB2": {
                 "name": "Antenna 2",
-                "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_2_east",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars2",
                 "coordinates": [79.41721666666666, -90.75885, 176]
             },
-            "ALB3": {
-                "name": "Antenna 3",
-                "path": "/project/s/sievers/albatros/mars/202307/baseband/stn_3_west",
-                "coordinates": [79.41541666666667, -90.77308333333333, 175]
+            "ALB4": {
+                "name": "Antenna 4",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars4",
+                "coordinates": [79.38846667, -91.01926667, 22]
+            },
+            "ALB6": {
+                "name": "Antenna 6",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars6",
+                "coordinates": [79.398, -90.79993333, 43]
+            },
+            "ALB7": {
+                "name": "Antenna 7",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars7",
+                "coordinates": [79.41148333, -90.69531667, 26]
+            },
+            "ALB8": {
+                "name": "Antenna 8",
+                "path": "/scratch/mohanagr/summer_2025/baseband/mars8",
+                "coordinates": [79.44376667, -90.7325, 406]
             }
         },
         "correlation": {
-            "start_timestamp": 1699788860, 
-            "end_timestamp": 1699820000,
+            "start_timestamp": 1753133403, 
+            "end_timestamp": 1753140603,
             "vis_acclen": 30000,
             "coarse_acclen": 1000000
         },
