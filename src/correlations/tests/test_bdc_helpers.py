@@ -3,6 +3,7 @@ from src.correlations import baseband_data_classes as bdc
 from src import xp
 import numpy as np
 def test_make_continuous():
+    #test that we can make rows conitnuous and also fill channels
     assert xp.__name__ == 'cupy'
     nspec=100
     nchans=2049
@@ -22,3 +23,23 @@ def test_make_continuous():
     assert xp.sum(new_spec) == 10+10j
     assert xp.sum(new_spec,axis=0)[100] == 5.+5.j
     assert xp.sum(new_spec,axis=0)[200] == 5.+5.j
+
+def test_make_continuous2():
+    #test that we can make rows conitnuous and not have to fill channels
+    assert xp.__name__ == 'cupy'
+    nspec = 10
+    nchan = 5
+    specnum=np.asarray([50,54,55,58],dtype='int64') #only these specnum present
+    spec=xp.random.randn(len(specnum),nchan)
+    spec=spec.astype("complex64")
+    channels = np.arange(nchan)
+    specnum_start = 50
+
+    #mimic the call
+    new_spec = bdc.make_continuous_gpu(spec,specnum-specnum_start,channels,nspec,nchan)
+    print(new_spec)
+    assert xp.all(new_spec[1:4,:]==0)
+    assert xp.all(new_spec[6:8,:]==0)
+    assert xp.all(new_spec[9,:]==0)
+    assert xp.all(new_spec[specnum-specnum_start,:]==spec)
+

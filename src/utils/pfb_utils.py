@@ -24,13 +24,12 @@ class StreamingPFB():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
-    def __init__(self, nant, npol, channels, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
+    def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
         self.nant = nant
         self.npol = npol
         self.nchan =lblock//2+1
         self.ntap = ntap
         self.lblock = lblock
-        self.channels = channels
         self.timestream_size = timestream_size
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
@@ -65,6 +64,7 @@ class StreamingPFB():
             self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
         self.rembuf[antidx, polidx,  : incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr[antidx, polidx] = incoming - used
+        # print("PFB OUT SHAPE", out.shape, out.flags)
         return out
 
     def __repr__(self):
@@ -75,39 +75,43 @@ class StreamingPFB():
         }
         header = (
             f"StreamingPFB(nant={self.nant}, npol={self.npol}, "
-            f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)})"
+            f"nblock={self.nblock}, lblock={self.lblock})"
         )
         return _print_class_mem_usage(arrays, header)
 
 
 class StreamingIPFB():
-    def __init__(self, nant, npol, chans, nblock=100, lblock=4096, ntap=4, window='hamming', cut=10):
+    def __init__(self, nant, npol, channels, nblock=100, lblock=4096, ntap=4, window='hamming', cut=10):
         self.lblock = lblock
         self.nblock = nblock
         self.nant = nant
         self.npol = npol
         self.read_size = nblock - 2*cut
-        self.chans = chans
+        self.channels = cp.asarray(channels, dtype='int32')
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
         self.cut = cut
         self.nchan=lblock//2+1
-        self.specbuf = cp.empty((self.nant, self.npol, self.nblock, self.nchan), dtype='complex64')
+        self.specbuf = cp.empty((self.nant, self.npol, self.nblock, self.nchan), dtype='complex64',order='C')
         #mat will be deallocated after function returns
         mat=cp.zeros((nblock, lblock),dtype="float32")
         mat[:ntap,:]=cp.reshape(self.win,[ntap,len(self.win)//ntap])
         mat=mat.T.copy()
-        print("mat shape", mat.shape)
+        # print("mat shape", mat.shape)
         self.matft = pycufft.rfft(mat,axis=1)
-        print("matft shape", self.matft.shape)
+        # print("matft shape", self.matft.shape)
+        # print("IPFB CHANNELS", self.channels)
+        # print("Specbuf shape", self.specbuf.shape)
     
     def ipfb(self, antidx, polidx, spectra, thresh=0.):
         #input spectra, fill timestream
+        # print("incoming spectra shape", spectra.shape)
         assert spectra.shape[0]==self.read_size #incoming spectra is pfbsize - 2*cut
-        self.specbuf[antidx,polidx,2*self.cut:, self.chans] = spectra
+        # print("specbuf slice shape", self.specbuf[antidx,polidx,2*self.cut:, :].shape,self.specbuf[antidx,polidx,2*self.cut:, :].flags )
+        self.specbuf[antidx,polidx,2*self.cut:, :][:,self.channels] = spectra
         dd=pycufft.irfft(self.specbuf[antidx, polidx , :, :],axis=1)
         assert dd.flags.c_contiguous and dd.base is None
-        self.specbuf[antidx, polidx, :2*self.cut, self.chans] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
+        self.specbuf[antidx, polidx, :2*self.cut, :][:, self.channels] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
         dd2=dd.T.copy()
         ddft=pycufft.rfft(dd2,axis=1)
         if thresh>0.:
@@ -117,11 +121,15 @@ class StreamingIPFB():
         # print("ddft c conti", ddft.flags.c_contiguous)
         # res = pycufft.irfft(ddft/cp.conj(self.matft),axis=0)
         out = np.fft.irfft(ddft/cp.conj(self.matft),axis=1)
-        a=out[0,0]
-        b=out[1,0]
+        # print("out.shape", out.shape, out.flags)
+        # print(out)
+        # a=out[0,self.cut].copy()
+        # b=out[1,self.cut].copy()
         out = out.T[self.cut:-self.cut].ravel()
-        assert len(out)==(self.nblock*self.lblock)
-        assert out[0]==a and out[1]==b
+        # print(out[:10])
+        # assert len(out)==((self.nblock-2*self.cut)*self.lblock)
+        # assert out[0]==a and out[1]==b
+        # print("IPFB OUT SHAPE", out.shape, out.flags)
         return out
     
     def __repr__(self):
@@ -133,7 +141,7 @@ class StreamingIPFB():
         }
         header = (
             f"StreamingIPFB(nant={self.nant}, npol={self.npol}, "
-            f"nblock={self.nblock}, lblock={self.lblock}, #chans={len(self.chans)}, cut={self.cut})"
+            f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)}, cut={self.cut})"
         )
         return _print_class_mem_usage(arrays, header)
         
@@ -143,12 +151,12 @@ class StreamingCorrelator():
         self.nant = nant
         self.npol = npol
         self.acclen = acclen
-        self.channels = channels
+        self.channels = cp.asarray(channels, dtype='int32')
         self.nchan = len(channels)
         self.split = split
         self.bufsize = int(bufsize_frac * acclen)
-
-        self.inp = cp.zeros((nant*npol, acclen + 1, self.nchan), dtype="complex64", order="C") #incoming input size
+        print("XCORR CHANNELS", self.channels)
+        self.inp = cp.zeros((nant*npol, self.bufsize, self.nchan), dtype="complex64", order="C") #incoming input size
 
         # self.out = cp.zeros((nant*npol, nant*npol, nchan*split), dtype="complex64", order="F")
         self.buf = cp.zeros((nant*npol, nant*npol, self.nchan*split), dtype='complex64',order='F') #intermediate accumulation buf
@@ -158,6 +166,7 @@ class StreamingCorrelator():
 
     def load(self, antidx, polidx, data):
         # print("load")
+        # print('data shape', data.shape)
         assert self.loaded_num < self.nant*self.npol #can't load if you havent purged previous data. NOT fool-proof. should use per ant,pol index
         if data.shape[0] > self.inp.shape[1]:
             raise RuntimeError("Input buffersize not big enough to store the incoming number of spectra.")
@@ -165,7 +174,6 @@ class StreamingCorrelator():
         idx = antidx*self.npol + polidx
         self.inp[idx, :self.incoming, :] = data[:, self.channels] #save relevant channels to input buffer
         self.loaded_num += 1
-        
         
     def xcorr(self):
         # print("xcorr")
@@ -187,7 +195,7 @@ class StreamingCorrelator():
                 self.bufptr = 0
                 out_possible -= 1
         if used < self.incoming:  #this was fine without if statement in PFB, but here we don't want to invoke xcorr func if nothing to xcorr
-            xin = cp.asfortranarray(self.inp[:, used: , :])
+            xin = cp.asfortranarray(self.inp[:, used:self.incoming , :])
             self.buf = correlation_func(xin, self.nant, self.npol, self.incoming-used, self.nchan, out=self.buf)
             self.bufptr = self.incoming - used
         self.loaded_num = 0 #ready to load again
@@ -195,9 +203,8 @@ class StreamingCorrelator():
     
     def __repr__(self):
         arrays = {
+            "inp": self.inp,
             "buf": self.buf,
-            "out": self.out,
-            "xin": self.xin,
         }
         header = (
             f"StreamingCorrelator(nant={self.nant}, npol={self.npol}, "
