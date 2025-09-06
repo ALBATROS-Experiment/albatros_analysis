@@ -83,7 +83,7 @@ These just serve to know which baseline we are looking at.
 \subsection{baseline\_array}
 Array of baseline numbers, shape (Nblts), type = int.
 These are special numbers that uniquely encode which two antenna are present.
-By default baseline = 2048 * ant1 + ant2 + $2^16$, though other conventions are available. 
+By default baseline = 2048 * ant1 + ant2 + $2^{16}$, though other conventions are available. 
 This is for compatibility with other data formats, and for efficiency in sorting methods.
 
 
@@ -164,20 +164,18 @@ Position angle between the hour circle (which is a great circle that goes throug
 Maps individual indices along the Nblt axis to a key in phase\_center\_catalog, which maps to a dict containing the other metadata for each phase center.Shape (Nblts), type = int.
 
 
-%-----------------------------------------------------------------------------------------------------------------------------------------
-\section{Other}
-
-
 \subsection{uvw\_array}
 Projected baseline vectors relative to phase center, shape (Nblts, 3), units meters. 
 Convention is: uvw = xyz(ant2) - xyz(ant1).
 Note that this is the Miriad convention but it is different from the AIPS/FITS convention (where uvw = xyz(ant1) - xyz(ant2)).
 
 
+%-----------------------------------------------------------------------------------------------------------------------------------------
+\section{Other}
+
 \subsection{telescope}
 pyuvdata.Telescope object containing the telescope metadata.
 This will contain stuff about the telescope, such as name, location, etc. 
-
 
 \subsection{history}
 String of history, units English.
