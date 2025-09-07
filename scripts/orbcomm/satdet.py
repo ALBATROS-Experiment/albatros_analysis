@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from os import path
-sys.path.insert(0, "/home/mohanagr/")
+sys.path.insert(0, "/home/thomasb/")
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     #optional arguments
     parser.add_argument(
-        "-o", "--output_path", type=str, default="/project/s/sievers/thomasb", help="Output directory for debug and pulses"
+        "-o", "--output_path", type=str, default="/scratch/thomasb", help="Output directory for debug and pulses"
     )
 
     parser.add_argument(
