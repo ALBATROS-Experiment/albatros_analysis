@@ -46,18 +46,15 @@ temp_satmap:     has satellite ID in the correct index (e.g. ['Uncorrected', 335
 
 snr_arr:         an array of the SNR for each channel for each satellite (plus uncorrected aka non-beamformed), shape (numsats_in_pass + 1, nchans)
 
+
+
+TO DO:
+
+- implement a minimum of 5 (or more) total passes we take the mode of, once functionality is good
+- make it so that pnum is in units of seconds. makes reading and debugging easier
+- if the signal is not good enough, coarse xcorr a chunk further into the pass for possibly better snr
+- 
 '''
-
-
-
-#will come in handy later
-def get_mode(data):
-    nonzero_data = [x for x in data if x != 0]
-    if len(nonzero_data) < 3:
-        print("not a lot of reliable offsets, mode may be unstable")
-        return "empty"
-    else:
-        return int(stats.mode(nonzero_data)[0])
 
 
 
@@ -100,9 +97,6 @@ if __name__ == "__main__":
         "--alt_cutoff", type = int, default=15, help="lets you change cutoff altitude from default of 15 degrees"
     )
 
-    parser.add_argument(
-        "-gr", "--generalized_offsets", default = True, help = "For each pulse adds the actual offset between the two files. This is done for each pulse to avoid rollover errors between days."
-    )
 
     args = parser.parse_args()
 
@@ -120,12 +114,14 @@ if __name__ == "__main__":
         config = json.load(f)
         dir_parents = []
         coords = []
+        ant_names = []
 
         print("\nAntenna Details:")
         for i, (ant, details) in enumerate(config["antennas"].items()):
             print(ant, details)
             coords.append(details['coordinates'])
             dir_parents.append(details["path"])
+            ant_names.append(details["name"])
 
         global_start_t = config["correlation"]["start_timestamp"] #global as it is in unix time, reference frame
         global_end_t = config["correlation"]["end_timestamp"]
@@ -188,15 +184,16 @@ if __name__ == "__main__":
     print("Number of Passes:", npasses, '\n')
 
     sat_data = {} 
-    sat_data[global_start_t] = {}  #here you can modify how you want to store the data, if you want
+    sat_data[global_start_t] = {}  
 
 
     #------------------Iterate over each Antenna------------------
 
     for antnum in range(1,len(dir_parents)):
-        print(f"--------------- ANTENNA {antnum}-----------------")
+        print(f"--------------- ANTENNA {ant_names[antnum]}-----------------")
 
-        sat_data[global_start_t][f"antenna {antnum}"] = []
+        sat_data[global_start_t][f"{ant_names[antnum]}"] = {}
+        all_pulse_data = []
         nra_path = dir_parents[antnum] 
         nra_coords = coords[antnum]
         snrplot, axS = plt.subplots(np.ceil(npasses/2).astype(int), 2)
@@ -491,8 +488,7 @@ if __name__ == "__main__":
                             sat_peaks.append([int(chanidx)+1834, pulse_ratios[chanidx][1]])
 
                     pulse_data["sats_present"][satmap[sat_ID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
-
-                sat_data[global_start_t][f"antenna {antnum}"].append(pulse_data)
+                    all_pulse_data.append(pulse_data)
         
 
         #----Save SNR Debug for each Antenna----
@@ -501,147 +497,68 @@ if __name__ == "__main__":
         snrplot.savefig(
                 path.join(out_path,f"SNR_ant{antnum}_datastart{global_start_t}.jpg")  #update antenna number?? +1?
             )
+        print(pulse_data)
+
+        #--------Applying consensus offsets--------
     
+        print("------GETTING CONSENSUS OFFSETS-----")
+        #first we extract all the offset information
+        all_SO = []
+        rel_SO = []
+        for details in all_pulse_data:
+            print("details", details)
+            if len(details["sats_present"]) > 1:  #for now only worry about one-sat pulses
+                continue
+            ind_offset = details["individual_offset"] #individual offset
 
-
-        #--------Applying generalized offsets--------
-        if args.generalized_offsets:
-            print("------GETTING GENERALIZED OFFSETS-----")
-            #first we extract all the offset information
-            all_SO = []
-            rel_SO = []
-            for details in sat_data[global_start_t][f"antenna {antnum}"]:
-                if len(details["sats_present"]) > 1:  #for now only worry about one-sat pulses
-                    continue
-                ind_offset = details["individual_offset"] #individual offset
-
-                REL = True
-                #verify that none of the channels have an unreliable offset. If it passes, add it to reliable list.
-                satIDs = list(details['sats_present'].keys())
-                for satID in satIDs:
-                    satinfo = details['sats_present'][satIDs[0]]
-                    for detection in satinfo:
-                        print(detection)
-                        if detection[1] != 'RELIABLE':
-                            REL = False
-                
-                all_SO.append(ind_offset)
-                if REL:
-                    rel_SO.append(ind_offset)
-                elif not REL:
-                    rel_SO.append(0)  #done to keep indices aligned
-
-            print("ALL Specnum Offsets", all_SO)
-            print("\nRELIABLE Specnum Offsets", rel_SO)
-
+            REL = True
+            #verify that none of the channels have an unreliable offset. If it passes, add it to reliable list.
+            satIDs = list(details['sats_present'].keys())
+            for satID in satIDs:
+                satinfo = details['sats_present'][satIDs[0]]
+                for detection in satinfo:
+                    print(detection)
+                    if detection[1] != 'RELIABLE':
+                        REL = False
             
-            # Okay here's the context and explanation.
-            # This whole case thing is to dummy-proof the generalized offset generation.
-            # Sometimes, you might get timestamps that fall inside multiple different days,
-            # meaning the computer did a spectrum number reset and some off the offests will be drastically different.
-            # So, this was made to separate out different days which correspond to different offsets.
-            # They are attributed to the different pulses. 
-            # So, if this is overkill for your case, and you just want ONE offset, and you just threw in timestamps that fall in one day,
-            # this most likely does not apply.
-            
+            all_SO.append(ind_offset)
+            if REL:
+                rel_SO.append(ind_offset)
 
-            diff_all_SO = np.diff(all_SO)  #this is an array!
+        print("ALL Specnum Offsets", all_SO)
+        print("\nRELIABLE Specnum Offsets", rel_SO)
 
-            print("\nDiff array", diff_all_SO)
-
-            #quick and dirty fix is setting a hard limit. this has worked just fine for the Nov 2023 data, but results may differ
-            #better method is certainly some kind of outlier tracking, to do later.
-
-            tolerance = 50000
-            split_index = 0
-            break_count = 0
-
-            for (i, delta)  in enumerate(diff_all_SO):
-                if np.abs(delta) > tolerance:
-                    break_count += 1
-                    split_index = i
-
-            print("split index", split_index)
-
-            #make sure this doesn't break
-            if break_count > 1:
-                print("you are either spanning more than two days, your tolerance is too low, or your offsets are waaay too volatile. try again!")
+        #to check for possible anomalies
+        tolerance = 50000
+        diff_SO = np.diff(all_SO)
+        print("\nDiff array", diff_SO)
+        for (i, delta)  in enumerate(diff_SO):
+            if np.abs(delta) > tolerance:
+                print(f"there is an anomaly between sats {i-1} and {i}")
                 sys.exit()
+            print("no anomalies between individual offsets")
 
+        # we assume the passes are all within one day
+        if len(rel_SO)>=3:
+            con_off = int(stats.mode(rel_SO)[0])
+        elif len(all_SO)>=2:               #(this should be at least 5, implemented once possible)
+            con_off = int(stats.mode(all_SO)[0])     
+        else:
+            print(f"not enough offsets for antenna {antnum}")
+            sys.exit()
 
-            #case 1: nothing special, all just one day.
-            if break_count == 0:
-                M = get_mode(rel_SO)
-                #case 1.1: there are enough reliable offsets:
-                if M != "empty":
-                    SO = M 
+        #implement into pulse data
+        for details in all_pulse_data:
+            ind_off = details["individual_offset"]
+            details["diff_to_consensus"] = con_off - ind_off
 
-                #case 1.2: there are not enough reliable offsets:
-                else:
-                    SO = int(stats.mode(all_SO)[0])
-
-                for details in sat_data[global_start_t][f"antenna {antnum}"]:
-                    details["generalized_offset"] = SO
-
-
-            #case 2: there is a split somewhere, multiple days.
-            elif break_count == 1:
-                all_SO1, all_SO2 = all_SO[:split_index+1], all_SO[split_index+1:]
-                print('all offsets before split', all_SO1)
-                print('all offsets after split', all_SO2)
-                rel_SO1, rel_SO2 = rel_SO[:split_index+1], rel_SO[split_index+1:]
-                print('all reliable offsets before split', rel_SO1)
-                print('all reliable offsets after split', rel_SO2)
-                M1, M2 = get_mode(rel_SO1), get_mode(rel_SO2)
-                
-                #same subcases again 
-                if M1 != "empty":
-                    SO1 = M1
-                else:
-                    SO1 = int(stats.mode(all_SO1)[0])
-                print("SO1", SO1)
-
-                if M2 != "empty":
-                    SO2 = M2
-                else:
-                    SO2 = int(stats.mode(all_SO2)[0])
-                print("SO2", SO2)
-
-                multiple_sat_counter = 0 
-
-                for i, details in enumerate(sat_data[global_start_t][f"antenna {antnum}"]):
-                        print("number of sats", len(details["sats_present"]))
-
-                        # I don't use pulses with multiple sats to find offsets, so 
-                        if len(details["sats_present"]) == 1:
-                            if i <= split_index + multiple_sat_counter:
-                                details["generalized_offset"] = SO1
-                            else:
-                                details["generalized_offset"] = SO2
-                                
-                        # I don't use pulses with multiple sats to find offsets, so need to account for them in the json
-                        elif len(details["sats_present"]) > 1:
-                            multiple_sat_counter += 1
-                            current_offset = details["individual_offset"]
-                            #if there's an edge case, just assign to the closer offset
-                            if abs(current_offset - SO1) > abs(current_offset - SO2):
-                                details["generalized_offset"] = SO2
-                            else:
-                                details["generalized_offset"] = SO1
-
-                        print(multiple_sat_counter)
-
-                #idea: add a check if there are not a lot of data points in all_SO to see if there is ONE value in reliable
-                #just try to fix small sample size problems.
-
+        #add to the total dictionary
+        sat_data[global_start_t][f"{ant_names[antnum]}"]["consensus_offset"] = con_off
+        sat_data[global_start_t][f"{ant_names[antnum]}"]["pulse_data"] = all_pulse_data
 
 
     #----Save Pulse Data to Json for each Antenna
-    #question: how do we want to configure the json to read off the antenna information?
-    #          because as of now, no antenna information encoded directly. 
-    #          could add an extra dictionary element which gives the antenna, may be a move.
-
-    json_output = path.join(out_path,f"pulsedata_{global_start_t}_{global_end_t}.json")
+    json_output = path.join(out_path,f"pulsedata_{global_start_t}_{time.time()}.json")
     with open(json_output, "w") as file:
         json.dump(sat_data, file, indent=4)
         print(sat_data)
