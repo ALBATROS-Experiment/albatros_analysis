@@ -53,7 +53,7 @@ TO DO:
 - implement a minimum of 5 (or more) total passes we take the mode of, once functionality is good
 - make it so that pnum is in units of seconds. makes reading and debugging easier
 - if the signal is not good enough, coarse xcorr a chunk further into the pass for possibly better snr
-- 
+- check for possible bug that prints the first pass multiple times
 '''
 
 
@@ -204,16 +204,18 @@ if __name__ == "__main__":
         #--------Iterate over each Pass--------
 
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
-
+            
             print(f"------Pass Number {pnum}-------")
             print("Pass Start Idx:", pstart)
             print("Pass End Idx:", pend)
             print("Satelite Idxs Present:", sats_present, '\n')
             numsats_in_pass = len(sats_present)
 
-            #define our pass length
-            t1 = global_start_t + pstart * T_SCAN
-            t2 = global_start_t + pend * T_SCAN  #might need to shorten the pass duration for practicality
+            #define our pass length. recall that pstart and pend are in units of scans (usually 5s)
+            pstart = pstart * T_SCAN
+            pend = pend * T_SCAN
+            t1 = global_start_t + pstart
+            t2 = global_start_t + pend  #might need to shorten the pass duration for practicality
             print("Pass Duration:", t2-t1, '\n')
 
             # Make sure no problem in files
