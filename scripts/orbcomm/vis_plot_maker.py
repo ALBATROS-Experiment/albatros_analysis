@@ -50,16 +50,16 @@ def pred(coord1, coord2, start_t, end_t, pulse_idx, channel, satID):
 
 #--------------------hard coded setup------------
 config_path = '/home/thomasb/albatros_analysis/scripts/orbcomm'
-config_name = 'config.json'
+config_name = 'config2.json'
 
-satdet_path = '/scratch/thomasb/pulsedata_1753133403'
-satdet_name = "pulsedata_1753133403_1757540615.4208999.json"
+satdet_path = '/scratch/thomasb/'
+satdet_name = "pulsedata_1753200150_1757992159.256902.json"
 
 T_SPECTRA = 4096/250e6
 
-desired_pulse_start_time = 6340   #this is the current (not super thought out) way to identify pulses
-bl1_ants = set({'Antenna 1', 'Antenna 7'})
-bl2_ants = set({'Antenna 1', 'Antenna 8'})
+desired_pulse_start_time = 10545   #this is the current (not super thought out) way to identify pulses
+bl1_ants = set({'Antenna 1', 'Antenna 2'})
+bl2_ants = set({'Antenna 1', 'Antenna 4'})
 required_antennas = bl1_ants | bl2_ants
 
 
@@ -153,7 +153,7 @@ print('bl1, bl2:', bl1, bl2)
 
 #add some more double check here or something.
 
-rel_start_t, rel_end_t = desired_pulse_info_all[0]['start'], desired_pulse_info_all[0]['end']
+rel_start_t, rel_end_t = desired_pulse_info_all[0]['start'] , desired_pulse_info_all[0]['end']
 pulse_start_t = rel_start_t + global_start_time
 pulse_end_t = rel_end_t + global_start_time
 pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))

@@ -190,7 +190,7 @@ if __name__ == "__main__":
     #------------------Iterate over each Antenna------------------
 
     for antnum in range(1,len(dir_parents)):
-        print(f"--------------- ANTENNA {ant_names[antnum]}-----------------")
+        print(f"--------------- {ant_names[antnum]}-----------------")
 
         sat_data[global_start_t][f"{ant_names[antnum]}"] = {}
         all_pulse_data = []
@@ -536,15 +536,17 @@ if __name__ == "__main__":
         print("\nDiff array", diff_SO)
         for (i, delta)  in enumerate(diff_SO):
             if np.abs(delta) > tolerance:
-                print(f"there is an anomaly between sats {i-1} and {i}")
-                sys.exit()
+                print(f"CAUTION: there is an anomaly between sats {i-1} and {i}")
+
             print("no anomalies between individual offsets")
 
         # we assume the passes are all within one day
         if len(rel_SO)>=3:
             con_off = int(stats.mode(rel_SO)[0])
+            print('enough reliable offsets')
         elif len(all_SO)>=2:               #(this should be at least 5, implemented once possible)
-            con_off = int(stats.mode(all_SO)[0])     
+            con_off = int(stats.mode(all_SO)[0])  
+            print('not enough reliable offsets, but enough regular offsets')   
         else:
             print(f"not enough offsets for antenna {antnum}")
             sys.exit()
@@ -557,6 +559,8 @@ if __name__ == "__main__":
         #add to the total dictionary
         sat_data[global_start_t][f"{ant_names[antnum]}"]["consensus_offset"] = con_off
         sat_data[global_start_t][f"{ant_names[antnum]}"]["pulse_data"] = all_pulse_data
+
+        print('added to sat_data, starting new antenna')
 
 
     #----Save Pulse Data to Json for each Antenna
