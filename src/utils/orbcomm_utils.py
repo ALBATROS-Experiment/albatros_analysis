@@ -781,3 +781,28 @@ def chan2freq(chan,alias=False,samp=250e6,fftlen=4096):
         return samp*(1-chan/fftlen)
     else:
         return samp*chan/fftlen
+    
+
+
+def pred(coord1, coord2, start_t, end_t, channel, satID, T_SPECTRA=4096/250e6, v_acclen=30000):
+    '''
+    predicted phase given satellite
+    '''
+    bench_time = time.time()
+    chunk_len = v_acclen * (T_SPECTRA)
+    tle_path = get_tle_file(start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
+    pulse_len_s = end_t - start_t
+    d = get_sat_delay_new(coord1, coord2, tle_path, start_t, pulse_len_s + 1, satID)
+
+    pulse_len_chunks = np.ceil(pulse_len_s / chunk_len)
+    pulse_freq = chan2freq(channel, alias=True)
+
+    interp_chunk_times = (np.arange(pulse_len_chunks) * chunk_len)
+
+    #get the delay values for each of these chunks
+    delay = np.interp(interp_chunk_times, np.arange(len(d)), d)
+
+    #get the predicted phase at each chunk
+    pred = (-delay + delay[0]) * 2 * np.pi * pulse_freq
+    print("time taken pred", time.time() - bench_time)
+    return pred 

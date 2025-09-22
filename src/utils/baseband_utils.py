@@ -6,6 +6,7 @@ import pytz
 import datetime
 import glob
 import re
+from datetime import datetime, timezone
 
 def _find(dir_parent, search_type, search_tag, min_depth):
     return subprocess.run(
@@ -474,3 +475,92 @@ def get_pfb_chans(channels,osamp):
         pfbchans=np.append(pfbchans,temp)
         start=end+1
     return pfbchans
+
+def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 60):
+    t_start_human = datetime.fromtimestamp(t_start, tz=timezone.utc).strftime('%H:%M:%S, %d/%m')
+    t_end_human = datetime.fromtimestamp(t_end, tz=timezone.utc).strftime('%H:%M:%S, %d/%m')
+    ant_name_list = []
+    ant2files = {}
+    for ant_path in ant_path_list:
+        path_name = os.path.basename(ant_path)
+        ant_name = os.path.splitext(path_name)[0]
+        print(ant_name)
+        ant_name_list.append(ant_name)
+
+    for ant_idx, ant_path in enumerate(ant_path_list):
+        ant_name = ant_name_list[ant_idx]
+        files_raw = []
+        tstamps = []
+        try:
+            files_raw = time2fnames(t_start, t_end, ant_path, 'f')
+        except FileNotFoundError:
+            files_raw = []
+        print(f'raw file ant {ant_name}', files_raw)
+
+        for file in files_raw:
+            filename = os.path.basename(file)
+            tstamp_str = os.path.splitext(filename)[0]
+            tstamp = int(tstamp_str)
+            tstamps.append(tstamp)
+        
+        tstamps = np.array(tstamps)
+        print(f'tstamps ant {ant_name}', tstamps)
+        ant2files[ant_name] = tstamps
+
+    rounded = int(np.ceil((t_end-t_start)/T_SCAN))*T_SCAN + t_start +1 #round UP to the nearest dt.
+    times = np.arange(t_start, rounded, T_SCAN)
+    times_human = [datetime.fromtimestamp(t, tz=timezone.utc).strftime('%d/%m, %H:%M:%S') for t in times]
+    arr = np.zeros((len(times), len(ant_name_list)))
+    for t_idx, time in enumerate(times):
+        for ant_idx, ant_name in enumerate(ant_name_list):
+            data = ant2files[ant_name]
+            if np.any((data >= time - tolerance) & (data <= time)):
+                arr[t_idx][ant_idx] = 1
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    fig.suptitle(f"File Presence ({t_start_human}) to ({t_end_human})")
+
+    im = ax.imshow(arr, aspect='auto', interpolation='none', cmap='Oranges')
+
+    ax.set_xticks(range(len(ant_name_list)))
+    ax.set_xticklabels(ant_name_list)
+    for x in range(1, arr.shape[1]):
+        ax.axvline(x - 0.5, color='black', linewidth=0.5)
+
+    step = len(times) // 10
+    ax.set_yticks(range(0, len(times), step))
+    ax.set_yticklabels([times_human[i] for i in range(0, len(times), step)])
+    
+    return arr, fig
+
+def get_simul_files(arr, time_start, dt, desired_ant_indices):
+    in_run = False
+    runs = []
+    current_time = time_start
+    for row in arr:
+        all_present = all(row[x] == 1 for x in desired_ant_indices)
+        #all four cases:
+        if (all_present) and (in_run):
+            pass
+
+        elif (not all_present) and (not in_run):
+            pass
+
+        elif (all_present) and (not in_run):
+            in_run = True
+            start_run = current_time
+            
+        elif (not all_present) and (in_run):
+            in_run = False
+            end_run = current_time - 20
+            runs.append([start_run, end_run])
+
+        else:
+            raise ValueError('something broke!')
+        
+        current_time += dt
+
+    if in_run:
+        runs.append([start_run, current_time])
+
+    return runs
