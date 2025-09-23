@@ -379,7 +379,6 @@ if __name__ == "__main__":
             axS[pnum].set_ylabel("SNR")
             axS[pnum].legend()
 
-
             #----Detect Peaks----
             # rows = sats_present, cols = channels
             detected_sats = np.zeros(nchans, dtype="int")

@@ -18,7 +18,7 @@ import random
 from scripts.xcorr import helper as hp
 import importlib
 from scipy.interpolate import interp1d
-import sat_coarse as sc
+import sat_utils as su
 
 
 def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t, rel_start_t, chan_idx_small, sat_ID, phase1, phase2, T_SPECTRA=4096/250e6, c_acclen=10**6, v_acclen=5000):

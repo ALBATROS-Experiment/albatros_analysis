@@ -1,0 +1,46 @@
+
+general notes:
+
+- is the TLE file reliable the whole way through a full day?
+- change freqs for full functionality with different spectra types and such
+- careful with satmap vs satID vs satidx and such
+
+
+
+explanations of what's going on:
+
+important convention:  a satellite PASS is when we know from TLE it is overhead. a satellite PULSE is when we can confirm we've seen it in our data.
+(to me, it's useful to make sure we separate our seen data and our predicted knowledge of the sats)
+
+arr:             temporary array where we store which satellite has a pass active, using 1 and 0 (on/off)
+rsats:           list of lists of coordinates and ID of satellites visible (aka risen), entry each T_SCAN seconds (default 5s)
+num_sats_risen:  integer list with number of visible satellites at that point, entry each dt
+sat_data:        dictionary where we will eventually store all pulse data
+
+
+passes:          list of all recorded satellite passes, in the form of [[start, end], [sats_present]]
+sats_present:    list of the satellites present in a specific pass. The sat in question is identified by its index in satlist
+
+(for one pass)
+cx:              list of coarse cross-correlations. Done for each present satellite, as well as one uncorrected (non-beamformed)
+temp_satmap:     has satellite ID in the correct index (e.g. ['Uncorrected', 33591] for single sat present). lets you move from indices to their actual satID
+
+snr_arr:         an array of the SNR for each channel for each satellite (plus uncorrected aka non-beamformed), shape (numsats_in_pass + 1, nchans)
+
+
+
+TO DO:
+
+- implement a minimum of 5 (or more) total passes we take the mode of, once functionality is good
+- make it so that pnum is in units of seconds. makes reading and debugging easier
+- if the signal is not good enough, coarse xcorr a chunk further into the pass for possibly better snr
+- check for possible bug that prints the first pass multiple times
+
+- for multiple sats, reliability score gets repeated.
+    Basically, you're not differentiating between sats when there are multiple there. writing same info twice.
+
+
+
+BEWARE:
+- make sure that the new tle file each pulse doesn't mess anything up later down the line
+- 
