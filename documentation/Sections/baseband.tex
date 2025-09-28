@@ -1,0 +1,22 @@
+\chapter{Baseband File System}
+\label{chap: baseband}
+
+This chapter is here to give an overview of (and hopefully in more polished versions) give some technical details
+into how we store and manipulate baseband data. Not super straightforward, and took me a while to understand.
+
+\begin{itemize}
+\item Baseband files are organized by UTC time. 
+First the split is by 5 numbers (e.g. 17219), and then split again into raw files of length of about 45 seconds (in the MARS 1 case). 
+They have a length of 10 numbers, corresponding to the UTC time at which the measurement of their data \textit{starts}. 
+These raw files then contain the FTed data for all our channels, in complex numbers.
+
+\item also note that there are two ways for us to store data, corresponding to different number of bits: 1 bit complex or 4 bit complex 
+(corresponding to 2 bits total, or 8 bits total respectively).
+
+\item Since it's an insane amount of data, it is compressed. The way in which it is compressed is in an 8-digit binary, corresponding to either an integer or a complex number. 
+unpacking into float complex 64 takes a bunch of time right (explain better too lazy to clean up right away) ('uint8' vs 'complex64')
+
+\item It may also LOSE DATA, so some spectra are missing. This isn't great, but there are functions to help remedy this. 
+Make continuous and such are very valuable. Give brief overview, and perhaps link the function page itself.
+
+\end{itemize}
