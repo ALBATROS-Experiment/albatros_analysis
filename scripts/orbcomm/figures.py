@@ -19,6 +19,7 @@ from scripts.xcorr import helper as hp
 import importlib
 from scipy.interpolate import interp1d
 import sat_utils as su
+import cupy as cp
 
 
 def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t, rel_start_t, chan_idx_small, sat_ID, phase1, phase2, T_SPECTRA=4096/250e6, c_acclen=10**6, v_acclen=5000):
@@ -104,4 +105,26 @@ def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t
 
     fig.savefig('/scratch/thomasb' + f'/2bline_pulse{rel_start_t}_{global_start_t}.jpg')
 
-    #Good afternoon folks, here’s a plot for a satellite pulse we see in our data. xcorr SNR is about 180 on the first baseline and 110 on the second, with an x-corr accumulation length of a million spectra = ~16secs.
+
+def make_cxcorr_plot(data):
+    data_cpu = cp.asnumpy(data)
+    fig,ax=plt.subplots(6,3)
+    fig.set_size_inches(10,12)
+    ax=ax.flatten()
+    for chan in range(18):
+        data_chan = np.abs(data_cpu[chan,:])
+        peak_idx=np.argmax(data_chan)
+        ax[chan].set_title(f"{peak_idx}")
+        ax[chan].plot(data_chan)
+        plt.tight_layout()
+    return fig
+
+
+def make_snr_plot(data, temp_satmap):
+    snrfig, snrax = plt.subplots()
+    for i in range(len(temp_satmap)):
+        snrax.plot(data[i, :], label=f"{temp_satmap[i]}")
+    snrax.set_xlabel("Channels")
+    snrax.set_ylabel("SNR")
+    snrax.legend()
+    return snrfig

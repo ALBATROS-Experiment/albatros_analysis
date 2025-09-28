@@ -18,15 +18,6 @@ import json
 from scipy.signal import find_peaks
 
 
-#cxcorr maker for multiple sats
-
-#get_SNR
-
-#peak detection
-
-#reliability finder
-
-
 def get_cxcorr_many_sats(p0_ra,
                          p0_nra, 
                          tle_path, 
@@ -77,59 +68,10 @@ def get_cxcorr_many_sats(p0_ra,
     return cx
 
 
-
-def get_good_chunk(ra_obj,
-                   nra_obj,
-                   nchans,
-                   c_acclen = 10^6):
-    
-    p0_ra = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
-    p0_nra = cp.zeros((c_acclen, nchans), dtype="complex64")
-
-    ra_start = ra_obj.spec_num_start
-    nra_start = nra_obj.spec_num_start
-    for i, (chunk_ra, chunk_nra) in enumerate(zip(ra_obj, nra_obj)):
-        perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
-        perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
-        print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
-        if perc_missing_ra > 10 or perc_missing_nra > 10:
-            ra_start = ra_obj.spec_num_start
-            nra_start = nra_obj.spec_num_start
-            continue
-        
-        bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
-        bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
-        break
-            
-
-    #add some checking here!!
-
-    return p0_ra, p0_nra
-
-
-
-def get_rel_ratio(data_gpu):
-    data_cpu = cp.asnumpy(data_gpu)
-
-    peak_location = cp.argmax(data_gpu)
-    peak_data = data_gpu[peak_location - 200:peak_location + 200]
-    peaks_total = find_peaks(data_cpu, height=0.001)
-
-    heights = peaks_total[1]['peak_heights']
-    height_indices = np.argsort(heights)
-    tallest = heights[height_indices[-1]]
-    reps, total = 4, 0
-    for i in range(reps):
-        total += (tallest - heights[height_indices[-(i+2)]])
-    reliability_ratio = (total/(tallest * reps)) *100
-    
-    return reliability_ratio
-
-
-
 def get_detections(cx, snr_array, temp_satmap):
     
     nchans = len(snr_array[0,:])
+    detected_snrs = np.zeros(nchans, dtype="int")
     detected_sats = np.zeros(nchans, dtype="int")
     detected_peaks = np.zeros(nchans, dtype="int")
     rel_ratios = np.zeros(nchans, dtype="int")
@@ -146,6 +88,7 @@ def get_detections(cx, snr_array, temp_satmap):
         tol = 5 * np.sqrt(2)
         if diff>tol: 
             cx_idx = sortidx[-1] # which cxcorr has the detection
+            snr = snr_array[cx_idx, chan]
             print(f"\nDetected Peak in cx index {cx_idx} in channel {chan}")
             satID = temp_satmap[cx_idx]
             print("SatID of detected peak:", satID)
@@ -156,12 +99,34 @@ def get_detections(cx, snr_array, temp_satmap):
             #detected = graduates from pass to pulse. also picks what channels detection happens
             detected_sats[chan] = temp_satmap[sortidx[-1]]
             detected_peaks[chan] = cp.argmax(cp.abs(cx[sortidx[-1]][chan,:]))
+            detected_snrs[chan] = snr
             rel_ratios[chan] = rel_ratio
 
-    return detected_sats, detected_peaks, rel_ratios
+    return detected_sats, detected_peaks, detected_snrs, rel_ratios
 
-                
+
+
+
+def get_rel_ratio(data_gpu):
+    #data may already be a numpy array but this just makes sure
+    data_cpu = cp.asnumpy(data_gpu)
+    peak_location = np.argmax(data_cpu)
+    peak_data = data_cpu[peak_location - 200:peak_location + 200]
+    peaks_total = find_peaks(peak_data, height=0.001)
+
+    heights = peaks_total[1]['peak_heights']
+    height_indices = np.argsort(heights)
+    tallest = heights[height_indices[-1]]
+    reps, total = 4, 0
+    for i in range(reps):
+        total += (tallest - heights[height_indices[-(i+2)]])
+    reliability_ratio = (total/(tallest * reps)) *100
     
+    return reliability_ratio
+
+
+
+
 def get_consensus_offset(data):
 
     print("------GETTING CONSENSUS OFFSETS-----")
@@ -212,6 +177,3 @@ def get_consensus_offset(data):
         raise ValueError("not enough offsets for antenna this antenna")
 
     return int(con_off)
-
-
-
