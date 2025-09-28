@@ -119,6 +119,4 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray, nant: int,npol: int, ntime: int, nfreq:
         M, N, K//split, batchCount
     )
         out/=K
-
-        
     return out

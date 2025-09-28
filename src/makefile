@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -fPIC -O3 -std=c99
 LIBS := -lfftw3_omp -lm
-objects := lib_unpacking.so lib_correlations_cpu.so #Always build unpacking
+objects := lib_unpacking.so lib_correlations_cpu.so#Always build unpacking
 
 ifeq (${USE_GPU}, 1)
 objects += libpycufft.so
