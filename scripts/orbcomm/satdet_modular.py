@@ -92,12 +92,13 @@ if __name__ == "__main__":
     print("PASSES DETECTED:",'\n', passes, '\n')
     print("Number of Passes:", npasses, '\n')
 
+
+    ERRORCOUNT = 0
     #ITERATE OVER ANTS
     sat_data = {} 
     sat_data[global_start_t] = {}  
     for antnum in range(1,len(dir_parents)):
         print(f"--------------- {ant_names[antnum]}-----------------")
-
         sat_data[global_start_t][f"{ant_names[antnum]}"] = {}
         baseline_pulse_data = []
         nra_path, nra_coords = dir_parents[antnum], coords[antnum]
@@ -108,12 +109,13 @@ if __name__ == "__main__":
         #ITERATE OVER PASS
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
             print(f"---------------starting pulse {pnum}---------")
-            pstart, pend = pstart*T_SCAN, pend*T_SCAN       #go from T_SCAN indices to times in s
+            pstart, pend = pstart*T_SCAN, pend*T_SCAN
+            pstart = pstart       #go from T_SCAN indices to times in s
             t1, t2 = global_start_t + pstart, global_start_t + pend  #get in unix time
             tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
             debug_pulse_path = os.path.join(debug_ant_path, f'pulse_{pnum}_start_{pstart}')
             os.makedirs(debug_pulse_path, exist_ok=True)
-
+            print("Pass Start:", pstart + global_start_t)
             print("Pass Duration:", t2-t1, '\n')
 
             # Make sure no problem in files
@@ -154,12 +156,18 @@ if __name__ == "__main__":
                 type="float",
             )
 
+            print(ra.acclen)
+            print(nra.acclen)
+
             #PICK THE CHUNK, PUT IN DATA
             p0_ra = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
             p0_nra = cp.zeros((c_acclen, nchans), dtype="complex64")
             ra_start = ra.spec_num_start
             nra_start = nra.spec_num_start
+            
+            
             for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
+                print("I GOT HERE")
                 perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
                 perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
                 print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
@@ -167,16 +175,21 @@ if __name__ == "__main__":
                     ra_start = ra.spec_num_start
                     nra_start = nra.spec_num_start
                     continue
-                
                 bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
                 bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
                 break
+            #except ValueError:
+            #    print("WARNING\nWARNING!!!!! THE ERROR HAPPENED")
+            #   ERRORCOUNT += 1
+            #    continue
+
 
             specnum_offset = ra.spec_num_start - nra.spec_num_start #this is the initial delay between specnums when the antennas booted up
             temp_satmap = [] 
             temp_satmap.append("Uncorrected")
             for i, satidx in enumerate(sats_present):
                 temp_satmap.append(satmap[satidx])
+
 
             #GET CXCORR DATA
             N = 2*c_acclen
@@ -259,8 +272,10 @@ if __name__ == "__main__":
         print('added to sat_data, starting new antenna')
 
     #SAVE TO JSON
-    json_output = path.join(out_path,f"mod_pulsedata_{global_start_t}_{time.time()}.json")
+    json_output = path.join(out_path,f"pulsedata_{global_start_t}_len_{global_end_t-global_start_t}_{time.time()}.json")
     with open(json_output, "w") as file:
         json.dump(sat_data, file, indent=4)
         print(sat_data)
+
+    print(ERRORCOUNT)
 

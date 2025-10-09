@@ -115,6 +115,8 @@ def get_rel_ratio(data_gpu):
     peaks_total = find_peaks(peak_data, height=0.001)
 
     heights = peaks_total[1]['peak_heights']
+    if len(heights)<2:
+        return 0
     height_indices = np.argsort(heights)
     tallest = heights[height_indices[-1]]
     reps, total = 4, 0
