@@ -1,19 +1,16 @@
 # usage: python missing_frac.py ~/Projects/baseband/SNAP1/16272
-
+import sys
 import os
+sys.path.insert(0,os.path.expanduser("~"))
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-
-if __name__=="__main__":
-    from correlations import baseband_data_classes as bdc
-else:
-    from .correlations import baseband_data_classes as bdc
-
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
 
 def get_missing_frac(fname):
     obj = bdc.Baseband(fname)
-    missing_frac = np.sum(obj.missing_num) / (
+    obj.spec_idx
+    missing_frac = np.sum(obj._missing_num) / (
         obj.spec_num[-1] - obj.spec_num[0] + obj.spectra_per_packet
     )
     return missing_frac

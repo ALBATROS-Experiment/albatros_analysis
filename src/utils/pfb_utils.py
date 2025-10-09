@@ -92,7 +92,7 @@ class StreamingIPFB():
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
         self.cut = cut
         self.nchan=lblock//2+1
-        self.specbuf = cp.empty((self.nant, self.npol, self.nblock, self.nchan), dtype='complex64',order='C')
+        self.specbuf = cp.zeros((self.nant, self.npol, self.nblock, self.nchan), dtype='complex64',order='C')
         #mat will be deallocated after function returns
         mat=cp.zeros((nblock, lblock),dtype="float32")
         mat[:ntap,:]=cp.reshape(self.win,[ntap,len(self.win)//ntap])
@@ -111,22 +111,28 @@ class StreamingIPFB():
         self.specbuf[antidx,polidx,2*self.cut:, :][:,self.channels] = spectra
         dd=pycufft.irfft(self.specbuf[antidx, polidx , :, :],axis=1)
         assert dd.flags.c_contiguous and dd.base is None
-        self.specbuf[antidx, polidx, :2*self.cut, :][:, self.channels] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
+        if self.cut > 0:
+            self.specbuf[antidx, polidx, :2*self.cut, :][:, self.channels] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
         dd2=dd.T.copy()
         ddft=pycufft.rfft(dd2,axis=1)
+        #print("DDFT", ddft)
         if thresh>0.:
             # print("filtering...")
             filt=cp.abs(self.matft)**2/(thresh**2+cp.abs(self.matft)**2)*(1+thresh**2)
             ddft=ddft*filt
         # print("ddft c conti", ddft.flags.c_contiguous)
         # res = pycufft.irfft(ddft/cp.conj(self.matft),axis=0)
-        out = np.fft.irfft(ddft/cp.conj(self.matft),axis=1)
-        # print("out.shape", out.shape, out.flags)
-        # print(out)
+        out = pycufft.irfft(ddft/cp.conj(self.matft),axis=1)
+        #print("out.shape", out.shape, out.flags)
+        #print(out)
         # a=out[0,self.cut].copy()
         # b=out[1,self.cut].copy()
+        # if self.cut>0:
+        #     out = out.T[self.cut:-self.cut].ravel()
+        # else:
+        #     out = out.T.ravel()
         out = out.T[self.cut:-self.cut].ravel()
-        # print(out[:10])
+        # print("out after ravel", out, out.shape)
         # assert len(out)==((self.nblock-2*self.cut)*self.lblock)
         # assert out[0]==a and out[1]==b
         # print("IPFB OUT SHAPE", out.shape, out.flags)

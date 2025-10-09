@@ -13,6 +13,14 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Path to config file")
+    parser.add_argument(
+        "-o",
+        "--outdir",
+        dest="outdir",
+        type=str,
+        default=".",
+        help="Output plot directory [default: .]",
+    )
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
@@ -39,7 +47,6 @@ if __name__=="__main__":
     osamp = config["correlation"]["osamp"]
     pfb_size = config["correlation"]["pfb_size"]
     new_acclen = config["correlation"]["new_acclen"]
-    outdir = "/project/rrg-sievers/mohanagr/gpu_all_antenna"
     cutsize = 16
     print("pfbsize",pfb_size)
     nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
@@ -49,14 +56,20 @@ if __name__=="__main__":
     print("nchunks", nchunks)
     print("loaded files", files)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
+    filt_thresh = 0.2
     # t_acclen = acclen*4096/250e6
     # sys.exit()
-    t1=time.time()
-    pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,cutsize=16,filt_thresh=0.45)
-    t2=time.time()
+    if osamp > 1:
+        t1=time.time()
+        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,cutsize=16,filt_thresh=filt_thresh)
+        t2=time.time()
+    else:
+        t1=time.time()
+        pols,new_channels=helper.xcorr_avg(idxs,files,pfb_size,nchunks,channels)
+        t2=time.time()
     print("Total time taken", t2-t1)
 
-    fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}.npz"
-    fpath = path.join(outdir,fname)
+    fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}_{filt_thresh}.npz"
+    fpath = path.join(args.outdir,fname)
     np.savez(fpath,data=pols,chans=new_channels)
 
