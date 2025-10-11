@@ -128,3 +128,15 @@ def make_snr_plot(data, temp_satmap):
     snrax.set_ylabel("SNR")
     snrax.legend()
     return snrfig
+
+def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10,4)
+    fig.suptitle(f"Risen sats for starting time {global_start_t}")
+    ax[0].plot(num_sats_risen)
+    ax[0].set_xlabel(f"time (in units of {T_SCAN} sec)")
+    ax[1].set_ylabel(f"time in units of {T_SCAN} sec")
+    ax[1].set_xlabel("Sat Index (from satlist)") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
+    ax[1].imshow(arr,aspect='auto',interpolation="none")
+    plt.tight_layout()
+    return fig

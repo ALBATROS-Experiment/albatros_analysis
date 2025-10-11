@@ -68,19 +68,11 @@ if __name__ == "__main__":
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
     rsats = outils.get_risen_sats(tle_path, ra_coords, global_start_t, dt=T_SCAN, niter=nrows, good=satlist, altitude_cutoff=altitude_cutoff)
     num_sats_risen = [len(x) for x in rsats]
-
-    fig, ax = plt.subplots(1, 2)
-    fig.set_size_inches(10,4)
-    fig.suptitle(f"Risen sats for starting time {global_start_t}")
-    ax[0].plot(num_sats_risen)
-    ax[0].set_xlabel(f"time (in units of {T_SCAN} sec)")
     for i, row in enumerate(rsats):
         for sat_ID, satele, sataz in row:
             arr[i,satmap[sat_ID]] = 1
-    ax[1].set_ylabel(f"time in units of {T_SCAN} sec")
-    ax[1].set_xlabel("Sat Index (from satlist)") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
-    ax[1].imshow(arr,aspect='auto',interpolation="none")
-    plt.tight_layout()
+
+    fig = fgs.make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN=T_SCAN)
     fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{str(time.time())}.jpg"))
     print(arr)
 
@@ -91,9 +83,8 @@ if __name__ == "__main__":
     npasses = len(passes)
     print("PASSES DETECTED:",'\n', passes, '\n')
     print("Number of Passes:", npasses, '\n')
+    
 
-
-    ERRORCOUNT = 0
     #ITERATE OVER ANTS
     sat_data = {} 
     sat_data[global_start_t] = {}  
@@ -165,7 +156,6 @@ if __name__ == "__main__":
             ra_start = ra.spec_num_start
             nra_start = nra.spec_num_start
             
-            
             for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
                 print("I GOT HERE")
                 perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
@@ -178,10 +168,6 @@ if __name__ == "__main__":
                 bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
                 bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
                 break
-            #except ValueError:
-            #    print("WARNING\nWARNING!!!!! THE ERROR HAPPENED")
-            #   ERRORCOUNT += 1
-            #    continue
 
 
             specnum_offset = ra.spec_num_start - nra.spec_num_start #this is the initial delay between specnums when the antennas booted up
