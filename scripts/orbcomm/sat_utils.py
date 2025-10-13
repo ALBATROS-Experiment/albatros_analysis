@@ -2,7 +2,6 @@ import os
 import sys
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
 import numpy as np
-import cupy as cp
 import numba as nb
 import time
 from scipy import linalg
@@ -13,11 +12,19 @@ from datetime import datetime as dt
 from src.correlations import baseband_data_classes as bdc
 from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
-from src.utils import orbcomm_utils_gpu as outils_g
 import json
 from scipy.signal import find_peaks
 from scripts.xcorr import helper as hp
-from scripts.xcorr import helper_gpu as hpg
+
+
+def get_complex_snr(signal_data, noise_data): #FIX THIS so it can overcome big signal in middle
+    signal = np.max(np.abs(signal_data))
+    im_std = np.std(noise_data.imag)
+    re_std = np.std(noise_data.real)
+    std = np.sqrt(im_std**2 + re_std**2)
+
+    return signal/std
+
 
 def get_bline_dist(coord1, coord2):
     ''' 
@@ -44,53 +51,28 @@ def get_bline_dist(coord1, coord2):
     return dist_total
 
 
+def get_rel_ratio(data):
+    #data may already be a numpy array but this just makes sure
+    assert isinstance(data, np.ndarray)
+    peak_location = np.argmax(data)
+    peak_data = data[peak_location - 200:peak_location + 200]
+    peaks_total = find_peaks(peak_data, height=0.001)
 
-def get_cxcorr_many_sats(p0_ref,
-                         p0_nref, 
-                         tle_path, 
-                         times, 
-                         sats_present,
-                         satmap,
-                         coords,
-                         N,
-                         dN,
-                         T_SPECTRA = 4096 / 250e6,
-                         c_acclen = 10**6):
-
-    nchans = len(p0_ref[0,:])
-    freqs = 250e6 * (1 - cp.arange(1834, 1852) / 4096)
-    cx = []
-
-    pulse_start, pulse_end = times[0], times[1]
-    ref_coords, nref_coords = coords[0], coords[1]
-    p0_nra_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
-    niter = int(pulse_end - pulse_start) + 1  # +1 to avoid edge effects
-
-    #GET GEO DELAY
-    delays = np.zeros((c_acclen, len(sats_present)))
-    for i, satidx in enumerate(sats_present):
-        d = outils.get_sat_delay(
-            ref_coords,nref_coords,tle_path,pulse_start,niter,satmap[satidx]
-            )
-        delays[:, i] = np.interp(
-            np.arange(0, c_acclen) * T_SPECTRA, np.arange(0, niter), d
-        )
-    delays = cp.asarray(delays)
+    heights = peaks_total[1]['peak_heights']
+    if len(heights)<2:
+        return 0
+    height_indices = np.argsort(heights)
+    tallest = heights[height_indices[-1]]
+    reps, total = 4, 0
+    for i in range(reps):
+        total += (tallest - heights[height_indices[-(i+2)]])
+    reliability_ratio = (total/(tallest * reps)) *100
     
-    #UNCORRECTED
-    cx.append(outils_g.coarse_xcorr(p0_ref, p0_nref, dN))  # no correction
-
-    #CORRECTED
-    for i, satidx in enumerate(sats_present):
-        print("\nProcessing Satellite with ID:", satmap[satidx])
-        outils_g.apply_delay(p0_nref, delays[:,i], freqs, out=p0_nra_delayed)
-        cx.append(outils_g.coarse_xcorr(p0_ref, p0_nra_delayed, dN))
-
-    return cx
+    return reliability_ratio
 
 
 def get_detections(cx, snr_array, temp_satmap):
-    
+    assert isinstance(cx, np.ndarray)
     nchans = len(snr_array[0,:])
     detected_snrs = np.zeros(nchans, dtype="int")
     detected_sats = np.zeros(nchans, dtype="int")
@@ -114,38 +96,17 @@ def get_detections(cx, snr_array, temp_satmap):
             satID = temp_satmap[cx_idx]
             print("SatID of detected peak:", satID)
 
-            data_gpu = cp.abs(cx[sortidx[-1]][chan,:])
-            rel_ratio = get_rel_ratio(data_gpu)
+            data = np.abs(cx[sortidx[-1]][chan,:])
+            rel_ratio = get_rel_ratio(data)
         
             #detected = graduates from pass to pulse. also picks what channels detection happens
             detected_sats[chan] = temp_satmap[sortidx[-1]]
-            detected_peaks[chan] = cp.argmax(cp.abs(cx[sortidx[-1]][chan,:]))
+            detected_peaks[chan] = np.argmax(np.abs(cx[sortidx[-1]][chan,:]))
             detected_snrs[chan] = snr
             rel_ratios[chan] = rel_ratio
 
     return detected_sats, detected_peaks, detected_snrs, rel_ratios
 
-
-
-
-def get_rel_ratio(data_gpu):
-    #data may already be a numpy array but this just makes sure
-    data_cpu = cp.asnumpy(data_gpu)
-    peak_location = np.argmax(data_cpu)
-    peak_data = data_cpu[peak_location - 200:peak_location + 200]
-    peaks_total = find_peaks(peak_data, height=0.001)
-
-    heights = peaks_total[1]['peak_heights']
-    if len(heights)<2:
-        return 0
-    height_indices = np.argsort(heights)
-    tallest = heights[height_indices[-1]]
-    reps, total = 4, 0
-    for i in range(reps):
-        total += (tallest - heights[height_indices[-(i+2)]])
-    reliability_ratio = (total/(tallest * reps)) *100
-    
-    return reliability_ratio
 
 
 def get_consensus_offset(data):
@@ -197,12 +158,12 @@ def get_consensus_offset(data):
 
 
 
-def get_vis(pulse_start_t,
-            pulse_end_t,
-            paths,
-            offsets,
-            T_SPECTRA = 4096/250e6,
-            v_acclen = 5000):
+def get_vis_cpu(pulse_start_t,
+                pulse_end_t,
+                paths,
+                offsets,
+                T_SPECTRA = 4096/250e6,
+                v_acclen = 5000):
     ''' 
     computes visibilities for one baseline for a set period, given a specnumoffset
 
@@ -221,15 +182,7 @@ def get_vis(pulse_start_t,
     print('starting, ending channels:', chanstart, chanend)
     chanlist = np.arange(1834, 1852)
 
-    vis, rowcount, obj = hp.get_avg_fast(paths[0], 
-                                         paths[1], 
-                                         pulse_start_t, 
-                                         pulse_end_t, 
-                                         0, 
-                                         v_acclen, 
-                                         pulse_len_chunks, 
-                                         chanstart=chanstart, 
-                                         chanend=chanend)
+    vis, rowcount, obj = hp.get_avg_fast2(idxs,files,v_acclen,pulse_len_chunks,chanstart,chanend)
     
     pol0, pol1 = vis[:,:,0,:], vis[:,:,1,:]
     return pol0, pol1, rowcount, obj, chanlist
@@ -244,3 +197,4 @@ def get_fringes_phase(vis, chanlist, chan = None):
     chan_b_idx = chanlist[chan_s_idx]
     phase = np.unwrap(p_vis[:, chan_s_idx]) - p_vis[0, chan_s_idx] #zero the initial phase
     return p_vis, phase, chan_b_idx
+

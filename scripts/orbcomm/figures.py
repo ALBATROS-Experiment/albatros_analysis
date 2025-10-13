@@ -92,8 +92,8 @@ def makeplot_fringes_phase(coords,
     ax[1].legend()
 
     return fig
-
-
+    
+    
 def makeplot_cxcorr_phase(cxcorr, 
                           coords, 
                           global_start_t, 
