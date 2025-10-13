@@ -8,6 +8,7 @@ import cupy as cp
 from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
 import ctypes
+import time
 
 lib_path = os.path.expanduser('~/albatros_analysis/src/correlations/libcgemm_batch.so')
 lib = ctypes.CDLL(lib_path)
@@ -25,37 +26,65 @@ lib.cgemm_strided_batched.argtypes = [
 lib.cgemm_strided_batched.restype = None
 
 
-def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
+def xcorr_avg(idxs,files,pfb_size,nchunks,channels):
     nant = len(idxs)
+    npol = 2
+    nchan = len(channels)
+    read_size = pfb_size
+    xcorr = pu.StreamingCorrelator(nant, npol, read_size, np.arange(0, nchan), bufsize_frac = 10) #correlate all input channels
+
+    #on HOST
+    vis = np.zeros((nant*npol, nant*npol, nchan, nchunks), dtype="complex64", order="F")
+    rowidx=0
+
+    print(xcorr)
+    
+    header = bdc.get_header(files[0][0])
+    print(header)
+    channel_indices = np.where(np.isin(header['channels'],channels))[0] #channels that are in requested channels
     antenna_objs = []
     for i in range(nant):
         aa = bdc.BasebandFileIterator(
             files[i],
             0, #fileidx is 0 = start idx is inside the first file
             idxs[i],
-            acclen,
+            read_size,
             nchunks=nchunks,
-            chanstart=chanstart,
-            chanend=chanend
+            channels=channel_indices,
+            type='float'
         )
         antenna_objs.append(aa)
-    print(antenna_objs)
-    nchan = aa.obj.chanend - aa.obj.chanstart
-    npol = 2
-    split = 2
-    print("nant", nant, "nchunks", nchunks, "nchan", nchan)
-    vis = np.zeros((nant*npol, nant*npol, nchan, nchunks), dtype="complex64", order="F")
-    xin = cp.empty((nant*npol, acclen, nchan),dtype='complex64',order='F')
-    scratch = cp.empty((nant*npol,nant*npol,nchan*split),dtype='complex64',order='F')
-    rowcounts = np.empty(nchunks, dtype="int64")
+    print("channels present", aa.obj.channels)
+    print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
-    for i, chunks in enumerate(zip(*antenna_objs)):
-        for j in range(nant):
-            xin[j*nant,:,:] = chunks[j].pol0 # BFI data is C-major for IPFB
-            xin[j*nant+1,:,:] = chunks[j].pol1
-        vis[:,:,:,i]=crg.avg_xcorr_all_ant_gpu(xin,nant,npol,acclen,nchan,split=split,scratch=scratch)  
-    vis = np.ma.masked_invalid(vis)
-    return vis, rowcounts, aa.obj.channels
+
+    start_event = cp.cuda.Event()
+    end_event = cp.cuda.Event()
+    for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
+        # start_event.record()
+        for ant_idx in range(nant):
+            chunk=chunks[ant_idx]
+            start_specnum = start_specnums[ant_idx]
+            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
+            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
+            xcorr.load(ant_idx, 0, pol0)
+            xcorr.load(ant_idx, 1, pol1)
+        start_event.record()
+        rows = xcorr.xcorr()
+        end_event.record()
+        end_event.synchronize()
+        print("xcorr time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+        n = len(rows)
+        if n > 0:
+            print(f"chunk {chunk_idx}/{nchunks}, rcv {n}")
+            for row in rows:
+                t1=time.time()
+                vis[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
+                t2=time.time()
+                print("dev to host time", t2-t1)
+                rowidx+=1
+    return vis, channels
+
 
 def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=16,filt_thresh=0.45):
     nant = len(idxs)

@@ -13,6 +13,7 @@ import json
 from matplotlib import pyplot as plt
 from scipy.signal import find_peaks
 import sat_utils as su
+import sat_utils_gpu as sug
 import figures as fgs
 import argparse
 from albatros_analysis.scripts.xcorr import helper as hp
@@ -178,7 +179,7 @@ if __name__ == "__main__":
     print('buffer of', buffer)
     
 
-    cx = su.get_cxcorr_many_sats(p0_ra,
+    cx = sug.get_cxcorr_many_sats(p0_ra,
                                  p0_nra, 
                                  tle_path, 
                                  [t1, t2], 
@@ -191,7 +192,7 @@ if __name__ == "__main__":
     pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_idx}')
     os.makedirs(pulse_output, exist_ok=True)
 
-    #p0, p1, _, _, chanlist = su.get_vis(t1, t2,[ref_path, nref_path], [0, specnumoffset])
+    vis, chanlist = sug.get_vis_gpu(t1, t2,[ref_path, nref_path], [0, specnumoffset])
     #for chan in range(len(chanlist)):
         #print(np.abs(np.mean(p0[:,chan])))
 

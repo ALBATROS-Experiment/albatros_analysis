@@ -64,3 +64,34 @@ def get_cxcorr_many_sats(p0_ref,
         cx.append(outils_g.coarse_xcorr(p0_ref, p0_nra_delayed, dN))
 
     return cx
+
+
+
+def get_vis_gpu(pulse_start_t,
+                pulse_end_t,
+                paths,
+                offsets,
+                T_SPECTRA = 4096/250e6,
+                v_acclen = 5000):
+    ''' 
+    computes visibilities for one baseline for a set period, given a specnumoffset
+
+    note that this is just a regular CPU visibility computation, mainly useful for sanity checks
+    also note that this should be tested with two non-ref antenna (usually run with one ref one non ref)
+
+    '''
+    chunk_length = T_SPECTRA * v_acclen
+    pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))
+
+    idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, offsets, paths)
+
+    channels = bdc.get_header(files[0][0])["channels"].astype('int64')
+    chanstart = np.where(channels == 1834)[0][0] 
+    chanend = np.where(channels == 1852)[0][0]
+    print('starting, ending channels:', chanstart, chanend)
+    chanlist = np.arange(1834, 1852)
+
+    vis, channels = hpg.xcorr_avg(idxs, files, v_acclen, pulse_len_chunks, chanlist)
+    
+    return vis, channels
+
