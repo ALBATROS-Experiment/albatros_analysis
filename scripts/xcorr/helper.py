@@ -255,6 +255,9 @@ def get_avg_fast2(idxs,files,acclen,nchunks,chanstart,chanend):
 
 
 def get_avg_fast_tb(idxs,files,acclen,nchunks,chanstart,chanend):
+    ''' 
+    same as get_avg_fast2 but rowcount is for each pol for each channel: more accurate
+    '''
     nant = len(idxs)
     antenna_objs = []
     for i in range(nant):

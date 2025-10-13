@@ -84,7 +84,6 @@ if __name__ == "__main__":
     print("PASSES DETECTED:",'\n', passes, '\n')
     print("Number of Passes:", npasses, '\n')
     
-
     #ITERATE OVER ANTS
     sat_data = {} 
     sat_data[global_start_t] = {}  
@@ -262,6 +261,4 @@ if __name__ == "__main__":
     with open(json_output, "w") as file:
         json.dump(sat_data, file, indent=4)
         print(sat_data)
-
-    print(ERRORCOUNT)
 

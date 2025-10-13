@@ -16,10 +16,37 @@ from src.utils import orbcomm_utils as outils
 from src.utils import orbcomm_utils_gpu as outils_g
 import json
 from scipy.signal import find_peaks
+from scripts.xcorr import helper as hp
+from scripts.xcorr import helper_gpu as hpg
+
+def get_bline_dist(coord1, coord2):
+    ''' 
+    returns the physical distance between two coordinates in meters
+    (i.e. magnitude of baseline vectors)
+    '''
+    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
+    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
+
+    mean_lat = np.radians((lat1 + lat2) / 2)
+
+    meters_per_deg_lat = 111_320 
+    meters_per_deg_lon = 111_320 * np.cos(mean_lat)
+
+    delta_lat_deg = lat2 - lat1
+    delta_lon_deg = lon2 - lon1
+    delta_alt = float(alt2 - alt1)
+
+    delta_lat_m = float(delta_lat_deg * meters_per_deg_lat)
+    delta_lon_m = float(delta_lon_deg * meters_per_deg_lon)
+
+    dist_total = np.sqrt(delta_lat_m**2 + delta_lon_m**2 + delta_alt**2)
+
+    return dist_total
 
 
-def get_cxcorr_many_sats(p0_ra,
-                         p0_nra, 
+
+def get_cxcorr_many_sats(p0_ref,
+                         p0_nref, 
                          tle_path, 
                          times, 
                          sats_present,
@@ -30,40 +57,34 @@ def get_cxcorr_many_sats(p0_ra,
                          T_SPECTRA = 4096 / 250e6,
                          c_acclen = 10**6):
 
-    nchans = len(p0_ra[0,:])
+    nchans = len(p0_ref[0,:])
     freqs = 250e6 * (1 - cp.arange(1834, 1852) / 4096)
     cx = []
 
     pulse_start, pulse_end = times[0], times[1]
-    ra_coords, nra_coords = coords[0], coords[1]
-
+    ref_coords, nref_coords = coords[0], coords[1]
     p0_nra_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
-    niter = int(pulse_end - pulse_start) + 1  # run it for an extra second to avoid edge effects
+    niter = int(pulse_end - pulse_start) + 1  # +1 to avoid edge effects
 
     #GET GEO DELAY
     delays = np.zeros((c_acclen, len(sats_present)))
     for i, satidx in enumerate(sats_present):
         d = outils.get_sat_delay(
-            ra_coords,
-            nra_coords,
-            tle_path,
-            pulse_start,
-            niter,
-            satmap[satidx],
-        )
+            ref_coords,nref_coords,tle_path,pulse_start,niter,satmap[satidx]
+            )
         delays[:, i] = np.interp(
             np.arange(0, c_acclen) * T_SPECTRA, np.arange(0, niter), d
         )
     delays = cp.asarray(delays)
     
     #UNCORRECTED
-    cx.append(outils_g.coarse_xcorr(p0_ra, p0_nra, dN))  # no correction
+    cx.append(outils_g.coarse_xcorr(p0_ref, p0_nref, dN))  # no correction
 
     #CORRECTED
     for i, satidx in enumerate(sats_present):
         print("\nProcessing Satellite with ID:", satmap[satidx])
-        outils_g.apply_delay(p0_nra, delays[:,i], freqs, out=p0_nra_delayed)
-        cx.append(outils_g.coarse_xcorr(p0_ra, p0_nra_delayed, dN))
+        outils_g.apply_delay(p0_nref, delays[:,i], freqs, out=p0_nra_delayed)
+        cx.append(outils_g.coarse_xcorr(p0_ref, p0_nra_delayed, dN))
 
     return cx
 
@@ -127,14 +148,8 @@ def get_rel_ratio(data_gpu):
     return reliability_ratio
 
 
-
-
 def get_consensus_offset(data):
-
-    print("------GETTING CONSENSUS OFFSETS-----")
-    #first we extract all the offset information
-    all_SO = []
-    rel_SO = []
+    all_SO, rel_SO = [], []
     for pulse_dict in data:
         print("pulse details", pulse_dict)
         if len(pulse_dict["sats_present"]) > 1:  #for now only worry about one-sat pulses
@@ -179,3 +194,53 @@ def get_consensus_offset(data):
         raise ValueError("not enough offsets for antenna this antenna")
 
     return int(con_off)
+
+
+
+def get_vis(pulse_start_t,
+            pulse_end_t,
+            paths,
+            offsets,
+            T_SPECTRA = 4096/250e6,
+            v_acclen = 5000):
+    ''' 
+    computes visibilities for one baseline for a set period, given a specnumoffset
+
+    note that this is just a regular CPU visibility computation, mainly useful for sanity checks
+    also note that this should be tested with two non-ref antenna (usually run with one ref one non ref)
+
+    '''
+    chunk_length = T_SPECTRA * v_acclen
+    pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))
+
+    idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, offsets, paths)
+
+    channels = bdc.get_header(files[0][0])["channels"].astype('int64')
+    chanstart = np.where(channels == 1834)[0][0] 
+    chanend = np.where(channels == 1852)[0][0]
+    print('starting, ending channels:', chanstart, chanend)
+    chanlist = np.arange(1834, 1852)
+
+    vis, rowcount, obj = hp.get_avg_fast(paths[0], 
+                                         paths[1], 
+                                         pulse_start_t, 
+                                         pulse_end_t, 
+                                         0, 
+                                         v_acclen, 
+                                         pulse_len_chunks, 
+                                         chanstart=chanstart, 
+                                         chanend=chanend)
+    
+    pol0, pol1 = vis[:,:,0,:], vis[:,:,1,:]
+    return pol0, pol1, rowcount, obj, chanlist
+
+
+def get_fringes_phase(vis, chanlist, chan = None):
+    print(vis.shape)
+    p_vis = np.angle(vis)
+    #auto-select brightest phase
+    mean_amp = np.mean(np.abs(vis), axis=0)
+    chan_s_idx = np.argmax(mean_amp)
+    chan_b_idx = chanlist[chan_s_idx]
+    phase = np.unwrap(p_vis[:, chan_s_idx]) - p_vis[0, chan_s_idx] #zero the initial phase
+    return p_vis, phase, chan_b_idx

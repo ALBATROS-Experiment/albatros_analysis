@@ -18,7 +18,7 @@ import random
 from scripts.xcorr import helper as hp
 import importlib
 from scipy.interpolate import interp1d
-import sat_coarse as sc
+import sat_utils as sc
 
 
 def get_complex_snr(signal_data, noise_data):
@@ -174,7 +174,6 @@ print('bl1, bl2:', bl1, bl2)
 
 bl1_dist = int(np.round(dist(bl1_coords[0], bl1_coords[1]), decimals=-1))
 bl2_dist = int(np.round(dist(bl2_coords[0], bl2_coords[1]), decimals=-1))
-
 #set up some times, channels, and compute the visibilities for all blines
 #note that we are taking times and such wrt Ant1-Ant2 bline. 
 #this is fine since the pulse times are all the same for each bline

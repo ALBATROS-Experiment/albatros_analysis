@@ -22,7 +22,200 @@ import sat_utils as su
 import cupy as cp
 
 
-def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t, rel_start_t, chan_idx_small, sat_ID, phase1, phase2, T_SPECTRA=4096/250e6, c_acclen=10**6, v_acclen=5000):
+def make_cxcorr_plot(data):
+    data_cpu = cp.asnumpy(data)
+    fig,ax=plt.subplots(6,3)
+    fig.set_size_inches(10,12)
+    ax=ax.flatten()
+    for chan in range(18):
+        data_chan = np.abs(data_cpu[chan,:])
+        peak_idx=np.argmax(data_chan)
+        ax[chan].set_title(f"{peak_idx}")
+        ax[chan].plot(data_chan)
+        plt.tight_layout()
+    return fig
+
+def make_snr_plot(data, temp_satmap):
+    snrfig, snrax = plt.subplots()
+    for i in range(len(temp_satmap)):
+        snrax.plot(data[i, :], label=f"{temp_satmap[i]}")
+    snrax.set_xlabel("Channels")
+    snrax.set_ylabel("SNR")
+    snrax.legend()
+    return snrfig
+
+def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
+    fig, ax = plt.subplots(1, 2)
+    fig.set_size_inches(10,4)
+    fig.suptitle(f"Risen sats for starting time {global_start_t}")
+    ax[0].plot(num_sats_risen)
+    ax[0].set_xlabel(f"time (in units of {T_SCAN} sec)")
+    ax[1].set_ylabel(f"time in units of {T_SCAN} sec")
+    ax[1].set_xlabel("Sat Index (from satlist)") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
+    ax[1].imshow(arr,aspect='auto',interpolation="none")
+    plt.tight_layout()
+    return fig
+
+def makeplot_fringes_phase(coords, 
+                           pulse_start_time, 
+                           pulse_end_time,
+                           chan_small_idx, 
+                           chanlist, 
+                           vis_angle, 
+                           phase, 
+                           sats_present,
+                           v_acclen = 5000,
+                           T_SPECTRA = 4096/250e6):
+    ''' 
+    make plot of angle fringes and phase, side by side
+    '''
+    chan_big_idx = chanlist[chan_small_idx]
+    chunk_length = v_acclen*T_SPECTRA
+
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle(f'Pulse {pulse_start_time} Channel {chan_big_idx}/{chan_small_idx}')
+
+    im = ax[0].imshow(vis_angle, aspect='auto', cmap='RdBu', interpolation='none')
+    ax[0].set_xlabel("channel idx (~60 kHz interval)")
+    ax[0].set_ylabel("chunk number (~0.5 s interval)")
+    cbar = fig.colorbar(im, ax=ax[0], orientation='vertical')
+    cbar.set_label("phase (radians)")
+
+    ax[1].plot(phase, label='detected phase')
+    #ax[1].plot(pred_phase, label='predicted phase')
+    ax[1].set_xlabel(f"chunk number (~{np.round(chunk_length, decimals=2)} s interval)")
+    ax[1].set_ylabel("phase (radians)")
+    for sat in sats_present:
+       pred_phase = outils.pred(coords[0], coords[1], pulse_start_time, pulse_end_time, chan_big_idx, int(sat), v_acclen=v_acclen)[:len(phase)]
+       #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
+       ax[1].plot(pred_phase, label=f'sat {sat}')
+    ax[1].legend()
+
+    return fig
+
+
+def makeplot_cxcorr_phase(cxcorr, 
+                          coords, 
+                          global_start_t, 
+                          rel_start_t, 
+                          chan_idx_small, 
+                          satID, 
+                          phase, 
+                          T_SPECTRA=4096/250e6, 
+                          c_acclen=10**6, 
+                          v_acclen=5000, 
+                          dN=10**5):
+    """
+    Plots overall cross-correlation and unwrapped phase
+
+    Parameters
+    ----------
+    cxcorr : array
+        coarse xcorr data (in complex form)
+    coords : list of lists
+        [[lat, lon, alt], [lat, lon, alt]] of both antenna (lower index antenna first)
+    global_start_t : int
+        unix starting timestamp of pulsedata file
+    rel_start_t : int
+        unix starting timestamp of pulse after global_start_t
+    chan_idx_small : int
+        index of channel in chanlist
+    satID : int
+        ID of satellite in the pulse
+    phase : array
+        measured unwrapped phase data
+
+    T_SPECTRA : float, optional
+        time for a single spectrum
+    c_acclen : int, optional
+        coarse cross correlation accumulation length
+    v_acclen : int, optional
+        visibility computation accumulation length
+    dN : int, optional
+        window of spectrum offsets we plot around the center
+
+    Returns
+    -------
+    fig : figure
+        final figure
+    """
+
+    #cxcorr parameter setup
+    center = c_acclen
+    chunk_length = c_acclen * T_SPECTRA
+    spectra = np.arange(-dN, dN)
+    pulse_start_t = rel_start_t + global_start_t
+
+    #phase parameter setup
+    chanlist = np.arange(1834, 1852)
+    chan_idx_big = chanlist[chan_idx_small]
+    chan_mhz = np.round(outils.chan2freq(chan_idx_big)/(10**6), decimals = 2)
+
+    #times setup
+    time_in_secs = np.round(np.arange(len(phase)) * chunk_length).astype(int)
+    t_tick_spacing = 20 
+    t_tick_vals = np.arange(0, time_in_secs[-1] + t_tick_spacing, t_tick_spacing)
+    t_tick_idxs = np.searchsorted(time_in_secs, t_tick_vals)
+    t_tick_idxs = t_tick_idxs[t_tick_idxs < len(time_in_secs)]
+    T_spec_ms = int(np.round(T_SPECTRA * 10 **6))
+
+    #phase stuff
+    ampdata = np.abs(cxcorr[chan_idx_small,center-dN:center+dN])
+    peak_idx = np.argmax(ampdata)
+    pred = outils.pred(coords[0], coords[1], pulse_start_t, pulse_start_t+1000, chan_idx_big, satID, v_acclen=v_acclen)[:len(phase)]
+    
+
+    #plot
+    fig, ax = plt.subplots(1, 2, figsize=(10, 8))
+    plt.rcParams.update({
+            "font.size": 16,
+            "axes.labelsize": 18,
+            "axes.titlesize": 20,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "figure.titlesize": 22
+        })
+
+    #left
+    fig.suptitle(f"Sat {satID} at {chan_mhz}MHz")
+    ax[0].plot(spectra, ampdata, label=f"Peak at {peak_idx - dN}")
+    ax[0].set_xticklabels([])
+    ax[0].set_title(f"Coarse x-corr")
+    ax[0].legend(loc='upper right', fontsize=12)
+    ax[0].set_ylabel("Amplitude")
+    ax[0].set_xlabel(f"Spectrum Shift ({T_spec_ms}" + r'$\mu$s units)')
+
+    #right
+    ax[1].set_ylabel("Phase (rads)")
+    ax[1].set_xlabel(f"Time (seconds)")
+    ax[1].set_title(f"Unwrapped Phase")
+    ax[1].plot(pred, label = 'Prediction', color='orange')
+    ax[1].plot(phase, label='Measurement', linestyle='--', c='blue')
+    ax[1].legend(fontsize=12)
+    ax[1].set_xticks(t_tick_idxs)
+    ax[1].set_xticklabels([])
+    #ax[0,1].annotate(f"MARS1-\nMARS7\n{bl1_dist}m", xy=(1.05, 0.5), xycoords='axes fraction', rotation=0, va='center', ha='left', fontsize=15)
+
+    plt.tight_layout()
+    return fig
+
+
+def makeplot_cxcorr_phase2(cxcorr1, 
+                           cxcorr2, 
+                           coords1, 
+                           coords2, 
+                           global_start_t, 
+                           rel_start_t, 
+                           chan_idx_small, 
+                           sat_ID, 
+                           phase1, 
+                           phase2, 
+                           T_SPECTRA=4096/250e6, 
+                           c_acclen=10**6, 
+                           v_acclen=5000):
+    ''' 
+    Overall cxcorr and phase plot for two pulses. Can be different baselines or same baseline.
+    '''
 
     #parameter setup
     center = c_acclen
@@ -79,8 +272,7 @@ def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t
     ax[0,1].legend(fontsize=12)
     ax[0,1].set_xticks(t_tick_idxs)
     ax[0,1].set_xticklabels([])
-    ax[0,1].annotate(f"MARS1-\nMARS7\n{bl1_dist}m", xy=(1.05, 0.5), xycoords='axes fraction',
-                    rotation=0, va='center', ha='left', fontsize=15)
+    #ax[0,1].annotate(f"MARS1-\nMARS7\n{bl1_dist}m", xy=(1.05, 0.5), xycoords='axes fraction', rotation=0, va='center', ha='left', fontsize=15)
 
     #bottom left
     ax[1,0].plot(spectra, ampdata_2, label=f"Peak at {peak_2 - dN}")
@@ -97,46 +289,7 @@ def twobytwo_coarse_and_phase(cxcorr1, cxcorr2, coords1, coords2, global_start_t
     ax[1,1].plot(pred2, label='Prediction', color='orange')
     ax[1,1].plot(phase2, label='Measurement', linestyle = '--', color='blue')
     ax[1,1].legend(fontsize=12)
-    ax[1, 1].annotate(f"MARS1-\nMARS4\n{bl2_dist}m", xy=(1.05, 0.5), xycoords='axes fraction',
-                    rotation=0, va='center', ha='left', fontsize=15)
+    #ax[1, 1].annotate(f"MARS1-\nMARS4\n{bl2_dist}m", xy=(1.05, 0.5), xycoords='axes fraction', rotation=0, va='center', ha='left', fontsize=15)
 
-    plt.tight_layout()
-
-
-    fig.savefig('/scratch/thomasb' + f'/2bline_pulse{rel_start_t}_{global_start_t}.jpg')
-
-
-def make_cxcorr_plot(data):
-    data_cpu = cp.asnumpy(data)
-    fig,ax=plt.subplots(6,3)
-    fig.set_size_inches(10,12)
-    ax=ax.flatten()
-    for chan in range(18):
-        data_chan = np.abs(data_cpu[chan,:])
-        peak_idx=np.argmax(data_chan)
-        ax[chan].set_title(f"{peak_idx}")
-        ax[chan].plot(data_chan)
-        plt.tight_layout()
-    return fig
-
-
-def make_snr_plot(data, temp_satmap):
-    snrfig, snrax = plt.subplots()
-    for i in range(len(temp_satmap)):
-        snrax.plot(data[i, :], label=f"{temp_satmap[i]}")
-    snrax.set_xlabel("Channels")
-    snrax.set_ylabel("SNR")
-    snrax.legend()
-    return snrfig
-
-def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
-    fig, ax = plt.subplots(1, 2)
-    fig.set_size_inches(10,4)
-    fig.suptitle(f"Risen sats for starting time {global_start_t}")
-    ax[0].plot(num_sats_risen)
-    ax[0].set_xlabel(f"time (in units of {T_SCAN} sec)")
-    ax[1].set_ylabel(f"time in units of {T_SCAN} sec")
-    ax[1].set_xlabel("Sat Index (from satlist)") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
-    ax[1].imshow(arr,aspect='auto',interpolation="none")
     plt.tight_layout()
     return fig

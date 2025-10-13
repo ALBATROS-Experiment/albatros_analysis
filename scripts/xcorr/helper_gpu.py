@@ -3,7 +3,7 @@ import os
 from os import path
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
-from albatros_analysis.src.correlations import correlations as cr
+from albatros_analysis.src.correlations import correlations_gpu as crg
 import cupy as cp
 from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
@@ -36,7 +36,7 @@ def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
             acclen,
             nchunks=nchunks,
             chanstart=chanstart,
-            chanend=chanend,
+            chanend=chanend
         )
         antenna_objs.append(aa)
     print(antenna_objs)
@@ -53,7 +53,7 @@ def xc_avg(idxs,files,acclen,nchunks,chanstart,chanend):
         for j in range(nant):
             xin[j*nant,:,:] = chunks[j].pol0 # BFI data is C-major for IPFB
             xin[j*nant+1,:,:] = chunks[j].pol1
-        vis[:,:,:,i]=cr.avg_xcorr_all_ant_gpu(xin,nant,npol,acclen,nchan,split=split,scratch=scratch)  
+        vis[:,:,:,i]=crg.avg_xcorr_all_ant_gpu(xin,nant,npol,acclen,nchan,split=split,scratch=scratch)  
     vis = np.ma.masked_invalid(vis)
     return vis, rowcounts, aa.obj.channels
 
@@ -155,7 +155,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cutsize=
             xin[j*nant+1,:,:] = pol1_new[:, repfb_chanstart : repfb_chanend] #gotta support arbitrary chans
         # print(xin.shape, xin.flags)
         # print(scratch.shape)
-        out=cr.avg_xcorr_all_ant_gpu(xin,nant,npol,re_pfb_size,nchan,split=1,out=scratch)
+        out=crg.avg_xcorr_all_ant_gpu(xin,nant,npol,re_pfb_size,nchan,split=1,out=scratch)
         # out=cp.empty(scratch.shape,dtype='complex64',order='F')
         # M=nant*npol
         # N=M

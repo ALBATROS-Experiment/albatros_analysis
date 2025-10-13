@@ -15,6 +15,8 @@ from scipy.signal import find_peaks
 import sat_utils as su
 import figures as fgs
 import argparse
+from albatros_analysis.scripts.xcorr import helper as hp
+from albatros_analysis.scripts.xcorr import helper_gpu as hpg
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -47,12 +49,14 @@ if __name__ == "__main__":
         global_start_t = config["correlation"]["start_timestamp"]
         global_end_t = config["correlation"]["end_timestamp"]
         c_acclen = config["correlation"]["coarse_acclen"]
+        v_acclen = config["correlation"]["vis_acclen"]
     print("\nAntenna Coordinates:", coords)
     print("Coarse Accumulation Length", c_acclen)
 
     #SETUP
     array_time =  global_end_t - global_start_t
-    ra_coords, ra_path = coords[0], dir_parents[0] 
+    print("array time:", array_time)
+    ref_coords, ref_path = coords[0], dir_parents[0] 
     tle_path = outils.get_tle_file(global_start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     cxcorr_testing_output = os.path.join(out_path, f'cxcorr_testing_{global_start_t}')
     os.makedirs(cxcorr_testing_output, exist_ok=True)
@@ -66,7 +70,7 @@ if __name__ == "__main__":
     #RISEN SATS
     nrows = int((array_time)/T_SCAN)
     arr = np.zeros((nrows, len(satlist)), dtype="int64")
-    rsats = outils.get_risen_sats(tle_path, ra_coords, global_start_t, dt=T_SCAN, niter=nrows, good=satlist, altitude_cutoff=altitude_cutoff)
+    rsats = outils.get_risen_sats(tle_path, ref_coords, global_start_t, dt=T_SCAN, niter=nrows, good=satlist, altitude_cutoff=altitude_cutoff)
     num_sats_risen = [len(x) for x in rsats]
     for i, row in enumerate(rsats):
         for sat_ID, satele, sataz in row:
@@ -81,14 +85,19 @@ if __name__ == "__main__":
     print("Number of Passes:", npasses, '\n')
 
 
-    antenna_name = 'Antenna 7'
-    bline_idx = ant_names.index(antenna_name) - 1
-    ra_path, nra_path = dir_parents[0], dir_parents[bline_idx]
-    ra_coords, nra_coords = coords[0], coords[bline_idx]
-    print('paths', ra_path, nra_path)
-    print('coordinates:', ra_coords, nra_coords)
+    print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
+    antenna_name = 'Antenna 2'
+    specnumoffset = 115507586
+    pulse_idx = 0
+    buffer = 10
 
-    pulse_idx = 6
+    nref_idx = ant_names.index(antenna_name)
+    print(nref_idx)
+    nref_path, nref_coords = dir_parents[nref_idx], coords[nref_idx]
+    print('ref path', ref_path)
+    print('nref path', nref_path)
+    print('ref coords:', ref_coords)
+    print('nref coords', nref_coords)
 
     temp_satmap = ['Uncorrected']
     times, sats_present = passes[pulse_idx]
@@ -96,29 +105,18 @@ if __name__ == "__main__":
         temp_satmap.append(sat)
     print('temp_satmap', temp_satmap)
 
-    t1, t2 = (5*times[0])+global_start_t, (5*times[1])+global_start_t
+
+    rel_start_t, rel_end_t = 5*times[0], 5*times[1]
+    t1, t2 = rel_start_t+global_start_t+buffer, rel_end_t+global_start_t
+    print('rel pulse times', rel_start_t, rel_end_t)
     print('pulse times', t1, t2)
 
     tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    N = int(2* c_acclen)
-    dN = int(10**5)
     print('tle_path', tle_path)
-    print('N value', N)
-    print('dN value', dN)
-
-    satlist = [28654,25338,33591,57166,59051,44387]
-    satmap = {} #maps sat IDs (e.g. 33591) to its index in satlist (e.g. 2), without collisions
-    assert min(satlist) > len(satlist)
-    for i, sat_ID in enumerate(satlist):
-        satmap[i] = sat_ID
-        satmap[sat_ID] = i
-    print('satmap', satmap)
-
-
 
     try:
-        files_ra, idx_ra = butils.get_init_info(t1, t2, ra_path)
-        files_nra, idx_nra = butils.get_init_info(t1, t2, nra_path)
+        files_ra, idx_ra = butils.get_init_info(t1, t2, ref_path)
+        files_nra, idx_nra = butils.get_init_info(t1, t2, nref_path)
     except Exception as e:
         print(e)
         print(f"WARNING: skipping pass. MISTAKE IN FILE CHECKER!!")
@@ -172,20 +170,32 @@ if __name__ == "__main__":
         break
 
 
-    cx = su.get_cxcorr_many_sats(p0_ra,
-                                p0_nra, 
-                                tle_path, 
-                                [t1, t2], 
-                                sats_present,
-                                satmap,
-                                [ra_coords, nra_coords],
-                                N,
-                                dN)
+    print("STARTING CXCORR\n----------------")
+    N = int(2* c_acclen)
+    dN = int(10**5)
+    print('N value', N)
+    print('dN value', dN)
+    print('buffer of', buffer)
+    
 
-    pulse_output = os.path.join(cxcorr_testing_output, f'bline_{bline_idx}_pulse_{pulse_idx}')
+    cx = su.get_cxcorr_many_sats(p0_ra,
+                                 p0_nra, 
+                                 tle_path, 
+                                 [t1, t2], 
+                                 sats_present,
+                                 satmap,
+                                 [ref_coords, nref_coords],
+                                 N,
+                                 dN)
+
+    pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_idx}')
     os.makedirs(pulse_output, exist_ok=True)
 
+    #p0, p1, _, _, chanlist = su.get_vis(t1, t2,[ref_path, nref_path], [0, specnumoffset])
+    #for chan in range(len(chanlist)):
+        #print(np.abs(np.mean(p0[:,chan])))
+
     for idx, sat in enumerate(temp_satmap):
-        cxfig = su.make_cxcorr_plot(cx[idx])
-        cxfig.savefig(os.path.join(pulse_output, f'plot_{sat}_{time.time()}.jpg'))
+        cxfig = fgs.make_cxcorr_plot(cx[idx])
+        cxfig.savefig(os.path.join(pulse_output, f'plot_{sat}.jpg'))
         
