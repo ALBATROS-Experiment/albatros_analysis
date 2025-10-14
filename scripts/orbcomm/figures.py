@@ -57,23 +57,23 @@ def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
     return fig
 
 def makeplot_fringes_phase(coords, 
-                           pulse_start_time, 
-                           pulse_end_time,
-                           chan_small_idx, 
+                           times,
+                           chan_big_idx, 
                            chanlist, 
                            vis_angle, 
                            phase, 
                            sats_present,
-                           v_acclen = 5000,
+                           satmap,
+                           v_acclen,
                            T_SPECTRA = 4096/250e6):
     ''' 
     make plot of angle fringes and phase, side by side
     '''
-    chan_big_idx = chanlist[chan_small_idx]
+    chan_small_idx = np.where(chanlist == chan_big_idx)[0][0]
     chunk_length = v_acclen*T_SPECTRA
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle(f'Pulse {pulse_start_time} Channel {chan_big_idx}/{chan_small_idx}')
+    fig.suptitle(f'Pulse {times[0]} Channel {chan_big_idx}/{chan_small_idx}')
 
     im = ax[0].imshow(vis_angle, aspect='auto', cmap='RdBu', interpolation='none')
     ax[0].set_xlabel("channel idx (~60 kHz interval)")
@@ -86,12 +86,75 @@ def makeplot_fringes_phase(coords,
     ax[1].set_xlabel(f"chunk number (~{np.round(chunk_length, decimals=2)} s interval)")
     ax[1].set_ylabel("phase (radians)")
     for sat in sats_present:
-       pred_phase = outils.pred(coords[0], coords[1], pulse_start_time, pulse_end_time, chan_big_idx, int(sat), v_acclen=v_acclen)[:len(phase)]
+       print("getting prediction for", sat)
+       pred_phase = outils.pred(coords[0], coords[1], times[0], times[1], chan_big_idx, int(satmap[sat]), v_acclen=v_acclen)[:len(phase)]
        #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
-       ax[1].plot(pred_phase, label=f'sat {sat}')
+       ax[1].plot(pred_phase, label=f'sat {satmap[sat]}')
     ax[1].legend()
 
     return fig
+
+
+def makeplot_fringes_phase2(coords1, 
+                            coords2,
+                            t1, 
+                            t2,
+                            chan_big_idx, 
+                            p_vis1,
+                            p_vis2,
+                            phase1,
+                            phase2,
+                            satID,
+                            v_acclen,
+                            T_SPECTRA = 4096/250e6,
+                            suptitle = 'Fringes and Phases'):
+
+    print(p_vis1.shape)
+    chunk_length = v_acclen * T_SPECTRA
+    fig, ax = plt.subplots(2, 2, figsize=(14, 8), sharex='col')
+    fig.suptitle(suptitle)
+    
+    im1 = ax[0,0].imshow(p_vis1, aspect='auto', cmap='RdBu', interpolation='none')
+    ax[0,0].set_xlabel("channel idx (~60 kHz interval)")
+    ax[0,0].set_ylabel("chunk number (~0.5 s interval)")
+    cbar = fig.colorbar(im1, ax=ax[0,0], orientation='vertical')
+    cbar.set_label("phase (radians)")
+    
+    ax[0,1].plot(phase1, label='detected phase')
+    ax[0,1].set_ylabel("phase (radians)")
+    print("getting prediction for", satID)
+    pred_phase1 = outils.pred(coords1[0], 
+                              coords1[1], 
+                              t1, 
+                              t2, 
+                              chan_big_idx, 
+                              int(satID), 
+                              v_acclen=v_acclen)[:len(phase1)]
+    ax[0,1].plot(pred_phase1, label=f'sat {satID}')
+    ax[0,1].legend()
+
+    im2 = ax[1,0].imshow(p_vis2, aspect='auto', cmap='RdBu', interpolation='none')
+    ax[1,0].set_xlabel("channel idx (~60 kHz interval)")
+    ax[1,0].set_ylabel("chunk number (~0.5 s interval)")
+    cbar = fig.colorbar(im2, ax=ax[1,0], orientation='vertical')
+    cbar.set_label("phase (radians)")
+
+    ax[1,1].plot(phase2, label='detected phase')
+    ax[1,1].set_xlabel(f"chunk number (~{np.round(chunk_length, decimals=2)} s interval)")
+    ax[1,1].set_ylabel("phase (radians)")
+    print("getting prediction for", satID)
+    pred_phase2 = outils.pred(coords2[0], 
+                              coords2[1], 
+                              t1, 
+                              t2, 
+                              chan_big_idx, 
+                              int(satID), 
+                              v_acclen=v_acclen)[:len(phase2)]
+    ax[1,1].plot(pred_phase2, label=f'sat {satID}')
+    ax[1,1].legend()
+
+    return fig
+
     
     
 def makeplot_cxcorr_phase(cxcorr, 

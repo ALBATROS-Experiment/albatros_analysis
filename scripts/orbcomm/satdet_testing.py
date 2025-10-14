@@ -22,11 +22,9 @@ from albatros_analysis.scripts.xcorr import helper_gpu as hpg
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "config_file", type=str, help="Config file containing all required data.",
-    )
+        "config_file", type=str, help="Config file containing all required data.",)
     parser.add_argument(
-        "-o", "--output_path", type=str, default="/scratch/thomasb", help="Output directory for debug and pulses"
-    )
+        "-o", "--output_path", type=str, default="/scratch/thomasb", help="Output directory for debug and pulses")
     args = parser.parse_args()
 
     T_SPECTRA = 4096/250e6
@@ -50,7 +48,6 @@ if __name__ == "__main__":
         global_start_t = config["correlation"]["start_timestamp"]
         global_end_t = config["correlation"]["end_timestamp"]
         c_acclen = config["correlation"]["coarse_acclen"]
-        v_acclen = config["correlation"]["vis_acclen"]
     print("\nAntenna Coordinates:", coords)
     print("Coarse Accumulation Length", c_acclen)
 
@@ -89,8 +86,8 @@ if __name__ == "__main__":
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
     antenna_name = 'Antenna 2'
     specnumoffset = 115507586
-    pulse_idx = 0
-    buffer = 10
+    pulse_idx = 2
+    buffer = 0
 
     nref_idx = ant_names.index(antenna_name)
     print(nref_idx)
@@ -105,7 +102,6 @@ if __name__ == "__main__":
     for sat in sats_present:
         temp_satmap.append(sat)
     print('temp_satmap', temp_satmap)
-
 
     rel_start_t, rel_end_t = 5*times[0], 5*times[1]
     t1, t2 = rel_start_t+global_start_t+buffer, rel_end_t+global_start_t
@@ -174,11 +170,14 @@ if __name__ == "__main__":
     print("STARTING CXCORR\n----------------")
     N = int(2* c_acclen)
     dN = int(10**5)
+    v_acclen = 10000
     print('N value', N)
     print('dN value', dN)
     print('buffer of', buffer)
+    pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_idx}')
+    os.makedirs(pulse_output, exist_ok=True)
     
-
+    #coarse xcorr
     cx = sug.get_cxcorr_many_sats(p0_ra,
                                  p0_nra, 
                                  tle_path, 
@@ -189,14 +188,35 @@ if __name__ == "__main__":
                                  N,
                                  dN)
 
-    pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_idx}')
-    os.makedirs(pulse_output, exist_ok=True)
+    #visibility
+    vis, chanlist = sug.get_vis_gpu(t1, 
+                                    t2,
+                                    [ref_path, nref_path], 
+                                    [0, specnumoffset],
+                                    v_acclen = v_acclen)
+    pol00, pol01, pol10, pol11 = vis[0,2,:,:], vis[0,3,:,:], vis[1,2,:,:], vis[1,3,:,:]
+    p_vis, phase, chan_big_idx = su.get_fringes_phase(pol00, chanlist)
+    print(chanlist)
+    print('pol00 shape', pol00.shape)
+    print('phase shape', phase.shape)
 
-    vis, chanlist = sug.get_vis_gpu(t1, t2,[ref_path, nref_path], [0, specnumoffset])
-    #for chan in range(len(chanlist)):
-        #print(np.abs(np.mean(p0[:,chan])))
+
+    #make and save figures
+    visfig = fgs.makeplot_fringes_phase(coords, 
+                                        [t1,t2],
+                                        chan_big_idx, 
+                                        chanlist, 
+                                        p_vis, 
+                                        phase,
+                                        sats_present,
+                                        satmap,
+                                        v_acclen)
+    
+    visfig.savefig(os.path.join(pulse_output, f'plot_vis.jpg'))
 
     for idx, sat in enumerate(temp_satmap):
         cxfig = fgs.make_cxcorr_plot(cx[idx])
         cxfig.savefig(os.path.join(pulse_output, f'plot_{sat}.jpg'))
+
+
         

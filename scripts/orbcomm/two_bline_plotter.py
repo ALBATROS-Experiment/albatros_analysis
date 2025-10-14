@@ -27,22 +27,23 @@ config_name = "config2.json"
 satdet_name = "pulsedata_1753132820_len_67200_1760024247.5361912.json"
 config_path = os.path.join('/home/thomasb/albatros_analysis/scripts/orbcomm', config_name)
 satdet_path = os.path.join('/scratch/thomasb/', satdet_name)
+out_path = '/scratch/thomasb'
 
 T_SPECTRA = 4096/250e6
-v_acclen = 5000
+v_acclen = 10000
 c_acclen = 10**6
 chunk_length = T_SPECTRA * v_acclen
 chunk_length_coarse = T_SPECTRA * c_acclen
 
-bl1_ants = set({'Antenna 1', 'Antenna 7'})
-bl2_ants = set({'Antenna 1', 'Antenna 4'})
+bl1_ants = set({'Antenna 1', 'Antenna 2'})
+bl2_ants = set({'Antenna 1', 'Antenna 8'})
 required_ants = bl1_ants | bl2_ants
 
-rel_start_t, rel_end_t = 
-satID = 
+rel_start_t, rel_end_t = 40740, 41200
+satID = 59051
 
-bl1_offsets = []
-bl2_offsets = []
+bl1_offsets = [0, 115507586]
+bl2_offsets = [0, -69608]
 
 bl1_names, bl1_paths, bl1_coords = [], [], []
 bl2_names, bl2_paths, bl2_coords = [], [], []
@@ -70,9 +71,15 @@ with open(config_path, "r") as f:
     global_start_t = config["correlation"]["start_timestamp"]
     global_end_t = config["correlation"]["end_timestamp"]
 
+print(bl1_offsets)
+print(bl1_coords)
+print(bl1_paths)
 
-print("Visibility Accumulation Length", v_acclen)
-print('global start and end times:', global_start_t, global_end_t)
+print(bl2_offsets)
+print(bl2_coords)
+print(bl2_paths)
+
+#sys.exit()
 
 tle_path = outils.get_tle_file(global_start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
 p_start, p_end = rel_start_t+global_start_t, rel_end_t+global_start_t
@@ -93,96 +100,45 @@ p_start, p_end = rel_start_t+global_start_t, rel_end_t+global_start_t
 bl1_dist = int(np.round(su.get_bline_dist(bl1_coords[0], bl1_coords[1]), decimals=-1))
 bl2_dist = int(np.round(su.get_bline_dist(bl2_coords[0], bl2_coords[1]), decimals=-1))
 
-bl1_pol0, bl1_pol1, _, _, _ = su.get_vis_cpu(p_start,
-                                             p_end,
-                                             bl1_paths,
-                                             bl1_offsets,
-                                             T_SPECTRA = 4096/250e6,
-                                             v_acclen = 5000)
+bl1_vis, bl1_chanlist = sug.get_vis_gpu(p_start,
+                                        p_end,
+                                        bl1_paths,
+                                        bl1_offsets,
+                                        v_acclen = v_acclen)
 
-#rel_start_t, rel_end_t = desired_pulse_info_all[0]['start'] , desired_pulse_info_all[0]['end']
-#sats = list(desired_pulse_info_all[0]['sats_present'].keys())
-#pulse_start_t = rel_start_t + global_start_time
-#pulse_end_t = rel_end_t + global_start_time
-#pulse_len_secs = rel_end_t - rel_start_t
-#pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))
-#pulse_len_chunks_coarse = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length_coarse))
+bl2_vis, bl2_chanlist = sug.get_vis_gpu(p_start,
+                                        p_end,
+                                        bl2_paths,
+                                        bl2_offsets,
+                                        v_acclen = v_acclen)
 
-#print('relative start, end t:', rel_start_t, rel_end_t)
-#print('pulse_duration:', rel_end_t-rel_start_t)
+bl1_pol00 = bl1_vis[0,2,:,:]
+bl2_pol00 = bl2_vis[0,2,:,:]
+bl1_p_vis, bl1_phase, bl1_chan_big_idx = su.get_fringes_phase(bl1_pol00, bl1_chanlist)
+bl2_p_vis, bl2_phase, bl2_chan_big_idx = su.get_fringes_phase(bl2_pol00, bl2_chanlist)
 
-#print('GETTING INIT INFO --------------------')
-#idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, ant_offsets, ant_paths)
+for i in range(len(bl1_chanlist)):
+    assert bl1_chanlist[i] == bl2_chanlist[i]
+assert bl1_chan_big_idx == bl2_chan_big_idx
 
-#channels = bdc.get_header(files[0][0])["channels"].astype('int64')
-#chanstart = np.where(channels == 1834)[0][0] 
-#chanend = np.where(channels == 1852)[0][0]
-#print('starting, ending channels:', chanstart, chanend)
-#chanlist = np.arange(1834, 1852)
+chanlist = bl1_chanlist
+chan_big_idx = bl1_chan_big_idx
 
-#print('GETTING VISIBILITIES------------------')
-#vis, rowcount, obj = hp.get_avg_fast2(idxs,files,v_acclen,pulse_len_chunks, chanstart, chanend)
+print(bl1_p_vis.shape)
 
-#vis is shape (nchunks, nbl, npols, ncols)
-#where nbl index is our baseline_map index
-#want all chunks and all ncols (=channels)
-#just have to pick what pol we want to work on.
+suptitle = f'Channel {chan_big_idx}'
+fig = fgs.makeplot_fringes_phase2(bl1_coords, 
+                                  bl2_coords,
+                                  p_start,
+                                  p_end,
+                                  chan_big_idx, 
+                                  bl1_p_vis, 
+                                  bl2_p_vis,
+                                  bl1_phase, 
+                                  bl2_phase,
+                                  satID,
+                                  v_acclen,
+                                  suptitle=suptitle)
 
-print('total vis shape:', vis.shape)
-
-#now we have some visibility data, so let's massage it a bit
-vis_1, vis_2 = vis[:1400 , bl1, 0, :], vis[:1400 , bl2, 0, :]  #may need to interpolate
-print('vis 1, vis 2 shapes:', vis_1.shape, vis_2.shape)
-vis_1, vis_2 = np.squeeze(vis_1), np.squeeze(vis_2)
-p_vis1, p_vis2 = np.angle(vis_1), np.angle(vis_2)
-
-#here we want to auto-select which channel to use for phase display
-amp1, amp2 = np.abs(vis_1), np.abs(vis_2)
-mean_amp1, mean_amp2 = [], []
-for i in range(18):
-    mean_amp1.append(np.mean(amp1[:,i]))
-    mean_amp2.append(np.mean(amp2[:,i]))
-
-#have to play a little game with channel indices (s for small, b for big)
-chan_s_idx1, chan_s_idx2 = np.where(mean_amp1 == np.max(mean_amp1))[0][0], np.where(mean_amp2 == np.max(mean_amp2))[0][0]
-if chan_s_idx1 != chan_s_idx2:
-    print('CAUTION!!!! Same pulse is detected at different frequencies at different baselines')
-chan_b_idx1, chan_b_idx2 = chanlist[chan_s_idx1], chanlist[chan_s_idx2]
-
-noise_data_1 = vis_1[:, 5:17].ravel()  
-noise_data_2 = vis_2[:, 5:17].ravel()
-
-
-
-#finally we can unwrap this guy
-phase1, phase2 = np.unwrap(p_vis1[:, chan_s_idx1]) - p_vis1[0, chan_s_idx1], np.unwrap(p_vis2[:, chan_s_idx1] - p_vis2[0, chan_s_idx1])  #automate the sat and channel selection
-
-
-
-#-----------------------coarse plotting----------------------------
-
-sat_ID = 57166 #hard-coded for now
-
-
-cxcorr1 = sug.get_cxcorr_many_sats()
-cxcorr2 = sug.get_cxcorr_many_sats()
-
-p_vis1, phase1 = su.get_fringes_phase()
-p_vis2, phase2 = su.get_fringer_phase()
-
-fig1 = fgs.makeplot_cxcorr_phase2(cxcorr1, 
-                                 cxcorr2, 
-                                 coords1, 
-                                 coords2, 
-                                 global_start_t, 
-                                 rel_start_t, 
-                                 chan_idx_small, 
-                                 sat_ID, 
-                                 phase1, 
-                                 phase2, 
-                                 T_SPECTRA=4096/250e6, 
-                                 c_acclen=10**6, 
-                                 v_acclen=5000)
-
-fig2 = 
+fig.savefig(os.path.join(out_path, f'two_bline_{p_start}_{p_end}.jpg'))
 

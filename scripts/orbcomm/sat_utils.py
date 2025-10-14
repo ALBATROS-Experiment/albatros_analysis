@@ -188,13 +188,12 @@ def get_vis_cpu(pulse_start_t,
     return pol0, pol1, rowcount, obj, chanlist
 
 
-def get_fringes_phase(vis, chanlist, chan = None):
-    print(vis.shape)
+def get_fringes_phase(vis, chanlist):
     p_vis = np.angle(vis)
-    #auto-select brightest phase
-    mean_amp = np.mean(np.abs(vis), axis=0)
+    mean_amp = np.mean(np.abs(vis), axis=1)
+    print(mean_amp)
     chan_s_idx = np.argmax(mean_amp)
     chan_b_idx = chanlist[chan_s_idx]
-    phase = np.unwrap(p_vis[:, chan_s_idx]) - p_vis[0, chan_s_idx] #zero the initial phase
-    return p_vis, phase, chan_b_idx
+    phase = np.unwrap(p_vis[chan_s_idx, :]) - p_vis[chan_s_idx, 0] #zero the initial phase
+    return p_vis.T, phase, chan_b_idx
 

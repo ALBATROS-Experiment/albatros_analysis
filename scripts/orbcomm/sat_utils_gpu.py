@@ -72,7 +72,7 @@ def get_vis_gpu(pulse_start_t,
                 paths,
                 offsets,
                 T_SPECTRA = 4096/250e6,
-                v_acclen = 5000):
+                v_acclen = 30000):
     ''' 
     computes visibilities for one baseline for a set period, given a specnumoffset
 

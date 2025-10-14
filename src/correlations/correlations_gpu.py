@@ -93,30 +93,31 @@ lib.cgemm_strided_batched.restype = None
 #     return out
 
 def avg_xcorr_all_ant_gpu(x: xp.ndarray, nant: int,npol: int, ntime: int, nfreq: int, split : int = 1, scratch = None, out=None):
-    #sgemm/cgemm callsign (m,n,k, ldA, strideA, ldB, strideB, ldC, strideC, nbatch)
-    #A = m x k  | B = n x k  | C = m x n when B transpose enabled
-    M=nant*npol
-    N=M
-    K=ntime
-    if(K%split!=0):
-        raise ValueError("split should be a divisor of ntime")
-    batchCount=nfreq*split
+   #sgemm/cgemm callsign (m,n,k, ldA, strideA, ldB, strideB, ldC, strideC, nbatch)
+   #A = m x k  | B = n x k  | C = m x n when B transpose enabled
+   M=nant*npol
+   N=M
+   K=ntime
+   if(K%split!=0):
+       raise ValueError("split should be a divisor of ntime")
+   batchCount=nfreq*split
 
-    if out is None:
-        out = xp.empty((M,N,nfreq),dtype='complex64',order='F')
-    elif (out.shape != (M, M, nfreq) or out.dtype != x.dtype or not out.flags.f_contiguous):
-        raise ValueError("invalid out buffer")
 
-    if split > 1:
-        raise NotImplementedError() #do a proper buffered solution later.
-        # scratch.reshape(m,n,split,nbatch,order='F').sum(axis=2,out=out) #reduce along split time axis
-        # print("reduced out", out.flags, out.shape)
-    else:
-        lib.cgemm_strided_batched(
-        ctypes.c_void_p(x.data.ptr),
-        ctypes.c_void_p(x.data.ptr),
-        ctypes.c_void_p(out.data.ptr),
-        M, N, K//split, batchCount
-    )
-        out/=K
-    return out
+   if out is None:
+       out = xp.empty((M,N,nfreq),dtype='complex64',order='F')
+   elif (out.shape != (M, M, nfreq) or out.dtype != x.dtype or not out.flags.f_contiguous):
+       raise ValueError("invalid out buffer")
+
+
+   if split > 1:
+       raise NotImplementedError() #do a proper buffered solution later.
+       # scratch.reshape(m,n,split,nbatch,order='F').sum(axis=2,out=out) #reduce along split time axis
+       # print("reduced out", out.flags, out.shape)
+   else:
+       lib.cgemm_strided_batched(
+       ctypes.c_void_p(x.data.ptr),
+       ctypes.c_void_p(x.data.ptr),
+       ctypes.c_void_p(out.data.ptr),
+       M, N, K//split, batchCount
+   )
+   return out
