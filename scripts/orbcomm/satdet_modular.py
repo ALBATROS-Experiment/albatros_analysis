@@ -13,6 +13,7 @@ import argparse
 import json
 from matplotlib import pyplot as plt
 import sat_utils as su
+import sat_utils_gpu as sug
 import figures as fgs
 
 if __name__ == "__main__":
@@ -89,6 +90,10 @@ if __name__ == "__main__":
     sat_data[global_start_t] = {}  
     for antnum in range(1,len(dir_parents)):
         print(f"--------------- {ant_names[antnum]}-----------------")
+
+        if ant_names[antnum] != "Antenna 7":
+            continue
+
         sat_data[global_start_t][f"{ant_names[antnum]}"] = {}
         baseline_pulse_data = []
         nra_path, nra_coords = dir_parents[antnum], coords[antnum]
@@ -99,9 +104,15 @@ if __name__ == "__main__":
         #ITERATE OVER PASS
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
             print(f"---------------starting pulse {pnum}---------")
-            pstart, pend = pstart*T_SCAN, pend*T_SCAN
-            pstart = pstart       #go from T_SCAN indices to times in s
-            t1, t2 = global_start_t + pstart, global_start_t + pend  #get in unix time
+            print(f"we're at {ant_names[antnum]} right now")
+            pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
+            
+            
+            #take a chunk halfway through the pulse:
+            #pstart_chunk = pstart + int((pend-pstart)/4)
+            pstart_chunk = pstart
+            
+            t1, t2 = global_start_t + pstart_chunk, global_start_t + pend  #get in unix time
             tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
             debug_pulse_path = os.path.join(debug_ant_path, f'pulse_{pnum}_start_{pstart}')
             os.makedirs(debug_pulse_path, exist_ok=True)
@@ -116,6 +127,11 @@ if __name__ == "__main__":
                 print(e)
                 print(f"WARNING: skipping pass {pstart} to {pend}. MISTAKE IN FILE CHECKER!!")
                 continue
+
+            print('files ref ant:', files_ra)
+            print('files nonref ant:', files_nra)
+            print('idxs ref ant:', idx_ra)
+            print('idxs nonref ant:', idx_nra)
 
             print("Setting Antenna as BFI Objects", '\n')
 
@@ -155,18 +171,22 @@ if __name__ == "__main__":
             ra_start = ra.spec_num_start
             nra_start = nra.spec_num_start
             
-            for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
-                print("I GOT HERE")
-                perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
-                perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
-                print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
-                if perc_missing_ra > 10 or perc_missing_nra > 10:
-                    ra_start = ra.spec_num_start
-                    nra_start = nra.spec_num_start
-                    continue
-                bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
-                bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
-                break
+            try:
+                for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
+                    print("I GOT HERE")
+                    perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
+                    perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
+                    print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
+                    if perc_missing_ra > 10 or perc_missing_nra > 10:
+                        ra_start = ra.spec_num_start
+                        nra_start = nra.spec_num_start
+                        continue
+                    bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
+                    bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
+                    break
+            except Exception as e:
+                print(e)
+                sys.exit()
 
 
             specnum_offset = ra.spec_num_start - nra.spec_num_start #this is the initial delay between specnums when the antennas booted up
@@ -179,7 +199,7 @@ if __name__ == "__main__":
             #GET CXCORR DATA
             N = 2*c_acclen
             dN = min(100000, int(0.3 * N))
-            cx = su.get_cxcorr_many_sats(p0_ra,
+            cx_gpu = sug.get_cxcorr_many_sats(p0_ra,
                                          p0_nra, 
                                          tle_path, 
                                          [t1,t2], 
@@ -188,15 +208,20 @@ if __name__ == "__main__":
                                          [ra_coords, nra_coords],
                                          N,
                                          dN)
+        
     
             #GET SNR
             snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  #for each chan for each sat (plus uncorrected)
             for i in range(len(sats_present) + 1):
-                snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx[i]),axis=1))
+                snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx_gpu[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx_gpu[i]),axis=1))
 
             #GET DETECTIONS
+            cx = []
+            for cxcorr in cx_gpu:
+                cx.append(cxcorr.get())
+
             detected_sats, detected_peaks, detected_snrs, rel_ratios = su.get_detections(cx, snr_arr, temp_satmap)
-        
+
             #now have all required data.
             print('overall snr array:', snr_arr)
             print('detected sats:', detected_sats)

@@ -89,7 +89,7 @@ def get_vis_gpu(pulse_start_t,
     print(paths)
 
     idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, offsets, paths)
-
+    
     channels = bdc.get_header(files[0][0])["channels"].astype('int64')
     chanstart = np.where(channels == 1834)[0][0] 
     chanend = np.where(channels == 1852)[0][0]

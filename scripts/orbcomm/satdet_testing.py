@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
     antenna_name = 'Antenna 7'
-    specnumoffset = -216842
+    specnumoffset = 216842
     pulse_idx = 0
     buffer = 0
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
     print("STARTING VIS\n----------------")
     
-    vis, chanlist = sug.get_vis_gpu(t1, 
+    vis, chanlist = sug.get_vis_gpu(t1,
                                     t2,
                                     [ref_path, nref_path], 
                                     [0, specnumoffset],
