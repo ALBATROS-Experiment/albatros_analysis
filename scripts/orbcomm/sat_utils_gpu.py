@@ -83,6 +83,11 @@ def get_vis_gpu(pulse_start_t,
     chunk_length = T_SPECTRA * v_acclen
     pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))
 
+    print(pulse_start_t)
+    print(pulse_end_t)
+    print(offsets) 
+    print(paths)
+
     idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, offsets, paths)
 
     channels = bdc.get_header(files[0][0])["channels"].astype('int64')

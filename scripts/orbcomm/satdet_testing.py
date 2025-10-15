@@ -64,6 +64,7 @@ if __name__ == "__main__":
     for i, sat_ID in enumerate(satlist):
         satmap[i] = sat_ID
         satmap[sat_ID] = i
+    print(satmap)
 
     #RISEN SATS
     nrows = int((array_time)/T_SCAN)
@@ -84,13 +85,13 @@ if __name__ == "__main__":
 
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
-    antenna_name = 'Antenna 2'
-    specnumoffset = 115507586
-    pulse_idx = 2
+    antenna_name = 'Antenna 7'
+    specnumoffset = -216842
+    pulse_idx = 0
     buffer = 0
 
     nref_idx = ant_names.index(antenna_name)
-    print(nref_idx)
+    print('nref_idx', nref_idx)
     nref_path, nref_coords = dir_parents[nref_idx], coords[nref_idx]
     print('ref path', ref_path)
     print('nref path', nref_path)
@@ -119,13 +120,25 @@ if __name__ == "__main__":
         print(f"WARNING: skipping pass. MISTAKE IN FILE CHECKER!!")
         #continue
 
+    #print('files ref ant:', files_ra)
+    #print('files nonref ant:', files_nra)
+    print('idxs ref ant:', idx_ra)
+    print('idxs nonref ant:', idx_nra)
+
+
+    #idx_nra -= 17210
+    #17210
+    print('new idx nonref ant:', idx_nra)
     print("Setting Antenna as BFI Objects", '\n')
+
 
     # Set up the number of channels we look through
     channels = np.asarray(bdc.get_header(files_ra[0])["channels"],dtype='int64')
     chanstart = np.where(channels == 1834)[0][0]
     chanend = np.where(channels == 1852)[0][0]
     nchans = chanend - chanstart
+
+    #idx_ra -= 17200
 
     ra = bdc.BasebandFileIterator(
         files_ra,
@@ -188,7 +201,8 @@ if __name__ == "__main__":
                                  N,
                                  dN)
 
-    #visibility
+    print("STARTING VIS\n----------------")
+    
     vis, chanlist = sug.get_vis_gpu(t1, 
                                     t2,
                                     [ref_path, nref_path], 
@@ -199,10 +213,10 @@ if __name__ == "__main__":
     print(chanlist)
     print('pol00 shape', pol00.shape)
     print('phase shape', phase.shape)
-
+    print('channel index', chan_big_idx)
 
     #make and save figures
-    visfig = fgs.makeplot_fringes_phase(coords, 
+    visfig = fgs.makeplot_fringes_phase([ref_coords, nref_coords], 
                                         [t1,t2],
                                         chan_big_idx, 
                                         chanlist, 
@@ -211,7 +225,8 @@ if __name__ == "__main__":
                                         sats_present,
                                         satmap,
                                         v_acclen)
-    
+
+
     visfig.savefig(os.path.join(pulse_output, f'plot_vis.jpg'))
 
     for idx, sat in enumerate(temp_satmap):

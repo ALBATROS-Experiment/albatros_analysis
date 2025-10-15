@@ -72,7 +72,32 @@ def get_rel_ratio(data):
 
 
 def get_detections(cx, snr_array, temp_satmap):
-    assert isinstance(cx, np.ndarray)
+    '''
+    determines detections given a coarse-cross correlation and SNR of a satellite pass
+
+    for each frequency channel, we sort the SNR across all correlations (uncorrected and per-sat beamform)
+    we skip the channel if uncorrected (cx[0]) has highest SNR (i.e. if beamforming didn't improve SNR)
+    if beamform SNR improves uncorr SNR by factor of (5 * √2) or more, count as detection
+    get detections for each chan for each sat
+    get reliability ratio from the cxcorr peak shape
+
+    note that we limit each channel to one detection
+    (i.e. multiple sats cannot be detected in the same chan)
+    
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+    detected_sats
+    detected_peaks
+    detected_snrs
+    rel_ratios
+    '''
+    for cxcorr in cx:
+        assert isinstance(cxcorr, np.ndarray)
     nchans = len(snr_array[0,:])
     detected_snrs = np.zeros(nchans, dtype="int")
     detected_sats = np.zeros(nchans, dtype="int")
