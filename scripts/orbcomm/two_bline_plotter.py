@@ -30,20 +30,18 @@ satdet_path = os.path.join('/scratch/thomasb/', satdet_name)
 out_path = '/scratch/thomasb'
 
 T_SPECTRA = 4096/250e6
-v_acclen = 10000
-c_acclen = 10**6
+v_acclen = 5000
 chunk_length = T_SPECTRA * v_acclen
-chunk_length_coarse = T_SPECTRA * c_acclen
 
-bl1_ants = set({'Antenna 1', 'Antenna 2'})
-bl2_ants = set({'Antenna 1', 'Antenna 8'})
+bl1_ants = set({'Antenna 1', 'Antenna 6'})
+bl2_ants = set({'Antenna 1', 'Antenna 6'})
 required_ants = bl1_ants | bl2_ants
 
-rel_start_t, rel_end_t = 40740, 41200
-satID = 59051
+rel_start_t, rel_end_t = 5170, 5395
+satID = 57166
 
-bl1_offsets = [0, 115507586]
-bl2_offsets = [0, -69608]
+bl1_offsets = [0, 1166266140]
+bl2_offsets = [0, 1166266140]
 
 bl1_names, bl1_paths, bl1_coords = [], [], []
 bl2_names, bl2_paths, bl2_coords = [], [], []
@@ -79,23 +77,26 @@ print(bl2_offsets)
 print(bl2_coords)
 print(bl2_paths)
 
+a1_corr_coords = [79.41717895, -90.76721818, 188.095]
+a2_corr_coords = []
+a3_corr_coords = [79.41542653, -90.7729705, 180.591]
+a4_corr_coords = [79.38845797, -91.01936185, 19.777]
+a5_corr_coords = []
+a6_corr_coords = [79.3979952, -90.799868, 42.692]
+a7_corr_coords = [79.41148497, -90.69528512, 32.593]
+a8_corr_coords = []
+
+
+#specially setting it!!
+bl2_coords = [a1_corr_coords, a6_corr_coords]
+
+bl1_dist = su.get_bline_dist(bl1_coords[0], bl1_coords[1])
+bl2_dist = su.get_bline_dist(bl2_coords[0], bl2_coords[1])
+
 #sys.exit()
 
 tle_path = outils.get_tle_file(global_start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
 p_start, p_end = rel_start_t+global_start_t, rel_end_t+global_start_t
-
-#set up bline map, find desired baselines in terms of their index
-#bl_map = []
-#nants = len(required_ants)
-#for i in range(nants):
-    #for j in range(i+1, nants):
-     #   bl_elements = set({ant_names[i], ant_names[j]})
-      #  bl_map.append(bl_elements)
-#print('baseline map:', bl_map)
-
-#bl1 = [i for i, x in enumerate(bl_map) if x == bl1_ants]
-#bl2 = [i for i, x in enumerate(bl_map) if x == bl2_ants]
-#print('bl1, bl2:', bl1, bl2)
 
 bl1_dist = int(np.round(su.get_bline_dist(bl1_coords[0], bl1_coords[1]), decimals=-1))
 bl2_dist = int(np.round(su.get_bline_dist(bl2_coords[0], bl2_coords[1]), decimals=-1))
@@ -126,7 +127,7 @@ chan_big_idx = bl1_chan_big_idx
 
 print(bl1_p_vis.shape)
 
-suptitle = f'Channel {chan_big_idx}'
+suptitle = f'MARS1 - MARS6 ({bl1_dist}m), Channel {chan_big_idx}, acclen {v_acclen}'
 fig = fgs.makeplot_fringes_phase2(bl1_coords, 
                                   bl2_coords,
                                   p_start,
@@ -142,3 +143,5 @@ fig = fgs.makeplot_fringes_phase2(bl1_coords,
 
 fig.savefig(os.path.join(out_path, f'two_bline_{p_start}_{p_end}.jpg'))
 
+print(bl1_coords)
+print(bl2_coords)
