@@ -555,9 +555,17 @@ class BasebandFileIterator:
         self.type = type
         self.file_loader = self.get_file_loader() #NB: this is technically not a bound method, but it's OK b/c we don't need self to be passed to file_loader.
         self.obj = self.file_loader(
-            file_paths[fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
+            file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.channel_idxs = self.obj.channel_idxs
+        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong
+            print(f"idxstart {idxstart} > length of file {len(self.obj.spec_idx)}. move to next file before starting.")
+            self.fileidx+=1
+            self.obj = self.file_loader(
+                file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
+            )
+            idxstart = idxstart - len(self.obj.spec_idx)
+            print("new idxstart in the next file = ", idxstart)
 
         self.spec_num_start = idxstart + self.obj.spec_idx[0]
         print(
@@ -620,7 +628,7 @@ class BasebandFileIterator:
             # print("Rem is", rem)
             if self.spec_num_start < self.obj.spec_num[0]: #wont be triggered for the first file, since we need to start somewhere
                 # we are in a gap between the files
-                # print("IN A GAP BETWEEN FILES")
+                print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0] - self.spec_num_start, rem)
                 rem -= step
                 # i+=self.acclen-rem
@@ -632,6 +640,7 @@ class BasebandFileIterator:
                     self.obj.spec_idx[-1] - self.spec_num_start + 1
                 )  # this file spans this many spectra. not all of them may be present, if l > len(spec_idx). files are size limited.
                 # print("dist to end is", l, "rem is", rem)
+                assert l>=0
                 if rem >= l:
                     # spillover to next file.
 

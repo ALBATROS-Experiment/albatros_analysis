@@ -78,6 +78,11 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
         )  + 3 # find the time period. assumption: usually there will be several files in an hour.
         # + 3 because tstamp accuracy is only 1 s, and duration of file tstamp may fluctuate a bit
         # if something happens to system, file gap >> 1 s.
+        mean_diff = np.mean(np.diff(tstamps))
+        std_diff = np.std(np.diff(tstamps))
+        # plt.hist(np.diff(tstamps), bins=20)
+        # plt.show()
+        # print("mean diff", mean_diff, "+/-", std_diff)
         dt = 4096 / 250e6
     # print(tstamps>ts)
     # if len(tstamps) == 1:
@@ -93,8 +98,14 @@ def get_file_from_timestamp(ts, dir_parent, search_type, force_ts=False, acclen=
     else:
         flip = np.where(np.diff(tstamps > ts) != 0)[0][0]
     # plt.plot(tstamps>ts)
-    # print(flip,delta,tstamps[flip])
-    # print(ts - tstamps[flip])
+    # print(flip,delta,tstamps[flip],files[flip])
+    # print("consecutive file diff", tstamps[flip+1]-tstamps[flip], "distance of requested tstamp from start of current file",ts - tstamps[flip])
+    if (tstamps[flip+1]-tstamps[flip]) < (ts - tstamps[flip]): #if length of current file is shorter than distance of requested time from start of current file, 
+                                                                #tstamp prolly in next file
+        print("INCREASING FLIP BY ONE...")
+        assert 1 == 0
+        # should never happen because flip means next file tstamp is greater than requested.
+        flip+=1
     if ts - tstamps[flip] <= delta:
         return files[flip], np.round((ts - tstamps[flip]) / dt).astype(
             int
