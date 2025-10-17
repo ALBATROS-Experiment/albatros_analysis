@@ -2,7 +2,7 @@ import sys
 import time
 #status as of Feb 14, 2024: after all speed updates, once again compared to jupyter output.
 #                           sat delay values match, coarse xcorr values match, SNR matches
-sys.path.insert(0, "/home/s/sievers/mohanagr/")
+sys.path.insert(0, "/home/mohanagr/")
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
@@ -19,7 +19,7 @@ T_SPECTRA = 4096 / 250e6
 T_ACCLEN = 5 #seconds between each pulse scan -- look for sat rise/set every 5 sec.
 DEBUG=False
 
-with open("config_uapishka.json", "r") as f:
+with open("config.json", "r") as f:
     config = json.load(f)
     dir_parents = []
     coords = []
@@ -32,10 +32,10 @@ with open("config_uapishka.json", "r") as f:
     init_t = config["correlation"]["start_timestamp"]
     end_t = config["correlation"]["end_timestamp"]
 print(coords)
-out_path = "/project/s/sievers/mohanagr/"
+out_path = "/scratch/thomasb/mohan/"
 # all the sats we track
-# satlist = [28654,25338,33591,57166,59051,44387]
-satlist = [40087,41187]
+satlist = [28654,25338,33591,57166,59051,44387]
+# satlist = [40087,41187]
 # satlist = [57166,59051]
 satmap = {}
 assert min(satlist) > len(
@@ -55,7 +55,7 @@ sat_data = {}
 nrows=int((3*3600)/T_ACCLEN) # for getting risen sats
 tstart = init_t
 sat_data[tstart] = []
-tle_path = outils.get_tle_file(tstart, "/project/s/sievers/mohanagr/OCOMM_TLES")
+tle_path = outils.get_tle_file(tstart, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
 print("USING TLE PATH", tle_path)
 arr = np.zeros((nrows, len(satlist)), dtype="int64")
 rsats = outils.get_risen_sats(tle_path, a1_coords, tstart, dt=5, niter=nrows,good=satlist,altitude_cutoff=15)
@@ -82,7 +82,7 @@ fig.suptitle(str(tstart))
 ax=ax.flatten()
 
 for antnum in range(1,len(dir_parents)):
-    print(f"--------------- ANTENNA {antnum}-----------------")
+    print(f"--------------- ANTENNA {dir_parents[antnum]}-----------------")
     a2_path = dir_parents[antnum]
     a2_coords = coords[antnum]
     for pnum, [(pstart, pend), sats] in enumerate(pulses):
