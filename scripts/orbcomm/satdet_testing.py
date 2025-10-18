@@ -85,9 +85,9 @@ if __name__ == "__main__":
 
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
-    antenna_name = 'Antenna 7'
-    specnumoffset = 216842
-    pulse_idx = 0
+    antenna_name = 'Antenna 6'
+    specnumoffset = -2365055
+    pulse_idx = 64
     buffer = 0
 
     nref_idx = ant_names.index(antenna_name)
@@ -120,14 +120,10 @@ if __name__ == "__main__":
         print(f"WARNING: skipping pass. MISTAKE IN FILE CHECKER!!")
         #continue
 
-    #print('files ref ant:', files_ra)
-    #print('files nonref ant:', files_nra)
+    
     print('idxs ref ant:', idx_ra)
     print('idxs nonref ant:', idx_nra)
 
-
-    #idx_nra -= 17210
-    #17210
     print('new idx nonref ant:', idx_nra)
     print("Setting Antenna as BFI Objects", '\n')
 
@@ -137,8 +133,6 @@ if __name__ == "__main__":
     chanstart = np.where(channels == 1834)[0][0]
     chanend = np.where(channels == 1852)[0][0]
     nchans = chanend - chanstart
-
-    #idx_ra -= 17200
 
     ra = bdc.BasebandFileIterator(
         files_ra,

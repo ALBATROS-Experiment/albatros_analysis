@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import gc
+import psutil
 from os import path
 sys.path.insert(0, "/home/thomasb/")
 from albatros_analysis.src.utils import baseband_utils as butils
@@ -15,6 +17,12 @@ from matplotlib import pyplot as plt
 import sat_utils as su
 import sat_utils_gpu as sug
 import figures as fgs
+
+def print_memory_usage(note=""):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / 1e6  # Resident Set Size in MB
+    print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -75,6 +83,9 @@ if __name__ == "__main__":
 
     fig = fgs.make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN=T_SCAN)
     fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{str(time.time())}.jpg"))
+    fig.clf()
+    plt.close(fig)
+    del fig
     print(arr)
 
     #PASSES
@@ -84,17 +95,17 @@ if __name__ == "__main__":
     npasses = len(passes)
     print("PASSES DETECTED:",'\n', passes, '\n')
     print("Number of Passes:", npasses, '\n')
+
+    mempool = cp.get_default_memory_pool()
+    pinned_mempool = cp.get_default_pinned_memory_pool()
     
     #ITERATE OVER ANTS
-    sat_data = {} 
+    sat_data = {}    #when saving everything to one json
     sat_data[global_start_t] = {}  
+    temp_files = []  #paths of temporary per-antenna json files
     for antnum in range(1,len(dir_parents)):
         print(f"--------------- {ant_names[antnum]}-----------------")
 
-        if ant_names[antnum] != "Antenna 7":
-            continue
-
-        sat_data[global_start_t][f"{ant_names[antnum]}"] = {}
         baseline_pulse_data = []
         nra_path, nra_coords = dir_parents[antnum], coords[antnum]
 
@@ -106,7 +117,8 @@ if __name__ == "__main__":
             print(f"---------------starting pulse {pnum}---------")
             print(f"we're at {ant_names[antnum]} right now")
             pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
-            
+
+            print_memory_usage(note = "start of pulse")
             
             #take a chunk halfway through the pulse:
             #pstart_chunk = pstart + int((pend-pstart)/4)
@@ -128,8 +140,6 @@ if __name__ == "__main__":
                 print(f"WARNING: skipping pass {pstart} to {pend}. MISTAKE IN FILE CHECKER!!")
                 continue
 
-            print('files ref ant:', files_ra)
-            print('files nonref ant:', files_nra)
             print('idxs ref ant:', idx_ra)
             print('idxs nonref ant:', idx_nra)
 
@@ -141,55 +151,12 @@ if __name__ == "__main__":
             chanend = np.where(channels == 1852)[0][0]
             nchans = chanend - chanstart
 
-            ra = bdc.BasebandFileIterator(
-                files_ra,
-                0,
-                idx_ra,
-                c_acclen,
-                None,
-                chanstart=chanstart,
-                chanend=chanend,
-                type="float",
-            )
-            nra = bdc.BasebandFileIterator(
-                files_nra,
-                0,
-                idx_nra,
-                c_acclen,
-                None,
-                chanstart=chanstart,
-                chanend=chanend,
-                type="float",
-            )
+            p0_ra, p0_nra, specnum_offset = sug.get_chunk_data([files_ra, files_nra], 
+                                                               [idx_ra, idx_nra], 
+                                                               chanstart, 
+                                                               chanend,
+                                                               )
 
-            print(ra.acclen)
-            print(nra.acclen)
-
-            #PICK THE CHUNK, PUT IN DATA
-            p0_ra = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
-            p0_nra = cp.zeros((c_acclen, nchans), dtype="complex64")
-            ra_start = ra.spec_num_start
-            nra_start = nra.spec_num_start
-            
-            try:
-                for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
-                    print("I GOT HERE")
-                    perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
-                    perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
-                    print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
-                    if perc_missing_ra > 10 or perc_missing_nra > 10:
-                        ra_start = ra.spec_num_start
-                        nra_start = nra.spec_num_start
-                        continue
-                    bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
-                    bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
-                    break
-            except Exception as e:
-                print(e)
-                sys.exit()
-
-
-            specnum_offset = ra.spec_num_start - nra.spec_num_start #this is the initial delay between specnums when the antennas booted up
             temp_satmap = [] 
             temp_satmap.append("Uncorrected")
             for i, satidx in enumerate(sats_present):
@@ -208,8 +175,7 @@ if __name__ == "__main__":
                                          [ra_coords, nra_coords],
                                          N,
                                          dN)
-        
-    
+
             #GET SNR
             snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  #for each chan for each sat (plus uncorrected)
             for i in range(len(sats_present) + 1):
@@ -247,8 +213,14 @@ if __name__ == "__main__":
             for idx, sat in enumerate(temp_satmap):
                 cxfig = fgs.make_cxcorr_plot(cx[idx])
                 cxfig.savefig(os.path.join(debug_pulse_path, f'cxcorr_{sat}.jpg'))
+                cxfig.clf()
+                plt.close(cxfig)
+                del cxfig
             snrfig = fgs.make_snr_plot(snr_arr, temp_satmap)
             snrfig.savefig(os.path.join(debug_pulse_path, f'SNRs_{pnum}_{pstart}.jpg'))
+            snrfig.clf()
+            plt.close(snrfig)
+            del snrfig
             
             #STORE PULSE DATA
             pulse_data = {}
@@ -268,6 +240,16 @@ if __name__ == "__main__":
                     pulse_data["sats_present"][satmap[sat_ID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
                 baseline_pulse_data.append(pulse_data)
 
+            print_memory_usage(note = 'before memory freeing')
+            del p0_ra
+            del p0_nra
+            del cx
+            del cx_gpu
+            gc.collect()
+            mempool.free_all_blocks()
+            pinned_mempool.free_all_blocks()
+            print_memory_usage(note = 'after memory freeing')
+
         print(baseline_pulse_data)
 
         #UPDATE OFFSETS
@@ -277,13 +259,34 @@ if __name__ == "__main__":
             pulse_dict["diff_to_consensus"] = con_off - ind_off
 
         #SAVE TO SAT DATA
-        sat_data[global_start_t][f"{ant_names[antnum]}"]["consensus_offset"] = con_off
-        sat_data[global_start_t][f"{ant_names[antnum]}"]["pulse_data"] = baseline_pulse_data
-        print('added to sat_data, starting new antenna')
+        ant_data = {}
+        ant_data["consensus_offset"] = con_off
+        ant_data["pulse_data"] = baseline_pulse_data
 
-    #SAVE TO JSON
-    json_output = path.join(out_path,f"pulsedata_{global_start_t}_len_{global_end_t-global_start_t}_{time.time()}.json")
-    with open(json_output, "w") as file:
-        json.dump(sat_data, file, indent=4)
-        print(sat_data)
+        temp_path = os.path.join(out_path, f"temp_{ant_names[antnum]}_{global_start_t}.json")
+        with open(temp_path, "w") as f:
+            json.dump(ant_data, f, indent=4)
+        temp_files.append((ant_names[antnum], temp_path))
+        print('saved ant_data to temporary json')
+
+        #free up memory
+        del baseline_pulse_data
+        del ant_data
+        gc.collect()
+
+    #SAVING ALL BLINES TO ONE JSON
+    for ant_name, temp_path in temp_files:
+        with open(temp_path, "r") as f:
+            sat_data[global_start_t][ant_name] = json.load(f)
+
+    final_json = path.join(out_path,f"pulsedata_{global_start_t}_len_{global_end_t - global_start_t}_{int(time.time())}.json")
+    with open(final_json, "w") as f:
+        json.dump(sat_data, f, indent=4)
+    
+    print(f'saved final json to {out_path}')
+
+    for _, temp_path in temp_files:
+        os.remove(temp_path)
+    print('deleted temporary jsons')
+
 

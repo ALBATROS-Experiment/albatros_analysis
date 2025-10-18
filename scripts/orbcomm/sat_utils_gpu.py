@@ -80,13 +80,15 @@ def get_vis_gpu(pulse_start_t,
     also note that this should be tested with two non-ref antenna (usually run with one ref one non ref)
 
     '''
+
     chunk_length = T_SPECTRA * v_acclen
     pulse_len_chunks = int(np.ceil((pulse_end_t - pulse_start_t)/chunk_length))
 
-    print(pulse_start_t)
-    print(pulse_end_t)
-    print(offsets) 
-    print(paths)
+    print('pulse_start', pulse_start_t)
+    print('pulse_end', pulse_end_t)
+    print('pulse duration', pulse_end_t-pulse_start_t)
+    print('offsets', offsets) 
+    print('paths', paths)
 
     idxs, files = hp.get_init_info_all_ant(pulse_start_t, pulse_end_t, offsets, paths)
     
@@ -99,4 +101,70 @@ def get_vis_gpu(pulse_start_t,
     vis, channels = hpg.xcorr_avg(idxs, files, v_acclen, pulse_len_chunks, chanlist)
     
     return vis, channels
+
+
+
+
+def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
+    nchans = chanend - chanstart
+    ref = bdc.BasebandFileIterator(
+        files[0],
+        0,
+        idxs[0],
+        c_acclen,
+        None,
+        chanstart=chanstart,
+        chanend=chanend,
+        type="float",
+    )
+    nref = bdc.BasebandFileIterator(
+        files[1],
+        0,
+        idxs[1],
+        c_acclen,
+        None,
+        chanstart=chanstart,
+        chanend=chanend,
+        type="float",
+    )
+
+    print(ref.acclen)
+    print(nref.acclen)
+
+    #PICK THE CHUNK, PUT IN DATA
+    p0_ref = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
+    p0_nref = cp.zeros((c_acclen, nchans), dtype="complex64")
+    ra_start = ref.spec_num_start
+    nra_start = nref.spec_num_start
+
+
+    for i, (chunk_ra, chunk_nra) in enumerate(zip(ref, nref)):
+        perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
+        perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
+        print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
+        if perc_missing_ra > 10 or perc_missing_nra > 10:
+            ra_start = ref.spec_num_start
+            nra_start = nref.spec_num_start
+            continue
+
+        bdc.make_continuous_gpu(chunk_ra['pol0'],
+                                chunk_ra['specnums']-ra_start,
+                                np.arange(nchans),
+                                c_acclen,
+                                nchans=nchans, 
+                                out=p0_ref)
+        
+        bdc.make_continuous_gpu(chunk_nra['pol0'],
+                                chunk_nra['specnums']-nra_start,
+                                np.arange(nchans),
+                                c_acclen,
+                                nchans=nchans, 
+                                out=p0_nref)
+        break
+
+    specnum_offset = ref.spec_num_start - nref.spec_num_start #this is the initial delay between specnums when the antennas booted up
+    p0_ref_copy = cp.copy(p0_ref)
+    p0_nref_copy = cp.copy(p0_nref)
+
+    return p0_ref_copy, p0_nref_copy, specnum_offset
 

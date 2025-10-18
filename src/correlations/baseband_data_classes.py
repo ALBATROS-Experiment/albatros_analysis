@@ -558,7 +558,14 @@ class BasebandFileIterator:
             file_paths[fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.channel_idxs = self.obj.channel_idxs
-
+        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong
+            print(f"idxstart {idxstart} > length of file {len(self.obj.spec_idx)}. move to next file before starting.")
+            self.fileidx+=1
+            self.obj = self.file_loader(
+                file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
+            )
+            idxstart = idxstart - len(self.obj.spec_idx)
+            print("new idxstart in the next file = ", idxstart)
         self.spec_num_start = idxstart + self.obj.spec_idx[0]
         print(
             "START SPECNUM IS",
