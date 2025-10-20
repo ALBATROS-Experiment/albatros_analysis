@@ -54,14 +54,16 @@ if __name__=="__main__":
     idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
     print("final idxs", idxs)
     print("nchunks", nchunks)
-    print("loaded files", files)
+    # print("loaded files", files)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
     filt_thresh = 0.2
     # t_acclen = acclen*4096/250e6
     # sys.exit()
+    fname = f"xcorr_all_ant_1bit_{str(init_t)}_{str(end_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}.npy"
+    fpath = path.join(args.outdir,fname)
     if osamp > 1:
         t1=time.time()
-        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,cutsize=16,filt_thresh=filt_thresh)
+        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,fpath,cutsize=16,filt_thresh=filt_thresh)
         t2=time.time()
     else:
         t1=time.time()
@@ -69,7 +71,5 @@ if __name__=="__main__":
         t2=time.time()
     print("Total time taken", t2-t1)
 
-    fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}_{filt_thresh}.npz"
-    fpath = path.join(args.outdir,fname)
-    np.savez(fpath,data=pols,chans=new_channels)
+    # fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}_{filt_thresh}.npz"
 
