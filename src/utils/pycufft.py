@@ -3,9 +3,11 @@ import sys
 import numpy as np
 import threading
 import cupy as cp
+import os
+
 cupy_cache=cp.fft.config.get_plan_cache()
 cupy_cache.set_size(0) #disable all cupy caching
-mylib=ctypes.cdll.LoadLibrary("/home/thomasb/albatros_analysis/src/utils/libpycufft.so")
+mylib=ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(os.path.realpath(__file__)), "libpycufft.so"))
 r2c = mylib.cufft_r2c_mohan
 r2c.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_void_p)
 c2r = mylib.cufft_c2r_mohan
@@ -259,8 +261,8 @@ if __name__=='__main__':
     # print(np.abs(aa[idx]-bb[idx]))
     # print("limit is", 1e-8+rtol*cp.abs(bb)[idx])
     #-------------------------------------------------------------
-    test_c2c(cache=True)
-    sys.exit(0)
+    # test_c2c(cache=True)
+    # sys.exit(0)
     test()
     assert pycufft_cache.hits==0
     assert pycufft_cache.misses==0

@@ -11,11 +11,6 @@ import json
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
 
-''' 
-Supposed to be made functional with the xcorr on dev, but I don't have commit permission
-So I need to keep this guy on my branch for the time being. Waiting for the merge.
-
-'''
 
 def get_ant_pol_idxs(antpol_idx, nants, npols):
    '''

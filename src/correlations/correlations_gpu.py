@@ -10,7 +10,7 @@ from .. import xp
 # Cxc = mylib.Cxc
 # Cxc.argtypes=(ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int)
 lib = ctypes.cdll.LoadLibrary(
-    os.path.realpath(__file__ + r"/..") + "/libcgemm_batch.so"
+    os.path.realpath(__file__ + r"/..") + "/lib_correlations_gpu.so"
 )
 lib.cgemm_strided_batched.argtypes = [
     ctypes.c_void_p,  # A.ptr

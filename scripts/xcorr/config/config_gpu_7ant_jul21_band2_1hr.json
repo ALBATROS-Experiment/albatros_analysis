@@ -3,46 +3,55 @@
             "ALB1": {
                 "name": "Antenna 1",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars1",
-                "coordinates": [79.41717895, -90.76721818, 188.095]
+                "coordinates": [79.41717895, -90.76721818, 188.095],
+                "clock_offset": 0
             },
             "ALB2": {
                 "name": "Antenna 2",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars2",
-                "coordinates": [79.41721666666666, -90.75885, 176]
+                "coordinates": [79.41721666666666, -90.75885, 176],
+                "clock_offset": 115507586
             },
             "ALB4": {
                 "name": "Antenna 4",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars4",
-                "coordinates": [79.38845797, -91.01936185, 19.777]
+                "coordinates": [79.38845797, -91.01936185, 19.777],
+                "clock_offset":733645678
             },
             "ALB5": {
                 "name": "Antenna 5",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars5",
-                "coordinates": [79.4183154, -90.667425, 59.364]
+                "coordinates": [79.4183154, -90.667425, 59.364],
+                "clock_offset":-232874
             },
             "ALB6": {
                 "name": "Antenna 6",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars6",
-                "coordinates": [79.3979952, -90.799868, 42.692]
+                "coordinates": [79.3979952, -90.799868, 42.692],
+                "clock_offset":1166266140
             },
             "ALB7": {
                 "name": "Antenna 7",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars7",
-                "coordinates": [79.41148497, -90.69528512, 32.593]
+                "coordinates": [79.41148497, -90.69528512, 32.593],
+                "clock_offset":-216842
             },
             "ALB8": {
                 "name": "Antenna 8",
                 "path": "/scratch/mohanagr/summer_2025/baseband/mars8",
-                "coordinates": [79.44377162, -90.71824306, 416.829]
+                "coordinates": [79.44377162, -90.71824306, 416.829],
+                "clock_offset": -69608
             }
-        },
-        "correlation": {
-            "start_timestamp": 1753132820,
-            "end_timestamp": 1753140020,
-            "accumulation_length": 30000
-        },
-        "frequency": {
-            "start_channel": 0, 
-            "end_channel":null
-        }
+    },
+    "correlation": {
+        "start_timestamp": 1753132830,
+        "end_timestamp": 1753136430,
+        "osamp": 64,
+        "pfb_size": 65536,
+        "new_acclen": 512
+    },
+    "frequency": {
+        "start_channel": 260, 
+        "end_channel": 280
     }
+}

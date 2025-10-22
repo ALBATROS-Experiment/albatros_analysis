@@ -161,7 +161,7 @@ if xp.__name__=='cupy': #Niagara does not have Cupy. Ensure Mist/Niagara compati
 def _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels):
     nrows = int(rowend-rowstart)
     ncols = len(channels)
-    print(nrows, ncols, "from unpack 1 bit gpu")
+    # print(nrows, ncols, "from unpack 1 bit gpu")
     bytes_per_spectra = length_channels//2
     cols=channels[::2]//2
     d_pol0 = xp.empty((nrows,ncols),dtype='complex64')
@@ -294,7 +294,7 @@ def unpack_1bit(data, rowstart, rowend, channels, length_channels):
         t1=time.time()
         pol0,pol1 = _unpack_1bit_float_gpu(data, rowstart, rowend, channels, length_channels)
         t2=time.time()
-    print("Took " + str(t2 - t1) + " to unpack")
+    # print("Took " + str(t2 - t1) + " to unpack")
     return pol0, pol1
 
 

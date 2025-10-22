@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -fPIC -O3 -std=c99
+CFLAGS := -fPIC -O3 -std=c99 -march=native
 LIBS := -lfftw3_omp -lm
 objects := lib_unpacking.so lib_correlations_cpu.so#Always build unpacking
 
@@ -11,7 +11,6 @@ CFLAGS += -mcpu=native #On MIST
 else
 objects += libmath.so
 objects += libfftw.so
-CFLAGS += -march=native #On NIAGARA
 
 endif
 
