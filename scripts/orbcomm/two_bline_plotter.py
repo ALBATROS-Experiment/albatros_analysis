@@ -33,8 +33,8 @@ T_SPECTRA = 4096/250e6
 v_acclen = 5000
 chunk_length = T_SPECTRA * v_acclen
 
-bl1_ants = set({'Antenna 1', 'Antenna 6'})
-bl2_ants = set({'Antenna 1', 'Antenna 6'})
+bl1_ants = set({'Antenna 1', 'Antenna 7'})
+bl2_ants = set({'Antenna 1', 'Antenna 4'})
 required_ants = bl1_ants | bl2_ants
 
 rel_start_t, rel_end_t = 5170, 5395

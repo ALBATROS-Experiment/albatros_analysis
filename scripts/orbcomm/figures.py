@@ -35,6 +35,42 @@ def make_cxcorr_plot(data):
         plt.tight_layout()
     return fig
 
+def zoomed_cxcorr_plot(data, chan_small_idx, N1 = 10**5, N2 = 200):
+    data_cpu = cp.asnumpy(data)
+    fig, ax=plt.subplots(1,2)
+    plt.rcParams.update({
+            "font.size": 16,
+            "axes.labelsize": 18,
+            "axes.titlesize": 20,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "figure.titlesize": 22
+        })
+    fig.set_size_inches(10,5)
+    ax=ax.flatten()
+    data_chan = np.abs(data_cpu[chan_small_idx,:])
+    peak_idx=np.argmax(data_chan)
+    data_norm = data_chan/data_chan[peak_idx]
+
+    #left plot (no zoom)
+    ax[0].plot(data_norm)
+    ax[0].set_title('Full CXCORR')
+    ax[0].set_xlabel("Spectrum Offset")
+    ax[0].set_ylabel("Normalized Amplitude")
+    
+    #right plot (with zoom)
+    data_chan_zoomed = data_norm[peak_idx - N2: peak_idx + N2]
+    ax[1].plot(data_chan_zoomed)
+    ax[1].set_title('Zoomed CXCORR')
+    ax[1].set_xlabel("Spectrum Offset")
+
+
+    plt.tight_layout()
+
+    return fig
+
+
+
 def make_snr_plot(data, temp_satmap):
     snrfig, snrax = plt.subplots()
     for i in range(len(temp_satmap)):

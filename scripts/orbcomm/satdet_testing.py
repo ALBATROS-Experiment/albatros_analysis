@@ -85,9 +85,9 @@ if __name__ == "__main__":
 
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
-    antenna_name = 'Antenna 6'
-    specnumoffset = -2365055
-    pulse_idx = 64
+    antenna_name = 'Antenna 2'
+    specnumoffset = -1884333
+    pulse_idx = 7
     buffer = 0
 
     nref_idx = ant_names.index(antenna_name)
@@ -204,6 +204,7 @@ if __name__ == "__main__":
                                     v_acclen = v_acclen)
     pol00, pol01, pol10, pol11 = vis[0,2,:,:], vis[0,3,:,:], vis[1,2,:,:], vis[1,3,:,:]
     p_vis, phase, chan_big_idx = su.get_fringes_phase(pol00, chanlist)
+    chan_small_idx = np.where(chanlist == chan_big_idx)[0][0]
     print(chanlist)
     print('pol00 shape', pol00.shape)
     print('phase shape', phase.shape)
@@ -219,9 +220,13 @@ if __name__ == "__main__":
                                         sats_present,
                                         satmap,
                                         v_acclen)
+    
+    
+    cxfig = fgs.zoomed_cxcorr_plot(cx[1], chan_small_idx)
 
 
     visfig.savefig(os.path.join(pulse_output, f'plot_vis.jpg'))
+    cxfig.savefig(os.path.join(pulse_output, f'cxcorrs.jpg'))
 
     for idx, sat in enumerate(temp_satmap):
         cxfig = fgs.make_cxcorr_plot(cx[idx])
