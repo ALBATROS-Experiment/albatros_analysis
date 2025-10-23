@@ -7,7 +7,7 @@ import sys
 import helper
 sys.path.insert(0,path.expanduser("~"))
 import json
-
+import datetime,uuid
 
 if __name__=="__main__":
 
@@ -51,6 +51,7 @@ if __name__=="__main__":
     print("pfbsize",pfb_size)
     nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
     channels = np.arange(chanstart, chanend)
+    print("init t", init_t, "end_t", end_t)
     idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
     print("final idxs", idxs)
     print("nchunks", nchunks)
@@ -59,11 +60,23 @@ if __name__=="__main__":
     filt_thresh = 0.2
     # t_acclen = acclen*4096/250e6
     # sys.exit()
-    fname = f"xcorr_all_ant_1bit_{str(init_t)}_{str(end_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}.npy"
-    fpath = path.join(args.outdir,fname)
+    nant = len(dir_parents)
+    npol = 2
+    nrows_total = nchunks * pfb_size // (osamp * new_acclen)
+    tag = 'regular'
+    timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    # uid = str(uuid.uuid4())[:4]  # short unique suffix
+    bit_mode = 1
+    fname = (
+        f"vis_{init_t}:{end_t}_bit={bit_mode}_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_tim={nrows_total}_"
+        f"upx={osamp}_acc={new_acclen}_ipfb={filt_thresh}_"
+        f"{'complex64'}_{tag}_{timestamp}.npy"
+    )
+    print(fname)
+    outfile = path.join(args.outdir, fname)
     if osamp > 1:
         t1=time.time()
-        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,fpath,cutsize=16,filt_thresh=filt_thresh)
+        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh)
         t2=time.time()
     else:
         t1=time.time()
