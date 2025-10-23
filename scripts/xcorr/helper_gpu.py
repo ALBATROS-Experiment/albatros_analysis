@@ -7,6 +7,7 @@ from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
 import time
 import os
+import datetime, uuid
 
 def xcorr_avg(idxs,files,pfb_size,nchunks,channels):
     nant = len(idxs)
@@ -155,7 +156,7 @@ def repfb_xcorr_avg_old(idxs,files,pfb_size,nchunks,chanstart,chanend,osamp,cuts
             pol0_new = pu.cupy_pfb(raw_pol0[cut:-cut],cupy_win_big,nchan=2048*osamp+1,ntap=4)
             pol1_new = pu.cupy_pfb(raw_pol1[cut:-cut],cupy_win_big,nchan=2048*osamp+1,ntap=4)
             # print(pol0_new.shape, "new PFB shape")
-            # print("pfb done")
+            # print("pfb done"1753286400)
             cut_chunks[j,0,:,:] = pol0[-2*cut:,:]
             cut_chunks[j,1,:,:] = pol1[-2*cut:,:]
             # print("xin shape", xin[j*nant,:,:].shape)
@@ -228,16 +229,22 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     #needs channels you want to cross-correlate in re-PFB'd data
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
     xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 64)
+    nbl = nant * (nant-1) // 2 + nant #number of baselines including auto
+    nblt = nbl * nrows_total #total number of baselines times time samples
     print(nrows_total)
     #on HOST
     if os.path.exists(outfile):
         os.remove(outfile)
-    vis_file = np.memmap(outfile,mode="w+",shape=(nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64",order="F")
+    # vis_file = np.memmap(outfile,mode="w+",shape=(nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64",order="F")
+    # vis_file = np.memmap(outfile,mode="w+",shape=(nblt, new_nchan, npol*npol), dtype="complex64",order="F")
+    vis_file = np.empty(shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
+    # vis_file = np.memmap(outfile, mode="w+", shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
     print("OUTFILE SHAPE", vis_file.shape)
-    print("EXPECTED OUTFILE SIZE", np.prod(vis_file.shape)*64/8/1024**3, "GB")
+    print("EXPECTED OUTFILE SIZE", np.prod(vis_file.shape)*8/1024**3, "GB")
     vis_chunk_size = 64
     vis_file_ptr = 0
-    vis = np.zeros((nant*npol, nant*npol, new_nchan, vis_chunk_size), dtype="complex64", order="F")
+    # vis = np.zeros((nant*npol, nant*npol, new_nchan, vis_chunk_size), dtype="complex64", order="F")
+    ai_gpu, aj_gpu = cp.triu_indices(nant) # ai_gpu, aj_gpu are 1-D cupy arrays of length nbl
     rowidx=0
     print(ipfb)
     print(fpfb)
@@ -245,6 +252,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     
     header = bdc.get_header(files[0][0])
     #print(header)
+    bit_mode = header['bit_mode']
     channel_indices = np.where(np.isin(header['channels'],channels))[0] #channels that are in requested channels
     assert channel_indices[0]%2==0
     assert len(channel_indices)%2 ==0
@@ -263,9 +271,9 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     #print("channels present", aa.obj.channels)
     print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
-
-    start_event = cp.cuda.Event()
-    end_event = cp.cuda.Event()
+    sys.exit()
+    # start_event = cp.cuda.Event()
+    # end_event = cp.cuda.Event()
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
         # start_event.record()
         ts1=time.time()
@@ -294,7 +302,6 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             # end_event.record()
             # end_event.synchronize()
             # print("load time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
-            
         # start_event.record()
         rows = xcorr.xcorr()
         # end_event.record()
@@ -307,25 +314,57 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         if n > 0:
         #     end_event.record()
         #     end_event.synchronize()
-
             # print(f"chunk {chunk_idx}/{nchunks}, rcv {n}")
         #     print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+            # for row in rows:
+            #     if rowidx == vis_chunk_size:
+            #         t1=time.time()
+            #         vis_file[:, : , : , vis_file_ptr : vis_file_ptr + vis_chunk_size] = vis
+            #         t2=time.time()
+            #         print("host to disk time", t2-t1)
+            #         rowidx = 0
+            #         vis_file_ptr += vis_chunk_size
+            #     t1=time.time()
+            #     vis[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
+            #     t2=time.time()
+            #     # print("dev to host time", t2-t1)
+            #     rowidx+=1
             for row in rows:
-                if rowidx == vis_chunk_size:
-                    t1=time.time()
-                    vis_file[:, : , : , vis_file_ptr : vis_file_ptr + vis_chunk_size] = vis
-                    t2=time.time()
-                    print("host to disk time", t2-t1)
-                    rowidx = 0
-                    vis_file_ptr += vis_chunk_size
-                t1=time.time()
-                vis[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
-                t2=time.time()
-                # print("dev to host time", t2-t1)
+                # print("row is", row)
+                #reshape row to (nbl, nchan, npol*npol)
+                # print("row flags", row.shape, row.flags)
+                # row_orig = row.copy()
+                row_reshaped = cp.reshape(row, (npol, nant, npol, nant, -1), order='F')
+                # print("row reshaped", row_reshaped.shape, row_reshaped.flags)
+                # extract only upper triangle including autos
+                row_ut = row_reshaped[:, ai_gpu, :, aj_gpu, : ] #shape (nbl, npol, npol, nchan)
+                row_ut = row_ut.transpose(0, 3, 1, 2).reshape(nbl,-1, 4) #shape (nbl, nchan, npol*npol)
+                # ======= some tests to verify correct indexing =======
+                #idx = antidx*npol + polidx
+                #baseline idx 2 = ant0ant2, pol00 ant0pol0 idx = 0, ant2pol0 idx = 4
+                #baseline idx 7 = ant1ant1, pol11 ant1pol1 idx = 3, ant1pol1 idx = 3
+                #baseline idx 8 = ant1ant2, pol01 ant1pol0 idx = 2, ant2pol1 idx = 5
+                # assert cp.all(row_ut[2,10:20,0] == row_orig[0,4,10:20] ) #passing
+                # assert cp.all(row_ut[7,10:20,3] == row_orig[3,3,10:20] ) #passing
+                # assert cp.all(row_ut[8,10:20,1] == row_orig[2,5,10:20] ) #passing (remember pols are also in F ordering post-flattening: 00,01,10,11)
+                # print("row_ut shape", row_ut.shape, row_ut.flags)
+                # ====================================================
+                # t1=time.time()
+                vis_file[ : , rowidx , : , : ] = cp.asnumpy(row_ut,order='F') #dev to host, ensuring same ordering for transfer speed (marginal gain for O(10) baselines.)
+                # t2=time.time()
+                # print("dev to host time", t2-t1) #2 OOM faster than time spent doing IPFB+PFB+XCORR
+                # print("row_ut",row_ut[10:12,10:15,2])
+                # print("vis_file",vis_file[10:12,rowidx,10:15,2])
                 rowidx+=1
+
         ts2=time.time()
         print(f"chunk {chunk_idx}/{nchunks}, chunk time {ts2-ts1:5.3f}")
-    if rowidx>0:
-        vis_file[:, : , : , vis_file_ptr : vis_file_ptr + rowidx] = vis[:,:,:,:rowidx]
-    vis_file.flush()
-    return vis, new_channels
+    # if rowidx>0:
+    #     vis_file[:, : , : , vis_file_ptr : vis_file_ptr + rowidx] = vis[:,:,:,:rowidx]
+    # vis_file.flush()
+    print("final rowidx=", rowidx)
+    th1=time.time()
+    np.save(outfile, vis_file)
+    th2=time.time()
+    print("time to write to disk", th2-th1)
+    return vis_file, new_channels
