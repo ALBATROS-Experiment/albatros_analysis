@@ -23,25 +23,25 @@ import sat_utils_gpu as sug
 import figures as fgs
 
 #--------------------hard coded setup------------
-config_name = "config2.json"
-satdet_name = "pulsedata_1753132820_len_67200_1760024247.5361912.json"
+config_name = "config2_corr.json"
+satdet_name = "pulsedata_1753132820_len_67200_1760916439.json"
 config_path = os.path.join('/home/thomasb/albatros_analysis/scripts/orbcomm', config_name)
 satdet_path = os.path.join('/scratch/thomasb/', satdet_name)
 out_path = '/scratch/thomasb'
 
 T_SPECTRA = 4096/250e6
-v_acclen = 5000
+v_acclen = 6000
 chunk_length = T_SPECTRA * v_acclen
 
-bl1_ants = set({'Antenna 1', 'Antenna 7'})
-bl2_ants = set({'Antenna 1', 'Antenna 4'})
+bl1_ants = set({'Antenna 1', 'Antenna 2'})
+bl2_ants = set({'Antenna 1', 'Antenna 5'})
 required_ants = bl1_ants | bl2_ants
 
-rel_start_t, rel_end_t = 5170, 5395
-satID = 57166
+rel_start_t, rel_end_t = 25025, 25085
+satID = 25338
 
-bl1_offsets = [0, 1166266140]
-bl2_offsets = [0, 1166266140]
+bl1_offsets = [0, 115507586]
+bl2_offsets = [0, -232874]
 
 bl1_names, bl1_paths, bl1_coords = [], [], []
 bl2_names, bl2_paths, bl2_coords = [], [], []
@@ -78,7 +78,7 @@ print(bl2_coords)
 print(bl2_paths)
 
 a1_corr_coords = [79.41717895, -90.76721818, 188.095]
-a2_corr_coords = []
+a2_corr_coords = [79.41720098, -90.75889116, 183.90471545]
 a3_corr_coords = [79.41542653, -90.7729705, 180.591]
 a4_corr_coords = [79.38845797, -91.01936185, 19.777]
 a5_corr_coords = []
@@ -88,7 +88,7 @@ a8_corr_coords = []
 
 
 #specially setting it!!
-bl2_coords = [a1_corr_coords, a6_corr_coords]
+bl1_coords = [a1_corr_coords, a2_corr_coords]
 
 bl1_dist = su.get_bline_dist(bl1_coords[0], bl1_coords[1])
 bl2_dist = su.get_bline_dist(bl2_coords[0], bl2_coords[1])
@@ -127,7 +127,7 @@ chan_big_idx = bl1_chan_big_idx
 
 print(bl1_p_vis.shape)
 
-suptitle = f'MARS1 - MARS6 ({bl1_dist}m), Channel {chan_big_idx}, acclen {v_acclen}'
+suptitle = f'top: {bl1_names} ({bl1_dist}m) and bottom: {bl2_names} ({bl2_dist}m), Channel {chan_big_idx}, acclen {v_acclen}'
 fig = fgs.makeplot_fringes_phase2(bl1_coords, 
                                   bl2_coords,
                                   p_start,

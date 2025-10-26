@@ -54,7 +54,7 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N1 = 10**5, N2 = 200):
 
     #left plot (no zoom)
     ax[0].plot(data_norm)
-    ax[0].set_title('Full CXCORR')
+    ax[0].set_title(f'Full CXCORR. Peak: {peak_idx}')
     ax[0].set_xlabel("Spectrum Offset")
     ax[0].set_ylabel("Normalized Amplitude")
     
@@ -98,8 +98,8 @@ def makeplot_fringes_phase(coords,
                            chanlist, 
                            vis_angle, 
                            phase, 
-                           sats_present,
                            satmap,
+                           sats_present,
                            v_acclen,
                            T_SPECTRA = 4096/250e6):
     ''' 
@@ -122,10 +122,11 @@ def makeplot_fringes_phase(coords,
     ax[1].set_xlabel(f"chunk number (~{np.round(chunk_length, decimals=2)} s interval)")
     ax[1].set_ylabel("phase (radians)")
     for sat in sats_present:
-       print("getting prediction for", sat)
-       pred_phase = outils.pred(coords[0], coords[1], times[0], times[1], chan_big_idx, int(satmap[sat]), v_acclen=v_acclen)[:len(phase)]
-       #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
-       ax[1].plot(pred_phase, label=f'sat {satmap[sat]}')
+        satID = satmap[sat]
+        print("getting prediction for", satID)
+        pred_phase = outils.pred(coords[0], coords[1], times[0], times[1], chan_big_idx, int(satID), v_acclen=v_acclen)[:len(phase)]
+        #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
+        ax[1].plot(pred_phase, label=f'sat {satID}')
     ax[1].legend()
 
     return fig

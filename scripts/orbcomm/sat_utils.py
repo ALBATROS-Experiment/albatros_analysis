@@ -216,7 +216,6 @@ def get_vis_cpu(pulse_start_t,
 def get_fringes_phase(vis, chanlist):
     p_vis = np.angle(vis)
     mean_amp = np.mean(np.abs(vis), axis=1)
-    print(mean_amp)
     chan_s_idx = np.argmax(mean_amp)
     chan_b_idx = chanlist[chan_s_idx]
     phase = np.unwrap(p_vis[chan_s_idx, :]) - p_vis[chan_s_idx, 0] #zero the initial phase

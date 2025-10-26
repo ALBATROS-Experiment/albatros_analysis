@@ -48,6 +48,7 @@ def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
     print("before correction", idx0, idx1)
     # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
     idx1 -= spec_offset - init_offset  # the other way around.
+    print("index 1:", idx1)
     if idx1 < 0:
         raise NotImplementedError(
             "Edge case, idx < 0. Don't start right at the beginning of a file."

@@ -28,6 +28,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     T_SPECTRA = 4096/250e6
+    c_acclen = 10**6
+    v_acclen = 5000
     T_SCAN = 5 
     altitude_cutoff = 15
     satlist = [28654,25338,33591,57166,59051,44387]
@@ -47,7 +49,6 @@ if __name__ == "__main__":
 
         global_start_t = config["correlation"]["start_timestamp"]
         global_end_t = config["correlation"]["end_timestamp"]
-        c_acclen = config["correlation"]["coarse_acclen"]
     print("\nAntenna Coordinates:", coords)
     print("Coarse Accumulation Length", c_acclen)
 
@@ -76,8 +77,12 @@ if __name__ == "__main__":
             arr[i,satmap[sat_ID]] = 1
 
     #PASSES
-    passes = outils.get_simul_pulses(arr)
-    print(passes)
+    p_5s = outils.get_simul_pulses(arr)
+    passes = []
+    for p in p_5s:
+        passes.append([[p[0][0]*5, p[0][1]*5], p[1]])
+    for p in passes:
+        print(p)
     print(type(passes))
     npasses = len(passes)
     print("PASSES DETECTED:",'\n', passes, '\n')
@@ -85,9 +90,9 @@ if __name__ == "__main__":
 
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
-    antenna_name = 'Antenna 2'
-    specnumoffset = -1884333
-    pulse_idx = 7
+    antenna_name = 'Antenna 5'
+    specnumoffset = -232874
+    pulse_rel_start_t = 25025
     buffer = 0
 
     nref_idx = ant_names.index(antenna_name)
@@ -99,12 +104,18 @@ if __name__ == "__main__":
     print('nref coords', nref_coords)
 
     temp_satmap = ['Uncorrected']
-    times, sats_present = passes[pulse_idx]
+    times, sats_present = next((p for p in passes if p[0][0] == pulse_rel_start_t), None)
+    print(times)
+    print(sats_present)
+
+    #adding artificially
+    sats_present = [0,1]
+
     for sat in sats_present:
         temp_satmap.append(sat)
     print('temp_satmap', temp_satmap)
 
-    rel_start_t, rel_end_t = 5*times[0], 5*times[1]
+    rel_start_t, rel_end_t = times[0], times[1]
     t1, t2 = rel_start_t+global_start_t+buffer, rel_end_t+global_start_t
     print('rel pulse times', rel_start_t, rel_end_t)
     print('pulse times', t1, t2)
@@ -112,91 +123,46 @@ if __name__ == "__main__":
     tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     print('tle_path', tle_path)
 
-    try:
-        files_ra, idx_ra = butils.get_init_info(t1, t2, ref_path)
-        files_nra, idx_nra = butils.get_init_info(t1, t2, nref_path)
-    except Exception as e:
-        print(e)
-        print(f"WARNING: skipping pass. MISTAKE IN FILE CHECKER!!")
-        #continue
+    #get files using baseband utils
+    files_ra, idx_ra = butils.get_init_info(t1, t2, ref_path)
+    files_nra, idx_nra = butils.get_init_info(t1, t2, nref_path)
 
-    
     print('idxs ref ant:', idx_ra)
     print('idxs nonref ant:', idx_nra)
-
     print('new idx nonref ant:', idx_nra)
-    print("Setting Antenna as BFI Objects", '\n')
 
-
-    # Set up the number of channels we look through
     channels = np.asarray(bdc.get_header(files_ra[0])["channels"],dtype='int64')
     chanstart = np.where(channels == 1834)[0][0]
     chanend = np.where(channels == 1852)[0][0]
     nchans = chanend - chanstart
 
-    ra = bdc.BasebandFileIterator(
-        files_ra,
-        0,
-        idx_ra,
-        c_acclen,
-        None,
-        chanstart=chanstart,
-        chanend=chanend,
-        type="float",
-    )
-    nra = bdc.BasebandFileIterator(
-        files_nra,
-        0,
-        idx_nra,
-        c_acclen,
-        None,
-        chanstart=chanstart,
-        chanend=chanend,
-        type="float",
-    )
-
-
-    p0_ra = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
-    p0_nra = cp.zeros((c_acclen, nchans), dtype="complex64")
-    ra_start = ra.spec_num_start
-    nra_start = nra.spec_num_start
-    for i, (chunk_ra, chunk_nra) in enumerate(zip(ra, nra)):
-        perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
-        perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
-        print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
-        if perc_missing_ra > 10 or perc_missing_nra > 10:
-            ra_start = ra.spec_num_start
-            nra_start = nra.spec_num_start
-            continue
-        
-        bdc.make_continuous_gpu(chunk_ra['pol0'],chunk_ra['specnums']-ra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_ra)
-        bdc.make_continuous_gpu(chunk_nra['pol0'],chunk_nra['specnums']-nra_start,np.arange(nchans),c_acclen,nchans=nchans, out=p0_nra)
-        break
-
+    p0_ref, p0_nref, specnum_offset = sug.get_chunk_data([files_ra, files_nra], 
+                                                         [idx_ra, idx_nra], 
+                                                         chanstart, 
+                                                         chanend, 
+                                                         c_acclen = c_acclen)
 
     print("STARTING CXCORR\n----------------")
+
     N = int(2* c_acclen)
-    dN = int(10**5)
-    v_acclen = 10000
     print('N value', N)
+    dN = int(10**5)
     print('dN value', dN)
-    print('buffer of', buffer)
-    pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_idx}')
+
+    pulse_output = os.path.join(cxcorr_testing_output, f'nrefant{nref_idx}_pulse_{pulse_rel_start_t}')
     os.makedirs(pulse_output, exist_ok=True)
     
-    #coarse xcorr
-    cx = sug.get_cxcorr_many_sats(p0_ra,
-                                 p0_nra, 
-                                 tle_path, 
-                                 [t1, t2], 
-                                 sats_present,
-                                 satmap,
-                                 [ref_coords, nref_coords],
-                                 N,
-                                 dN)
+    cx = sug.get_cxcorr_many_sats(p0_ref,
+                                  p0_nref, 
+                                  tle_path, 
+                                  [t1, t2], 
+                                  sats_present,
+                                  satmap,
+                                  [ref_coords, nref_coords],
+                                  N,
+                                  dN)
 
     print("STARTING VIS\n----------------")
-    
     vis, chanlist = sug.get_vis_gpu(t1,
                                     t2,
                                     [ref_path, nref_path], 
@@ -211,22 +177,24 @@ if __name__ == "__main__":
     print('channel index', chan_big_idx)
 
     #make and save figures
+    sat = 25338
+
     visfig = fgs.makeplot_fringes_phase([ref_coords, nref_coords], 
                                         [t1,t2],
                                         chan_big_idx, 
                                         chanlist, 
                                         p_vis, 
                                         phase,
-                                        sats_present,
                                         satmap,
+                                        sats_present,
                                         v_acclen)
     
-    
-    cxfig = fgs.zoomed_cxcorr_plot(cx[1], chan_small_idx)
-
+    for sat in sats_present:
+        cxfig = fgs.zoomed_cxcorr_plot(cx[sat], chan_small_idx)
+        cxfig.savefig(os.path.join(pulse_output, f'peak_cxcorr_{satmap[sat]}.jpg'))
 
     visfig.savefig(os.path.join(pulse_output, f'plot_vis.jpg'))
-    cxfig.savefig(os.path.join(pulse_output, f'cxcorrs.jpg'))
+    
 
     for idx, sat in enumerate(temp_satmap):
         cxfig = fgs.make_cxcorr_plot(cx[idx])

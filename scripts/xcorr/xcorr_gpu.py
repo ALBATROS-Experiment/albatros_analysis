@@ -4,6 +4,7 @@ import time
 import argparse
 from os import path
 import sys
+import helper_gpu
 import helper
 sys.path.insert(0,path.expanduser("~"))
 import json
@@ -18,7 +19,7 @@ if __name__=="__main__":
         "--outdir",
         dest="outdir",
         type=str,
-        default=".",
+        default="/scratch/thomasb",
         help="Output plot directory [default: .]",
     )
     args = parser.parse_args()
@@ -29,7 +30,7 @@ if __name__=="__main__":
     # Determine reference antenna
     ref_ant = min(
         config["antennas"].keys(),
-        key=lambda ant: config["antennas"][ant]["offset"],
+        key=lambda ant: config["antennas"][ant]["clock_offset"],
     )
     dir_parents = []
     spec_offsets = []
@@ -63,7 +64,7 @@ if __name__=="__main__":
     fpath = path.join(args.outdir,fname)
     if osamp > 1:
         t1=time.time()
-        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,fpath,cutsize=16,filt_thresh=filt_thresh)
+        pols,new_channels=helper_gpu.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,fpath,cutsize=16,filt_thresh=filt_thresh)
         t2=time.time()
     else:
         t1=time.time()
