@@ -8,11 +8,21 @@ from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from pyuvdata import UVData
 
+
+
+
+
+
 def log_io_usage(tag, start_time, start_io, end_io):
     duration = time.perf_counter() - start_time
     io_delta = end_io.write_bytes - start_io.write_bytes
     io_MB = io_delta / (1024**2)
     print(f"[{tag}] Duration: {duration:.3f}s, Written: {io_MB:.2f}MB, Rate: {io_MB / duration:.2f} MB/s")
+
+
+
+
+
 
 def get_ant_pol_idxs(antpol_idx, nants, npols):
    '''
@@ -22,6 +32,11 @@ def get_ant_pol_idxs(antpol_idx, nants, npols):
    ant_idx = antpol_idx // npols
    pol_idx = antpol_idx % npols
    return ant_idx, pol_idx
+
+
+
+
+
 
 def get_poltot_idx(pol1_idx, pol2_idx):
     """
@@ -42,6 +57,12 @@ def get_poltot_idx(pol1_idx, pol2_idx):
         return 3
     else:
         raise ValueError(f"wrong polarization indices: {pol1_idx} and {pol2_idx}")
+    
+
+
+
+
+
 
 def get_bline_idx(ant1_idx, ant2_idx, nants, auto=True):
    """
@@ -60,6 +81,11 @@ def get_bline_idx(ant1_idx, ant2_idx, nants, auto=True):
        bline_idx = ant1_idx * (nants - 1) - (ant1_idx * (ant1_idx - 1)) // 2 + (ant2_idx - ant1_idx - 1)
    return bline_idx
 
+
+
+
+
+
 def get_nbls(nants, auto=True):
    '''
    literally just compute baseline count depending on if we count auto-correlations or not
@@ -69,6 +95,11 @@ def get_nbls(nants, auto=True):
    else:
        nbls=(nants)*(nants-1)/2
    return int(nbls)
+
+
+
+
+
 
 
 def benchmark_uvh5_write(filename,
@@ -107,16 +138,16 @@ def benchmark_uvh5_write(filename,
     osamp = config["correlation"]["osamp"]
     pfb_size = config["correlation"]["pfb_size"]
     new_acclen = config["correlation"]["new_acclen"]
-    cutsize = 16
-    print("pfbsize",pfb_size)
+    #cutsize = 16
+    #print("pfbsize",pfb_size)
     nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
     channels = np.arange(chanstart, chanend)
-    idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
-    print("final idxs", idxs)
-    print("nchunks", nchunks)
-    print("loaded files", files)
-    print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    filt_thresh = 0.2
+    #idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
+    #print("final idxs", idxs)
+    #print("nchunks", nchunks)
+    #print("loaded files", files)
+    #print("IPFB ROWS", pfb_size, "OSAMP", osamp)
+    #filt_thresh = 0.2
 
     nchans = len(channels)
     chan_width = 60000
@@ -172,9 +203,12 @@ def benchmark_uvh5_write(filename,
     uv.telescope_name = "ALBATROS"
     uv.instrument = "ALBATROS Pipeline (-MA, -TB)"
     uv.history = "in process"
-    
-    #make pyuv variables
-    
+
+
+
+
+
+
 
     #UVH5 OBJECT FOR STREAM WRITING
     #----------------------------------------------------------------

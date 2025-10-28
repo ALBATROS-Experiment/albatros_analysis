@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     T_SPECTRA = 4096/250e6
     c_acclen = 10**6
-    v_acclen = 5000
+    v_acclen = 10000
     T_SCAN = 5 
     altitude_cutoff = 15
     satlist = [28654,25338,33591,57166,59051,44387]
@@ -90,8 +90,8 @@ if __name__ == "__main__":
 
 
     print("STARTING SPECIFIC PULSE ANALYSIS\n--------------------")
-    antenna_name = 'Antenna 5'
-    specnumoffset = -232874
+    antenna_name = 'Antenna 2'
+    specnumoffset = 115507586
     pulse_rel_start_t = 25025
     buffer = 0
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     sats_present = [0,1]
 
     for sat in sats_present:
-        temp_satmap.append(sat)
+        temp_satmap.append(sat) #sats present and temp_satmap have same order
     print('temp_satmap', temp_satmap)
 
     rel_start_t, rel_end_t = times[0], times[1]
@@ -135,6 +135,7 @@ if __name__ == "__main__":
     chanstart = np.where(channels == 1834)[0][0]
     chanend = np.where(channels == 1852)[0][0]
     nchans = chanend - chanstart
+    print('chanstart, chanend:', chanstart, chanend)
 
     p0_ref, p0_nref, specnum_offset = sug.get_chunk_data([files_ra, files_nra], 
                                                          [idx_ra, idx_nra], 
@@ -176,9 +177,6 @@ if __name__ == "__main__":
     print('phase shape', phase.shape)
     print('channel index', chan_big_idx)
 
-    #make and save figures
-    sat = 25338
-
     visfig = fgs.makeplot_fringes_phase([ref_coords, nref_coords], 
                                         [t1,t2],
                                         chan_big_idx, 
@@ -189,9 +187,11 @@ if __name__ == "__main__":
                                         sats_present,
                                         v_acclen)
     
-    for sat in sats_present:
-        cxfig = fgs.zoomed_cxcorr_plot(cx[sat], chan_small_idx)
-        cxfig.savefig(os.path.join(pulse_output, f'peak_cxcorr_{satmap[sat]}.jpg'))
+    for i, item in enumerate(temp_satmap):
+        if item == "Uncorrected":
+            continue
+        cxfig = fgs.zoomed_cxcorr_plot(cx[i], chan_small_idx)
+        cxfig.savefig(os.path.join(pulse_output, f'peak_cxcorr_{satmap[item]}.jpg'))
 
     visfig.savefig(os.path.join(pulse_output, f'plot_vis.jpg'))
     

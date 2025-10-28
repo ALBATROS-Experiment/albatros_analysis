@@ -321,6 +321,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         # end_event.synchronize()
         # print("xcorr time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
         n = len(rows)
+        print('len of rows:', n)
         # end_event.record()
         # end_event.synchronize()
         # print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
@@ -331,6 +332,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             # print(f"chunk {chunk_idx}/{nchunks}, rcv {n}")
         #     print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
             for row in rows:
+                print('shape of row', row.shape())
                 if rowidx == vis_chunk_size:
                     t1=time.time()
                     vis_file[:, : , : , vis_file_ptr : vis_file_ptr + vis_chunk_size] = vis
