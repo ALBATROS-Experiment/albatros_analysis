@@ -2,10 +2,10 @@ import numpy as np
 # from correlations_temp import baseband_data_classes as bdc
 import time
 import argparse
-from os import path
+import os
 import sys
 import helper
-sys.path.insert(0,path.expanduser("~"))
+sys.path.insert(0,os.path.expanduser("~"))
 import json
 import datetime,uuid
 
@@ -70,10 +70,12 @@ if __name__=="__main__":
     fname = (
         f"vis_{init_t}:{end_t}_bit={bit_mode}_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_tim={nrows_total}_"
         f"upx={osamp}_acc={new_acclen}_ipfb={filt_thresh}_"
-        f"{'complex64'}_{tag}_{timestamp}.npy"
+        f"{'complex64'}_{tag}_{timestamp}"
     )
     print(fname)
-    outfile = path.join(args.outdir, fname)
+    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}') 
+    os.makedirs(data_dir, exist_ok=True)
+    outfile = os.path.join(data_dir, fname)
     if osamp > 1:
         t1=time.time()
         pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh)
