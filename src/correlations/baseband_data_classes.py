@@ -54,6 +54,7 @@ def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
             return spec
     if out is None:
         out=xp.zeros((nspec, nchans), dtype=spec.dtype)
+    print("make cont gpu is filling...")
     out[xp.ix_(specnum,channels)] = spec[:len(specnum)]
     # print("specnum is", specnum)
     assert out.base is None

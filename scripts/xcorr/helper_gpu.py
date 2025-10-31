@@ -233,16 +233,19 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     nblt = nbl * nrows_total #total number of baselines times time samples
     print(nrows_total)
     #on HOST
-    if os.path.exists(outfile):
-        os.remove(outfile)
+    
     # vis_file = np.memmap(outfile,mode="w+",shape=(nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64",order="F")
     # vis_file = np.memmap(outfile,mode="w+",shape=(nblt, new_nchan, npol*npol), dtype="complex64",order="F")
-    vis_file = np.empty(shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
+    file_size_limit = 500*1024**2 # 500 MB
+    vis_chunk_size = int(file_size_limit/(nbl*new_nchan*npol*npol*8))
+    vis_file = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
+
+    # vis_file = np.empty(shape=(nant*npol, nant*npol,new_nchan,nrows_total), dtype="complex64",order="F") #this is for direct dumping
     # vis_file = np.memmap(outfile, mode="w+", shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
     print("OUTFILE SHAPE", vis_file.shape)
     print("EXPECTED OUTFILE SIZE", np.prod(vis_file.shape)*8/1024**3, "GB")
-    vis_chunk_size = 64
-    vis_file_ptr = 0
+    print("EXPECTED NUM OF FILE CHUNKS", nrows_total//vis_chunk_size + 1)
+    vis_chunk_id = 0
     # vis = np.zeros((nant*npol, nant*npol, new_nchan, vis_chunk_size), dtype="complex64", order="F")
     ai_gpu, aj_gpu = cp.triu_indices(nant) # ai_gpu, aj_gpu are 1-D cupy arrays of length nbl
     rowidx=0
@@ -271,7 +274,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     #print("channels present", aa.obj.channels)
     print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
-    sys.exit()
+    ant_specnums = [ant.spec_num_start for ant in antenna_objs]
     # start_event = cp.cuda.Event()
     # end_event = cp.cuda.Event()
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
@@ -279,9 +282,12 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         ts1=time.time()
         for ant_idx in range(nant):
             chunk=chunks[ant_idx]
-            start_specnum = start_specnums[ant_idx]
-            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
-            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-start_specnum,cp.arange(0,nchan),read_size, nchan)
+            expected_start_specnum = start_specnums[ant_idx] + (chunk_idx) * read_size
+            # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
+            assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
+            assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
+            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
+            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
             # print("continuous pol0 shape", pol0.shape)
             # start_event.record()
             spec0=ipfb.ipfb(ant_idx,0,pol0,thresh=filt_thresh)
@@ -325,11 +331,21 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             #         rowidx = 0
             #         vis_file_ptr += vis_chunk_size
             #     t1=time.time()
-            #     vis[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
+                # vis_file[:,:,:,rowidx] = cp.asnumpy(row) #dev to host
             #     t2=time.time()
             #     # print("dev to host time", t2-t1)
-            #     rowidx+=1
+                # rowidx+=1
             for row in rows:
+                if rowidx == vis_chunk_size:
+                    #write the part-file to disk
+                    fname = outfile + f".part{vis_chunk_id:05d}"
+                    print("writing", fname)
+                    th1=time.time()
+                    np.save(fname, vis_file)
+                    th2=time.time()
+                    print("time to write to disk", th2-th1)
+                    vis_chunk_id +=1
+                    rowidx = 0
                 # print("row is", row)
                 #reshape row to (nbl, nchan, npol*npol)
                 # print("row flags", row.shape, row.flags)
@@ -359,12 +375,13 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
 
         ts2=time.time()
         print(f"chunk {chunk_idx}/{nchunks}, chunk time {ts2-ts1:5.3f}")
-    # if rowidx>0:
-    #     vis_file[:, : , : , vis_file_ptr : vis_file_ptr + rowidx] = vis[:,:,:,:rowidx]
-    # vis_file.flush()
+    if rowidx>0:
+        fname = outfile + f"_part{vis_chunk_id:05d}"
+        print("writing", fname)
+        np.save(fname, vis_file)
     print("final rowidx=", rowidx)
-    th1=time.time()
-    np.save(outfile, vis_file)
-    th2=time.time()
-    print("time to write to disk", th2-th1)
+    # th1=time.time()
+    # np.save(outfile, vis_file)
+    # th2=time.time()
+    # print("time to write to disk", th2-th1)
     return vis_file, new_channels
