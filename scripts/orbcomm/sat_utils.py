@@ -4,6 +4,7 @@ sys.path.append(os.path.expanduser('~/albatros_analysis'))
 import numpy as np
 import numba as nb
 import time
+import psutil
 from scipy import linalg
 from scipy import stats
 from scipy import signal as sn 
@@ -16,14 +17,15 @@ import json
 from scipy.signal import find_peaks
 from scripts.xcorr import helper as hp
 
+def median_abs_deviation(x):
+    med = np.median(x)
+    mad = np.median(np.abs(x - med))
+    return mad
 
-def get_complex_snr(signal_data, noise_data): #FIX THIS so it can overcome big signal in middle
-    signal = np.max(np.abs(signal_data))
-    im_std = np.std(noise_data.imag)
-    re_std = np.std(noise_data.real)
-    std = np.sqrt(im_std**2 + re_std**2)
-
-    return signal/std
+def print_memory_usage(note=""):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / 1e6  # Resident Set Size in MB
+    print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
 
 
 def get_bline_dist(coord1, coord2):
@@ -113,7 +115,8 @@ def get_detections(cx, snr_array, temp_satmap):
 
         #below is the minimum condition of SNR for a detection. Most basic requirement
         diff = snr_array[sortidx[-1], chan] - snr_array[sortidx[-2], chan]
-        tol = 5 * np.sqrt(2)
+        #tol = 5 * np.sqrt(2)
+        tol = 20
         if diff>tol: 
             cx_idx = sortidx[-1] # which cxcorr has the detection
             snr = snr_array[cx_idx, chan]
@@ -144,12 +147,15 @@ def get_consensus_offset(data):
 
         REL = True
         #verify that none of the channels have an unreliable offset. If it passes, add it to reliable list.
-        satIDs = list(pulse_dict['sats_present'].keys())
+        satIDs = [int(sat_id) for sat_id in pulse_dict['sats_present'].keys()]
+        print(satIDs)
         for satID in satIDs:
-            satinfo = pulse_dict['sats_present'][satIDs[0]]
+            #need both sats to be reliable for it to be counted as reliable. 
+            satinfo = pulse_dict['sats_present'][satID]
+            print(satinfo)
             for detection in satinfo:
                 print(detection)
-                if detection[1] != 'RELIABLE':
+                if detection[3] < 80:
                     REL = False
         
         all_SO.append(ind_offset)

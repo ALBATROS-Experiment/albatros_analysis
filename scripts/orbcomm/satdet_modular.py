@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import gc
-import psutil
 from os import path
 sys.path.insert(0, "/home/thomasb/")
 from albatros_analysis.src.utils import baseband_utils as butils
@@ -18,11 +17,6 @@ import sat_utils as su
 import sat_utils_gpu as sug
 import figures as fgs
 
-def print_memory_usage(note=""):
-    process = psutil.Process(os.getpid())
-    mem = process.memory_info().rss / 1e6  # Resident Set Size in MB
-    print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,9 +31,10 @@ if __name__ == "__main__":
     #VARBS, INCLUDING HARD-CODED
     T_SPECTRA = 4096/250e6
     T_SCAN = 5 #seconds between each satellite risen scan -- look for sat rise/set every 5 sec.
-    altitude_cutoff = 15  #cutoff when looking for satellites
+    altitude_cutoff = 5  #cutoff when looking for satellites
     satlist = [28654,25338,33591,57166,59051,44387]
     out_path = args.output_path
+    characteristic_time = int(time.time())
 
     #OPEN CONFIG
     with open(args.config_file, "r") as f:
@@ -63,7 +58,7 @@ if __name__ == "__main__":
     array_time =  global_end_t - global_start_t
     ra_coords, ra_path = coords[0], dir_parents[0]  #(ra = Reference Ant, nra = Non-Reference Ant)
     tle_path = outils.get_tle_file(global_start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    debug_output = os.path.join(out_path, f'debugplots_{global_start_t}')
+    debug_output = os.path.join(out_path, f'satdet_debugplots_{global_start_t}_cxlen_{c_acclen/10e6}_seclen_{array_time}_{characteristic_time}')
     os.makedirs(debug_output, exist_ok=True)
 
     satmap = {} #maps sat IDs (e.g. 33591) to its index in satlist (e.g. 2), without collisions
@@ -82,7 +77,7 @@ if __name__ == "__main__":
             arr[i,satmap[sat_ID]] = 1
 
     fig = fgs.make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN=T_SCAN)
-    fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{str(time.time())}.jpg"))
+    fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{characteristic_time}.jpg"))
     fig.clf()
     plt.close(fig)
     del fig
@@ -118,82 +113,102 @@ if __name__ == "__main__":
             print(f"we're at {ant_names[antnum]} right now")
             pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
 
-            print_memory_usage(note = "start of pulse")
+            su.print_memory_usage(note = "start of pulse")
             
             #take a chunk halfway through the pulse:
             #pstart_chunk = pstart + int((pend-pstart)/4)
-            pstart_chunk = pstart
             
-            t1, t2 = global_start_t + pstart_chunk, global_start_t + pend  #get in unix time
-            tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
-            debug_pulse_path = os.path.join(debug_ant_path, f'pulse_{pnum}_start_{pstart}')
-            os.makedirs(debug_pulse_path, exist_ok=True)
-            print("Pass Start:", pstart + global_start_t)
-            print("Pass Duration:", t2-t1, '\n')
+            chunk_interval = 30  # seconds
+            chunk_length = int(c_acclen * T_SPECTRA)
+            pstarts = list(range(pstart, int(pend - chunk_length), chunk_interval))
+            detected = False
+            for pstart_chunk in pstarts:
 
-            # Make sure no problem in files
-            try:
-                files_ra, idx_ra = butils.get_init_info(t1, t2, ra_path)
-                files_nra, idx_nra = butils.get_init_info(t1, t2, nra_path)
-            except Exception as e:
-                print(e)
-                print(f"WARNING: skipping pass {pstart} to {pend}. MISTAKE IN FILE CHECKER!!")
-                continue
+                t1, t2 = global_start_t + pstart_chunk, global_start_t + pend  #get in unix time
+                tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
+                print('Pass Start:', pstart + global_start_t)
+                print("Pass Duration:", t2-t1, '\n')
+                print("Chunk Start:", pstart_chunk)
 
-            print('idxs ref ant:', idx_ra)
-            print('idxs nonref ant:', idx_nra)
+                # Make sure no problem in files
+                try:
+                    files_ra, idx_ra = butils.get_init_info(t1, t2, ra_path)
+                    files_nra, idx_nra = butils.get_init_info(t1, t2, nra_path)
+                except Exception as e:
+                    print(e)
+                    print(f"WARNING: skipping pass {pstart} to {pend}. MISTAKE IN FILE CHECKER!!")
+                    continue
 
-            print("Setting Antenna as BFI Objects", '\n')
+                print('idxs ref ant:', idx_ra)
+                print('idxs nonref ant:', idx_nra)
 
-            # Set up the number of channels we look through
-            channels = np.asarray(bdc.get_header(files_ra[0])["channels"],dtype='int64')
-            chanstart = np.where(channels == 1834)[0][0]
-            chanend = np.where(channels == 1852)[0][0]
-            nchans = chanend - chanstart
+                print("Setting Antenna as BFI Objects", '\n')
 
-            p0_ra, p0_nra, specnum_offset = sug.get_chunk_data([files_ra, files_nra], 
-                                                               [idx_ra, idx_nra], 
-                                                               chanstart, 
-                                                               chanend,
-                                                               )
+                # Set up the number of channels we look through
+                channels = np.asarray(bdc.get_header(files_ra[0])["channels"],dtype='int64')
+                chanstart = np.where(channels == 1834)[0][0]
+                chanend = np.where(channels == 1852)[0][0]
+                nchans = chanend - chanstart
 
-            temp_satmap = [] 
-            temp_satmap.append("Uncorrected")
-            for i, satidx in enumerate(sats_present):
-                temp_satmap.append(satmap[satidx])
+                p0_ra, p0_nra, specnum_offset = sug.get_chunk_data([files_ra, files_nra], 
+                                                                [idx_ra, idx_nra], 
+                                                                chanstart, 
+                                                                chanend,
+                                                                c_acclen=c_acclen)
+
+                temp_satmap = [] 
+                temp_satmap.append("Uncorrected")
+                for i, satidx in enumerate(sats_present):
+                    temp_satmap.append(satmap[satidx])
 
 
-            #GET CXCORR DATA
-            N = 2*c_acclen
-            dN = min(100000, int(0.3 * N))
-            cx_gpu = sug.get_cxcorr_many_sats(p0_ra,
-                                         p0_nra, 
-                                         tle_path, 
-                                         [t1,t2], 
-                                         sats_present, #maybe change so I can just throw in temp_satmap?
-                                         satmap,
-                                         [ra_coords, nra_coords],
-                                         N,
-                                         dN)
+                #GET CXCORR DATA
+                N = 2*c_acclen
+                dN = 100000
+                cx_gpu = sug.get_cxcorr_many_sats(p0_ra,
+                                                p0_nra, 
+                                                tle_path, 
+                                                [t1,t2], 
+                                                sats_present, #maybe change so I can just throw in temp_satmap?
+                                                satmap,
+                                                [ra_coords, nra_coords],
+                                                dN,
+                                                c_acclen = c_acclen)
 
-            #GET SNR
-            snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  #for each chan for each sat (plus uncorrected)
-            for i in range(len(sats_present) + 1):
-                snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx_gpu[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx_gpu[i]),axis=1))
+                #GET SNR
+                snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  #for each chan for each sat (plus uncorrected)
+                for i in range(len(sats_present) + 1):
+                    print('CX GPU SHAPE', cx_gpu[i].shape)
+                    print('nchans', len(cx_gpu[i]))
+                    snr_arr[i, :] = cp.asnumpy(cp.max(cp.abs(cx_gpu[i]), axis=1) / outils_g.median_abs_deviation(cp.abs(cx_gpu[i]),axis=1))
 
-            #GET DETECTIONS
-            cx = []
-            for cxcorr in cx_gpu:
-                cx.append(cxcorr.get())
+                #GET DETECTIONS
+                cx = []
+                for cxcorr in cx_gpu:
+                    cx.append(cxcorr.get())
 
-            detected_sats, detected_peaks, detected_snrs, rel_ratios = su.get_detections(cx, snr_arr, temp_satmap)
+                detected_sats, detected_peaks, detected_snrs, rel_ratios = su.get_detections(cx, snr_arr, temp_satmap)
+                    
 
-            #now have all required data.
-            print('overall snr array:', snr_arr)
-            print('detected sats:', detected_sats)
-            print('detected peaks:', detected_peaks)
-            print('detection snrs:', detected_snrs)
-            print('rel ratios:', rel_ratios)
+                #now have all required data.
+                print('overall snr array:', snr_arr)
+                print('detected sats:', detected_sats)
+                print('detected peaks:', detected_peaks)
+                print('detection snrs:', detected_snrs)
+                print('rel ratios:', rel_ratios)
+
+
+                if not np.all(detected_sats == 0):
+                    print("DETECTION! BREAKING LOOP")
+                    pstart = pstart_chunk
+                    break
+
+                if np.all(detected_sats == 0):
+                    print(f'NO DETECTION, TRY {chunk_interval}s LATER')
+
+
+            if np.all(detected_sats == 0):
+                print('NO DETECTIONS FOR WHOLE PASS')
 
             #SPECNUMOFFSET FROM CXCORR MAX
             if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
@@ -210,6 +225,8 @@ if __name__ == "__main__":
                 print("No detected peaks for this pulse")
 
             #SAVE DEBUG FIGURES
+            debug_pulse_path = os.path.join(debug_ant_path, f'pulse_{pnum}_start_{pstart}')
+            os.makedirs(debug_pulse_path, exist_ok=True)
             for idx, sat in enumerate(temp_satmap):
                 cxfig = fgs.make_cxcorr_plot(cx[idx])
                 cxfig.savefig(os.path.join(debug_pulse_path, f'cxcorr_{sat}.jpg'))
@@ -240,7 +257,7 @@ if __name__ == "__main__":
                     pulse_data["sats_present"][satmap[sat_ID]] = sat_peaks # make sure it's serializable with json. numpy array wont work
                 baseline_pulse_data.append(pulse_data)
 
-            print_memory_usage(note = 'before memory freeing')
+            su.print_memory_usage(note = 'before memory freeing')
             del p0_ra
             del p0_nra
             del cx
@@ -248,7 +265,7 @@ if __name__ == "__main__":
             gc.collect()
             mempool.free_all_blocks()
             pinned_mempool.free_all_blocks()
-            print_memory_usage(note = 'after memory freeing')
+            su.print_memory_usage(note = 'after memory freeing')
 
         print(baseline_pulse_data)
 
@@ -279,7 +296,7 @@ if __name__ == "__main__":
         with open(temp_path, "r") as f:
             sat_data[global_start_t][ant_name] = json.load(f)
 
-    final_json = path.join(out_path,f"pulsedata_{global_start_t}_len_{global_end_t - global_start_t}_{int(time.time())}.json")
+    final_json = path.join(out_path,f"satdet_data_{global_start_t}_cxlen_{c_acclen/10e6}_seclen_{array_time}_{characteristic_time}.json")
     with open(final_json, "w") as f:
         json.dump(sat_data, f, indent=4)
     

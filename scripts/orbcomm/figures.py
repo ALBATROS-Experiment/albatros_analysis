@@ -3,21 +3,8 @@ import sys
 from sys import path
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
 import numpy as np 
-import numba as nb
-import time
-from scipy import linalg
-from scipy import stats
 from matplotlib import pyplot as plt
-from datetime import datetime as dt
-from src.correlations import baseband_data_classes as bdc
-from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
-from scipy.optimize import least_squares
-import json
-import random
-from scripts.xcorr import helper as hp
-import importlib
-from scipy.interpolate import interp1d
 import sat_utils as su
 import cupy as cp
 
@@ -35,7 +22,7 @@ def make_cxcorr_plot(data):
         plt.tight_layout()
     return fig
 
-def zoomed_cxcorr_plot(data, chan_small_idx, N1 = 10**5, N2 = 200):
+def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     data_cpu = cp.asnumpy(data)
     fig, ax=plt.subplots(1,2)
     plt.rcParams.update({
@@ -50,16 +37,28 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N1 = 10**5, N2 = 200):
     ax=ax.flatten()
     data_chan = np.abs(data_cpu[chan_small_idx,:])
     peak_idx=np.argmax(data_chan)
-    data_norm = data_chan/data_chan[peak_idx]
+    peak_amp = data_chan[peak_idx]
+    noise_amp = su.median_abs_deviation(data_chan)
+    snr = peak_amp/noise_amp
 
     #left plot (no zoom)
-    ax[0].plot(data_norm)
+    ax[0].plot(data_chan)
     ax[0].set_title(f'Full CXCORR. Peak: {peak_idx}')
     ax[0].set_xlabel("Spectrum Offset")
-    ax[0].set_ylabel("Normalized Amplitude")
+    ax[0].set_ylabel("Amplitude")
+
+    #data information
+    stats_text = f"SNR: {snr:.0f}\nMAD: {noise_amp:.4f}\nOffset: {peak_idx-100000} "
+    ax[0].text(
+        0.02, 0.95, stats_text,
+        transform=ax[0].transAxes,
+        fontsize=12,
+        verticalalignment='top',
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
+    )
     
     #right plot (with zoom)
-    data_chan_zoomed = data_norm[peak_idx - N2: peak_idx + N2]
+    data_chan_zoomed = data_chan[peak_idx - N2: peak_idx + N2]
     ax[1].plot(data_chan_zoomed)
     ax[1].set_title('Zoomed CXCORR')
     ax[1].set_xlabel("Spectrum Offset")
@@ -316,7 +315,7 @@ def makeplot_cxcorr_phase2(cxcorr1,
     ''' 
     Overall cxcorr and phase plot for two pulses. Can be different baselines or same baseline.
     '''
-
+    
     #parameter setup
     center = c_acclen
     dN = 10**5
@@ -393,3 +392,100 @@ def makeplot_cxcorr_phase2(cxcorr1,
 
     plt.tight_layout()
     return fig
+
+
+def snr_vs_coords(snr_arr,
+                  latitudes,
+                  longitudes,
+                  title = None,
+                  marker_coords=None,  
+                  marker_labels=None,   
+                  out_path=None):
+    ''' 
+    marker coords: list of (lat, lon) or array shape (N, 2)
+    marker labels: optional labels for each marker
+    '''
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    plt.rcParams.update({"font.size": 16,
+                         "axes.labelsize": 18,
+                         "axes.titlesize": 20,
+                         "xtick.labelsize": 14,
+                         "ytick.labelsize": 14,
+                         "figure.titlesize": 22})
+
+    im = ax.imshow(snr_arr,
+                   extent=[longitudes[0], longitudes[-1], latitudes[0], latitudes[-1]],
+                   origin='lower',
+                   aspect='auto',
+                   cmap='viridis')
+
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('SNR')
+
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+    if title:
+        ax.set_title(title)
+
+    ax.ticklabel_format(style='plain', axis='both', useOffset=False)
+    ax.set_xticks(np.round(np.linspace(longitudes[0], longitudes[-1], 7), 4))
+    ax.set_yticks(np.round(np.linspace(latitudes[0], latitudes[-1], 7), 4))
+    ax.ticklabel_format(style='plain', axis='both', useOffset=False)
+    ax.grid(color='white', linestyle='--', alpha=0.4)
+
+    if marker_coords is not None:
+        marker_coords = np.array(marker_coords)
+        ax.scatter(marker_coords[:, 1],  # longitude (x)
+                   marker_coords[:, 0],  # latitude (y)
+                   color='red',
+                   marker='x',
+                   s=80,
+                   label='Marker' if marker_labels is None else None)
+        if marker_labels is not None:
+            for (lat, lon), label in zip(marker_coords, marker_labels):
+                ax.text(lon, lat, f" {label}", color='red', fontsize=9, va='center')
+
+        if marker_labels is None:
+            ax.legend(loc='upper right')
+
+    if out_path:
+        fig.savefig(out_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+    return fig
+
+
+def plot_phase_residuals(phase,
+                         coords,
+                         times,
+                         channel,
+                         satID,
+                         T_SPECTRA = 4096/250e6,
+                         v_acclen = 10000):
+
+    
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    plt.rcParams.update({"font.size": 16,
+                         "axes.labelsize": 18,
+                         "axes.titlesize": 20,
+                         "xtick.labelsize": 14,
+                         "ytick.labelsize": 14,
+                         "figure.titlesize": 22})
+    
+    pred = outils.pred(coords[0], 
+                       coords[1], 
+                       times[0], 
+                       times[1], 
+                       channel, 
+                       satID, 
+                       T_SPECTRA=T_SPECTRA, 
+                       v_acclen=v_acclen)
+                       
+    assert len(phase) == len(pred)
+    
+    plt.plot(phase - pred)
+
+    return fig
+
