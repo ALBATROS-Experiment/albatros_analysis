@@ -237,6 +237,8 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     npol = 2
 
     read_size = pfb_size - 2*cutsize
+    print('READSIZE', read_size)
+    print('CUTSIZE', cutsize)
     timestream_size = read_size * lblock
     nchan = len(channels)
     new_channels = np.arange(osamp) + channels[:, None] * osamp
@@ -321,11 +323,11 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         # end_event.synchronize()
         # print("xcorr time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
         n = len(rows)
-        print('len of rows:', n)
         # end_event.record()
         # end_event.synchronize()
         # print("time for one chunk xcorr all ant,pol,freq", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
         if n > 0:
+            sys.exit()
         #     end_event.record()
         #     end_event.synchronize()
 
