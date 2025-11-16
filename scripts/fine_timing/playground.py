@@ -33,6 +33,8 @@ def average_rows(x,nblock=100):
         y[i,:]=np.mean(x[i*nblock:(i+1)*nblock],axis=0)
     return y
 
+
+
 def get_adev(x,tau,stidx=0,endidx=None, T_SPECTRA = 4096/250e6):
     ''' 
     Computes Allan Deviation for array of data x
@@ -48,58 +50,141 @@ def get_adev(x,tau,stidx=0,endidx=None, T_SPECTRA = 4096/250e6):
 
 
 def newton(n,xc,alpha,chan,scale=1):
+    ''' 
+    single iteration of newton-gauss algorithm to optimize for alpha
+
+    Parameters
+    ----------
+    n: numpy array
+        just the spectrum number index, shape (len(xc),) from zero to len(xc)-1.
+        helpful because tells your phase where it's at in the beamform
+
+    x: numpy array
+        Data array of complex correlated data
+
+    alpha: float
+        Initial guess of alpha
+
+    chan: float (or int?)
+        Channel index
+
+    scale: int
+        fixed learning rate, like for gradient descent.
+    
+    Returns
+    -------
+    alpha2: float
+        Improves fitting parameter
+
+    '''
+    #set basic parameters
     c=2*np.pi*chan
     N=len(xc)
-    xc_phased = xc*np.exp(1j*c*n*alpha) #n is specnum
+    #using initial alpha, calculate all required quantities for update
+    xc_phased = xc*np.exp(1j*c*n*alpha)
     S0conj=np.conj(np.mean(xc_phased))
     S1=np.mean(xc_phased*n*c)
     S2=np.mean(xc_phased*n**2*c**2)
     df=-np.imag(S0conj*S1)
     ddf=-np.real(S0conj*S2) + np.abs(S1)**2
+    #apply update to alpha
     alpha2 = alpha - scale*df/ddf
-    print(f"old alpha {alpha:5.3e}, df {df:5.3e}, ddf {ddf:5.3e}, step size {df/ddf:5.3e} new alpha {alpha2:5.3e} ")
+    print(f"old alpha {alpha:5.3e}", 
+          f"df {df:5.3e}", 
+          f"ddf {ddf:5.3e}", 
+          f"step size {df/ddf:5.3e}" 
+          f"new alpha {alpha2:5.3e}")
     return alpha2
 
-def lmsolver(xc,alpha,chan,scale=1,lamda=16,xtol=1e-6,ftol=1e-6,niter=10,debug=False):
+
+def lmsolver(xc,alpha,chan,lamda=16,xtol=1e-6,ftol=1e-6,niter=10,debug=False):
+    '''
+    For one chunk, for one channel, solve for alpha using LM algorithm.
+
+    Parameters
+    ----------
+    xc: numpy array
+        array shape (nspectra,), with the complex cross-correlation data
+
+    alpha: float
+        initial guess for the alpha parameter
+
+    chan: float
+        channel index that we are fitting
+
+    lamda: float
+        initial damping parameter. will get updated for each iteration
+
+    xtol: float
+        minimum relative difference in alpha tolerated to terminate iterations
+        i.e. if |(a2-a)/a| < xtol, then we are safe to terminate
+
+    ftol: float
+        minimum relative difference in objective function value to terminate iterations
+        i.e. if |(f2-f)/f| < ftol, then we are safe to terminate
+
+    niter: int
+        maximum number of iterations of alpha update algorithm
+
+    Returns
+    -------
+    alpha: float
+        fitted alpha parameter. is only returned if convergence is achieved
+    '''
     c=2*np.pi*chan
     N=len(xc)
     n = np.arange(N)
-    lamda=lamda
     for ii in range(niter):
         if debug: print(f"------------------------------ LM iter {ii} -------------------------------")
-        xc_phased = 1e-5*xc*np.exp(1j*c*n*alpha) #n is specnum
+        #set up the initial phased data and objective function.
+        #this is what we get using our initial alpha_k
+        xc_phased = 1e-5*xc*np.exp(1j*c*n*alpha)
         f = -np.abs(np.mean(xc_phased))**2
+
+        #set up the conjugate versions and calculate first and second derivatives
         S0conj=np.conj(np.mean(xc_phased))
         S1=np.mean(xc_phased*n*c)
         S2=np.mean(xc_phased*n**2*c**2)
-        # print(np.abs(S0conj), np.abs(S1), np.abs(S2))
         df = np.imag(S0conj*S1)
         ddf = np.real(S0conj*S2) - np.abs(S1)**2
+
+        #apply LM algorithm, update alpha to its next value, alpha_(k+1)
         step = - df/(ddf + lamda*np.abs(ddf))
-        # step = - 1e-3 * df
         alpha2 = alpha + step
-        # 
-        # f22 = -np.mean(np.abs(xc_phased)**2)
+
+        #get the function value using new alpha
         xc_phased = 1e-5*xc*np.exp(1j*c*n*alpha2)
         f2 = -np.abs(np.mean(xc_phased))**2
-        # print(f,f2,alpha,alpha2)
-        if debug: print(f"lamda: {lamda:5.3e} alpha: {alpha:5.3e} f: {f:5.3e}, df: {df:5.3e}, ddf: {ddf:5.3e}, step: {step:5.3e}, alpha2: {alpha2:5.3e} f2: {f2:5.3e}")
-        if f2 < f: #proceeding towards minimization
-            #accept
+        
+        if debug: print(f"lamda: {lamda:5.3e}\n",
+                        f'alpha: {alpha:5.3e}\n',
+                        f'f: {f:5.3e}\n',
+                        f'df: {df:5.3e}\n',
+                        f'ddf: {ddf:5.3e}\n',
+                        f'step: {step:5.3e}\n'
+                        f'alpha2: {alpha2:5.3e}\n' 
+                        f'f2: {f2:5.3e}')
             
-            if debug: print("accepting...")
+        # if proceeding towards minimization, i.e. new alpha reduces cost
+        if f2 < f: 
+            if debug: print("accepting new alpha, reduced cost function")
+            #get relative changes in alpha and cost function
             rel_alpha = (alpha2-alpha)/alpha
             rel_f = (f2-f)/f
-            if debug: print(f"rel alpha: {np.abs(rel_alpha):5.3e} rel f: {np.abs(rel_f):5.3e}")
+            if debug: print(f"rel alpha: {np.abs(rel_alpha):5.3e}\n"
+                            f"rel f: {np.abs(rel_f):5.3e}")
+            #update starting alpha and reduce damping parameter
             alpha = alpha2
             lamda/=2
+            #check for convergence, exit if satisfies conditions
             if np.abs(rel_alpha) < xtol or np.abs(rel_f) < ftol:
                 if debug: print("converged.")
                 return alpha
+        #if not moving in correct direction, i.e. new alpha increases cost
         else:
             lamda*=2
     raise Exception(f"Failed to converge in {niter} iterations.")
-    return alpha
+
 
 
 def solver(xc,alpha,chan,scale=1,atol=1e-10,rtol=1e-6,niter=10):

@@ -17,7 +17,7 @@ from src.utils import orbcomm_utils_gpu as outils_g
 from scipy.signal import find_peaks
 from scripts.xcorr import helper as hp
 from scripts.xcorr import helper_gpu as hpg
-import sat_utils as su
+from scripts.orbcomm import sat_utils as su
 from scipy.optimize import minimize
 
 
@@ -236,7 +236,7 @@ def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
     p0_nref = cp.zeros((c_acclen, nchans), dtype="complex64")
     ra_start = ref.spec_num_start
     nra_start = nref.spec_num_start
-
+    
 
     for i, (chunk_ra, chunk_nra) in enumerate(zip(ref, nref)):
         perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100

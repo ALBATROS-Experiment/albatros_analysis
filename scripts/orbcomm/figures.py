@@ -248,6 +248,7 @@ def makeplot_cxcorr_phase(cxcorr,
     #phase parameter setup
     chanlist = np.arange(1834, 1852)
     chan_idx_big = chanlist[chan_idx_small]
+    #check for bug in frequency it prints!!
     chan_mhz = np.round(outils.chan2freq(chan_idx_big)/(10**6), decimals = 2)
 
     #times setup

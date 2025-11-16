@@ -792,7 +792,7 @@ def pred(coord1, coord2, start_t, end_t, channel, satID, T_SPECTRA=4096/250e6, v
     chunk_len = v_acclen * (T_SPECTRA)
     tle_path = get_tle_file(start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     pulse_len_s = end_t - start_t
-    d = get_sat_delay_new(coord1, coord2, tle_path, start_t, pulse_len_s + 1, satID)
+    d = get_sat_delay(coord1, coord2, tle_path, start_t, pulse_len_s + 1, satID)
 
     pulse_len_chunks = np.ceil(pulse_len_s / chunk_len)
     pulse_freq = chan2freq(channel, alias=True)

@@ -13,6 +13,7 @@ import sat_utils_gpu as sug
 import figures as fgs
 import argparse
 import time
+import matplotlib.pyplot as plt
 from albatros_analysis.scripts.xcorr import helper as hp
 from albatros_analysis.scripts.xcorr import helper_gpu as hpg
 
