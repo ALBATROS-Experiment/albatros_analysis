@@ -629,7 +629,7 @@ class BasebandFileIterator:
             # print("Rem is", rem)
             if self.spec_num_start < self.obj.spec_num[0]: #wont be triggered for the first file, since we need to start somewhere
                 # we are in a gap between the files
-                print("IN A GAP BETWEEN FILES")
+                # print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0] - self.spec_num_start, rem)
                 rem -= step
                 # i+=self.acclen-rem
@@ -667,6 +667,7 @@ class BasebandFileIterator:
                     # print("Reading new file")
                     self.fileidx += 1
                     if len(self.file_paths) == self.fileidx:
+                        print("goddamn no more files.")
                         raise StopIteration("BFI Ran out of files!")
                     self.obj = self.file_loader(
                         self.file_paths[self.fileidx],

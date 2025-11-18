@@ -656,6 +656,54 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False
         return sim_delay, altaz1, altaz2
     return sim_delay
 
+def get_per_ant_sat_delay(antpos, tle_path, time_start, niter, satnorad, dt=1):
+    """Generate a delay timestream for each antenna for a given satellite.
+
+    Parameters
+    ----------
+    antpos : list of array-like
+        List of (latitude, longitude, altitude) for each antenna in decimal degrees. 
+        For one antenna, must be a single-element list.
+    tle_path : str
+        Path to directory with TLE files.
+    time_start : float
+        Start unix-time of the pass.
+    niter : int
+        Number of iterations in the pass. Default 1 second per iteration.
+    satnorad : int
+        Satellite NORAD catalog number.
+    dt : float, optional
+        delta-time (in seconds) per iteration, by default 1.0
+
+    Returns
+    -------
+    np.ndarray
+        (n_ant x n_time) array of delays
+    """
+    n_ant = len(antpos)
+    num_iter = niter
+    sim_delay = np.zeros((n_ant,num_iter),dtype='float64',order='C')
+    c = 299792458
+    ind = None
+    sats = sf.load.tle_file(tle_path)
+    for i, sat in enumerate(sats):
+        if sat.model.satnum == satnorad:
+            ind = i
+            break
+    print("Satellite requested", sats[ind])
+    ts = sf.load.timescale()
+    for ant in range(n_ant):
+        pos = antpos[ant]
+        obs = sf.wgs84.latlon(pos[0], pos[1], pos[2])
+        diff = sats[ind] - obs
+        for i in range(num_iter):
+            jd = ctime2mjd(time_start + i * dt, type="JD")
+            t = ts.ut1_jd(jd)
+            topo = diff.at(t)
+            alt, az, dist = topo.altaz()
+            sim_delay[ant, i] = dist.m / c
+    return sim_delay
+
 def delay_corrector(idx1, idx2, delay, dN):
     # convetion is xcorr = <a(t)b(t-delay)>
     # where a = antenna1 and b = antenna2
