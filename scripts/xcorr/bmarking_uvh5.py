@@ -8,21 +8,11 @@ from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from pyuvdata import UVData
 
-
-
-
-
-
 def log_io_usage(tag, start_time, start_io, end_io):
     duration = time.perf_counter() - start_time
     io_delta = end_io.write_bytes - start_io.write_bytes
     io_MB = io_delta / (1024**2)
     print(f"[{tag}] Duration: {duration:.3f}s, Written: {io_MB:.2f}MB, Rate: {io_MB / duration:.2f} MB/s")
-
-
-
-
-
 
 def get_ant_pol_idxs(antpol_idx, nants, npols):
    '''
@@ -32,11 +22,6 @@ def get_ant_pol_idxs(antpol_idx, nants, npols):
    ant_idx = antpol_idx // npols
    pol_idx = antpol_idx % npols
    return ant_idx, pol_idx
-
-
-
-
-
 
 def get_poltot_idx(pol1_idx, pol2_idx):
     """
@@ -57,12 +42,6 @@ def get_poltot_idx(pol1_idx, pol2_idx):
         return 3
     else:
         raise ValueError(f"wrong polarization indices: {pol1_idx} and {pol2_idx}")
-    
-
-
-
-
-
 
 def get_bline_idx(ant1_idx, ant2_idx, nants, auto=True):
    """
@@ -81,11 +60,6 @@ def get_bline_idx(ant1_idx, ant2_idx, nants, auto=True):
        bline_idx = ant1_idx * (nants - 1) - (ant1_idx * (ant1_idx - 1)) // 2 + (ant2_idx - ant1_idx - 1)
    return bline_idx
 
-
-
-
-
-
 def get_nbls(nants, auto=True):
    '''
    literally just compute baseline count depending on if we count auto-correlations or not
@@ -95,12 +69,6 @@ def get_nbls(nants, auto=True):
    else:
        nbls=(nants)*(nants-1)/2
    return int(nbls)
-
-
-
-
-
-
 
 def benchmark_uvh5_write(filename,
                          configname,
@@ -204,11 +172,7 @@ def benchmark_uvh5_write(filename,
     uv.instrument = "ALBATROS Pipeline (-MA, -TB)"
     uv.history = "in process"
 
-
-
-
-
-
+    
 
     #UVH5 OBJECT FOR STREAM WRITING
     #----------------------------------------------------------------
@@ -254,7 +218,5 @@ def benchmark_uvh5_write(filename,
     print(f"Total MB: {MB_written:.1f} MB, Overall speed: {MB_written / np.sum(times):.1f} MB/s")
 
 if __name__ == '__main__':
-    benchmark_uvh5_write(
-        filename='/scratch/thomasb/test_vis.uvh5',
-        config='config2.json'
-    )
+    benchmark_uvh5_write(filename='/scratch/thomasb/test_vis.uvh5',
+                         config='config3_corr.json')

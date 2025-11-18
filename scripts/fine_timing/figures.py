@@ -63,6 +63,27 @@ def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000):
     return fig
 
 
+def plot_vis_all(xc_vis, v_acclen = 10000):
+    fig=plt.figure()
+    plt.rcParams.update({
+            "font.size": 16,
+            "axes.labelsize": 18,
+            "axes.titlesize": 20,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "figure.titlesize": 22
+        })
+
+    plt.plot(xc_vis, label='phased vis')
+    plt.legend()
+    plt.suptitle(f'Beamformed Visibility (Total)')
+    plt.xlabel(f"Vis Chunk ({(v_acclen/1000):.1f}k spectra)")
+    plt.ylabel("Phase (radians)")
+
+    plt.tight_layout()
+    return fig
+
+
 def plot_around_guess(xc, 
                       alpha_guess, 
                       alpha_fitted, 

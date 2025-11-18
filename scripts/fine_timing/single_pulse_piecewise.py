@@ -33,12 +33,12 @@ if __name__ == "__main__":
     chan_big_idx = 1837
     pulse_rel_start_t = 16545
     pulse_rel_end_t = 16810
+    buffer_end = 100
 
     #EXTRACT INFO FROM CONFIG FILE-------------------------------------
     dir_parents, coords, ant_names, clock_offsets = [], [], [], []
     with open(args.config_file, "r") as f:
         config = json.load(f)
-        print("\nAntenna Details:")
         for i, (ant, details) in enumerate(config["antennas"].items()):
             coords.append(details['coordinates'])
             dir_parents.append(details["path"])
@@ -46,11 +46,10 @@ if __name__ == "__main__":
             clock_offsets.append(details['clock_offset'])
         global_start_t = config["correlation"]["start_timestamp"]
         global_end_t = config["correlation"]["end_timestamp"]
-    #print("\nAntenna Coordinates:", coords)
 
     #SET UP VARIABLES-------------------------------------
     t1 = pulse_rel_start_t + global_start_t 
-    t2 = pulse_rel_end_t + global_start_t
+    t2 = pulse_rel_end_t + global_start_t - buffer_end
 
     tle_path = outils.get_tle_file(t1, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
 
@@ -67,21 +66,19 @@ if __name__ == "__main__":
     print('relative clock offset (ant2 - ant1):', spec_offset)
 
     #GET BLOCKS-------------------------------------
-    blk_nspec = 10**6 
+    blk_nspec = 3*10**6
     spectrum_indices = np.arange(blk_nspec)
     T_BLOCK = blk_nspec * T_SPECTRA
     nblks = int(np.floor((t2-t1)/T_BLOCK))
-    pulse_output = os.path.join(out_path, f'finetiming_{pulse_rel_start_t}_nspec{int(blk_nspec/10e6)}M_acclen{int(v_acclen/1000)}k_iterate')
-    os.makedirs(pulse_output, exist_ok=True)
-    print('block period', T_BLOCK)
-    print('number of blocks in pulse', nblks)
+    print('BLOCK PERIOD IN SECONDS:', T_BLOCK)
+    print('BLOCK COUNT IN PULSE:', nblks)
 
     #GET FILES AND IDXS------------------------------------
-    ant1_files, ant1_file_idx, ant2_files, ant2_file_idx = hp_x.get_init_info_2ant(t1, 
-                                                                                   t2, 
-                                                                                   spec_offset, 
-                                                                                   ant1_path, 
-                                                                                   ant2_path)
+    ant1_files, ant1_idx, ant2_files, ant2_idx = hp_x.get_init_info_2ant(t1, 
+                                                                         t2, 
+                                                                         spec_offset, 
+                                                                         ant1_path, 
+                                                                         ant2_path)
     
     channels = np.asarray(bdc.get_header(ant1_files[0])["channels"],dtype='int64')
     chanstart = np.where(channels == 1834)[0][0]
@@ -94,7 +91,8 @@ if __name__ == "__main__":
 
 
     #GET DELAYS-----------------------------
-
+    #start by getting delays for the whole pulse
+    #want continuous delays spanning all blocks exactly
     niter = t2-t1 + 1  #+1 to avoid edge effects
     freq = 250e6 * (1 - chan_big_idx / 4096)
     delays = np.zeros(nblks*blk_nspec)
@@ -107,44 +105,11 @@ if __name__ == "__main__":
     delays_all = np.interp(np.arange(0, nblks*blk_nspec) * T_SPECTRA, 
                                 np.arange(0, niter), 
                                 d)
-    delays_all = cp.asarray(delays)
-    delays_blk = delays_all[:blk_nspec]
-
-
-    # niter = int(T_BLOCK) + 1  #+1 to avoid edge effects
-    # freq = 250e6 * (1 - chan_big_idx / 4096)
-    # delays = np.zeros(blk_nspec)
-    # d = outils.get_sat_delay(ant1_coords,
-    #                          ant2_coords,
-    #                          tle_path,
-    #                          t1,
-    #                          niter,
-    #                          sat)
-    # delays_blk = np.interp(np.arange(0, blk_nspec) * T_SPECTRA, 
-    #                              np.arange(0, niter), 
-    #                              d)
-    # delays_blk = cp.asarray(delays)
-
-
+    delays_all = cp.asarray(delays_all)
 
 
     #GET DATA----------------------------------------
-    # ant1_block_all, ant2_block_all, _ = sug.get_chunk_data([ant1_files, ant2_files], 
-    #                                                        [ant1_file_idx, ant2_file_idx], 
-    #                                                        chanstart, 
-    #                                                        chanend, 
-    #                                                        c_acclen = blk_nspec)
-
-    # ant1_blk = ant1_block_all[:,chan_s_idx].ravel()
-    # ant2_blk = ant2_block_all[:,chan_s_idx].ravel()
-    # print('ant1_block shape', ant1_blk.shape)
-    # print('ant2_block shape', ant2_blk.shape)
-
-
-
-
-    ant1_blks = []
-    ant2_blks = []
+    ant1_blks, ant2_blks = [], []
 
     ant1 = bdc.BasebandFileIterator(ant1_files,
                                     0,
@@ -165,55 +130,46 @@ if __name__ == "__main__":
                                     type='float')
 
     for i, (chunk1,chunk2) in enumerate(zip(ant1,ant2)):
-        ant1_data = cp.ascontiguousarray(chunk1['pol0'][:, chan_s_idx])
-        ant2_data = cp.ascontiguousarray(chunk2['pol0'][:, chan_s_idx])
+        ant1_data = cp.asarray(chunk1['pol0'][:, chan_s_idx].copy().ravel())
+        ant2_data = cp.asarray(chunk2['pol0'][:, chan_s_idx].copy().ravel())
         assert len(ant1_data) == blk_nspec
         assert len(ant2_data) == blk_nspec
         ant1_blks.append(ant1_data)
         ant2_blks.append(ant2_data)
 
-    k = 0
-    ant1_blk = ant1_blks[k]
-    ant2_blk = ant2_blks[k]
-    delays_blk = delays[k*blk_nspec : (k+1)*blk_nspec]
+    #PICK ONE BLOCK FOR NOW------------------
+    k = 2
+    ant1_blk, ant2_blk = ant1_blks[k], ant2_blks[k]
+    delays_blk = delays_all[k*blk_nspec:(k+1)*blk_nspec]
+    pulse_output = os.path.join(out_path, f'finetiming_{pulse_rel_start_t}_nspec{int(blk_nspec/10e6)}M_acclen{int(v_acclen/1000)}_kval{k}')
+    os.makedirs(pulse_output, exist_ok=True)
 
+    print('ant1_blk shape', ant1_blk.shape)
+    print('ant2_blk shape', ant2_blk.shape)
 
-    #APPLY GEO DELAY
-    ant2_block_delayed = cp.zeros((blk_nspec), dtype="complex64")
-    for i in range(blk_nspec):
-        ant2_block_delayed[i] = ant2_blk[i] * np.exp(2j * np.pi * freq * delays_blk[i])
-    print('ant2block shape', ant2_block_delayed.shape)
+    #APPLY GEO DELAY TO BLOCK
+    phase = cp.exp(-2j * cp.pi * freq * delays_blk)
+    ant2_block_delayed = ant2_blk * phase
     
-    #CORRELATE
-    xc_uncorr = ant1_blk*np.conj(ant2_blk)
-    xc = ant1_blk*np.conj(ant2_block_delayed)
+    #GET ALPHA 1
+    xc = ant1_blk*cp.conj(ant2_block_delayed)
     xc = xc.get()
-    xc_uncorr = xc_uncorr.get()
-    print(xc_uncorr.shape)
-    print(xc.shape)
-
     xc_fft = np.fft.fftshift(np.abs(np.fft.fft(xc)))
-    print('fft shape', xc_fft.shape)
-    M= len(xc_fft)
-    mm = np.argmax(xc_fft)
-    
-    print('len of fft:', M)
-    print('argmax of fft', mm)
-    alpha1 = -(mm-M/2)/M /1837
-    print('alpha1', alpha1)
-
+    fft_len = len(xc_fft)
+    fft_argmax = np.argmax(xc_fft)
+    alpha1 = -(fft_argmax-fft_len/2)/fft_len /chan_big_idx
     fft_fig = fgs.make_alpha_approximator_plot(xc_fft)
     fft_fig.savefig(os.path.join(pulse_output, 'xc_fft.jpg'))
 
-    #PLOT AROUND THE PEAK
-
-
-
+    print('XC SHAPE:', xc.shape)
+    print('XC_FFT SHAPE:', xc_fft.shape)
+    print('FFT ARGMAX:', fft_argmax)
+    print('ALPHA 1:', alpha1)
 
     #MAKE SOME VISIBILITIES
-    xc_vis = hp_f.average_rows(xc, nblock = v_acclen).ravel()
-    xc_vis_phased = np.angle(xc_vis)
-    xc_phase_unwrapped = np.unwrap(xc_vis_phased) - xc_vis_phased[0]
+    blk_vis = hp_f.average_rows(xc, nblock = v_acclen).ravel()
+    blk_angle = np.angle(blk_vis)
+    blk_phase = np.unwrap(blk_angle) - blk_angle[0]
 
     #FIT FOR NEW ALPHA
     alpha2 = hp_f.lmsolver(xc,alpha1,chan_big_idx)
@@ -221,10 +177,10 @@ if __name__ == "__main__":
     print('alpha2', alpha2)
 
     #PLOT VIS VS LINEAR
-    vis_indices = np.arange(0, blk_nspec, v_acclen)
-    alpha1_linear = -2*np.pi*chan_big_idx*vis_indices*alpha1
-    alpha2_linear = -2*np.pi*chan_big_idx*vis_indices*alpha2
-    visfig = fgs.plot_vis_alpha(xc_phase_unwrapped, alpha1_linear, alpha2_linear, v_acclen = v_acclen)
+    vis_idxs = np.arange(0, blk_nspec, v_acclen)
+    alpha1_linear = -2*np.pi*chan_big_idx*vis_idxs*alpha1
+    alpha2_linear = -2*np.pi*chan_big_idx*vis_idxs*alpha2
+    visfig = fgs.plot_vis_alpha(blk_phase, alpha1_linear, alpha2_linear, v_acclen = v_acclen)
     visfig.savefig(os.path.join(pulse_output, 'phase_block.jpg'))
 
     #PLOT OF AMPLITUDES
@@ -233,13 +189,33 @@ if __name__ == "__main__":
                                      alpha2, 
                                      chan_big_idx, 
                                      50, 
-                                     5*10**(-11))
-    trialfig.savefig(os.path.join(pulse_output, 'trials.jpg'))
+                                     1*10**(-11))
+    trialfig.savefig(os.path.join(pulse_output, 'alpha_trials.jpg'))
     
     #COMPARE AMPLITUDES
     xc_amp_1 = np.abs(np.mean(xc))**2
     xc_amp_2 = np.abs(np.mean(xc_new))**2
     print('old amp', xc_amp_1)
     print('new_amp', xc_amp_2)
-    
+
+
+    #MAKE VISIBILITIES FOR WHOLE PULSE
+    ant1_tot = cp.empty(blk_nspec*nblks, dtype=cp.complex64)
+    ant2_tot = cp.empty(blk_nspec*nblks, dtype=cp.complex64)
+
+    for k in range(len(ant1_blks)):
+        ant1_tot[k*blk_nspec:(k+1)*blk_nspec] = ant1_blks[k]
+        ant2_tot[k*blk_nspec:(k+1)*blk_nspec] = ant2_blks[k]
+
+    phase_tot = cp.exp(-2j * cp.pi * freq * delays_all)
+    ant2_tot_delayed = ant2_tot * phase_tot
+    tot_xc = ant1_tot * cp.conj(ant2_tot_delayed)
+    tot_vis = hp_f.average_rows(tot_xc, nblock = v_acclen).ravel()
+    tot_angle = np.angle(tot_vis)
+    tot_phase = np.unwrap(tot_angle) - tot_angle[0]
+    tot_phase = tot_phase.get()
+    visfig_tot = fgs.plot_vis_all(tot_phase, v_acclen = v_acclen)
+    visfig_tot.savefig(os.path.join(pulse_output, 'full vis.jpg'))
+
+
 

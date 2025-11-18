@@ -11,33 +11,28 @@ import time
 def phase2timenoise(sigma_phase, nchan, chanwidth):
     return np.sqrt(12) * sigma_phase / chanwidth / np.sqrt(nchan * (nchan**2-1))
 
-def average_rows(x,nblock=100):
-    ''' 
-    Averages some data array x into blocks of length nblock. 
-    Remaining spectra that are left over are ignored.
-    
-    Parameters
-    ----------
-    x: numpy array 
-        Shape (nspectra, nchans) over which we want to average the spectra into blocks
+def average_rows(x, nblock=100):
+    """
+    averages data array x into blocks of length nblock
+    functional in numpy and cupy
+    """
 
-    nblock: int
-        The length of the blocks we want to average x into
+    xp = cp.get_array_module(x) if 'cupy' in str(type(x)) else np
 
-    Returns
-    -------
-    y: numpy array
-        Shape (nspectra//nblock, nchans). The averaged block.
-    '''
+    # ensure 2D
     if x.ndim == 1:
         x = x[:, None]
-    nr=x.shape[0]//nblock
-    print(x.shape[0],nr)
-    nc=x.shape[1]
-    y=np.zeros((nr,nc),dtype=x.dtype)
+
+    nr = x.shape[0] // nblock
+    nc = x.shape[1]
+
+    y = xp.zeros((nr, nc), dtype=x.dtype)
+
     for i in range(nr):
-        y[i,:]=np.mean(x[i*nblock:(i+1)*nblock],axis=0)
+        y[i, :] = xp.mean(x[i*nblock:(i+1)*nblock], axis=0)
+
     return y
+
 
 
 
