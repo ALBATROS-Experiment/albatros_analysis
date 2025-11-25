@@ -5,7 +5,7 @@ sys.path.append(os.path.expanduser('~/albatros_analysis'))
 import numpy as np 
 from matplotlib import pyplot as plt
 from src.utils import orbcomm_utils as outils
-import sat_utils as su
+from scripts.orbcomm import sat_utils as su
 import cupy as cp
 
 
