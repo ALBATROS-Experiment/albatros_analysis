@@ -14,7 +14,7 @@ def make_alpha_approximator_plot(xc_fft, N2=100):
             "ytick.labelsize": 14,
             "figure.titlesize": 22
         })
-    fig.set_size_inches(10,5)
+    fig.set_size_inches(8,4)
     ax=ax.flatten()
     peak_idx=np.argmax(xc_fft)
     #add SNR? peak info?
@@ -41,22 +41,23 @@ def make_alpha_approximator_plot(xc_fft, N2=100):
 
 
 def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000):
-    fig=plt.figure()
+    fig=plt.figure(figsize=(8,4))
     plt.rcParams.update({
             "font.size": 16,
             "axes.labelsize": 18,
             "axes.titlesize": 20,
             "xtick.labelsize": 14,
             "ytick.labelsize": 14,
-            "figure.titlesize": 22
+            "figure.titlesize": 22,
+            "legend.fontsize": 14
         })
 
-    plt.plot(xc_vis, label='phased vis')
-    plt.plot(old_alpha, color='green', linestyle='--', alpha = 0.7, label='initial alpha')
-    plt.plot(new_alpha, color='red', linestyle='--', alpha = 0.7, label='fitted alpha')
+    plt.plot(xc_vis, label='Unwrapped Phase')
+    plt.plot(old_alpha, color='green', linestyle='--', alpha = 0.7, label='Initial Alpha')
+    plt.plot(new_alpha, color='red', linestyle='--', alpha = 0.7, label='Fitted Alpha')
     plt.legend()
-    plt.suptitle(f'Guessed and Fitted clock drift vs vis')
-    plt.xlabel(f"Vis Chunk ({v_acclen//1000}k spectra)")
+    plt.suptitle(f'Clock Drift on Block Visibility')
+    plt.xlabel(f"Visibility Chunk ({v_acclen//1000}k spectra)")
     plt.ylabel("Phase (radians)")
 
     plt.tight_layout()
@@ -64,7 +65,7 @@ def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000):
 
 
 def plot_vis_all(xc_vis, v_acclen = 10000):
-    fig=plt.figure()
+    fig=plt.figure(figsize=(8,4))
     plt.rcParams.update({
             "font.size": 16,
             "axes.labelsize": 18,
@@ -74,9 +75,9 @@ def plot_vis_all(xc_vis, v_acclen = 10000):
             "figure.titlesize": 22
         })
 
-    plt.plot(xc_vis, label='phased vis')
+    plt.plot(xc_vis, label='Phase')
     plt.legend()
-    plt.suptitle(f'Beamformed Visibility (Total)')
+    plt.suptitle(f'Unwrapped Phase of Beamformed Pulse')
     plt.xlabel(f"Vis Chunk ({(v_acclen/1000):.1f}k spectra)")
     plt.ylabel("Phase (radians)")
 
@@ -98,7 +99,7 @@ def plot_around_guess(xc,
             "xtick.labelsize": 14,
             "ytick.labelsize": 14,
             "figure.titlesize": 22,
-            "legend.fontsize": 12 
+            "legend.fontsize": 16 
         })
     
     n = np.arange(len(xc))
@@ -110,12 +111,21 @@ def plot_around_guess(xc,
         xc_phased = xc * np.exp(1j*2*np.pi*chan_b_idx*n*test_vals[i])
         output[i] = np.abs(np.mean(xc_phased))**2
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 4))
     plt.plot(test_vals, output)
-    plt.axvline(alpha_fitted, color='r', linestyle='--', label=f"fitted={alpha_fitted:.3e}")
-    plt.axvline(alpha_guess, color='green', linestyle='--', label=f"guess={alpha_guess:.3e}")
+    plt.xlabel('Clock Drift (ADC/Spectrum)')
+    plt.ylabel('Amplitude')
+    plt.suptitle('Amplitude against Alpha Parameter')
+    plt.axvline(alpha_fitted, color='r', linestyle='--', label=f"Fitted = {alpha_fitted:.3e}")
+    plt.axvline(alpha_guess, color='green', linestyle='--', label=f"Guess = {alpha_guess:.3e}")
     plt.legend()
     plt.tight_layout()
     return fig
+
+
+
+#def waterfall_phase(data, chanstart, chanend):
+    
+
 
     

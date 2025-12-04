@@ -10,7 +10,7 @@ import numpy as np
 import time
 import os
 import ctypes
-import pyuv_helper as ph
+from albatros_analysis.scripts.xcorr import pyuv_helper as ph
 
 
 lib_path = os.path.expanduser('~/albatros_analysis/src/correlations/libcgemm_batch.so')

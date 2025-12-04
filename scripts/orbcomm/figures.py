@@ -36,21 +36,24 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     fig.set_size_inches(10,5)
     ax=ax.flatten()
     data_chan = np.abs(data_cpu[chan_small_idx,:])
+    nspec1 = len(data_chan)/2
+    x1 = np.arange(-nspec1, nspec1)
+    x2 = np.arange(-N2, N2)
     peak_idx=np.argmax(data_chan)
     peak_amp = data_chan[peak_idx]
     noise_amp = su.median_abs_deviation(data_chan)
     snr = peak_amp/noise_amp
 
     #left plot (no zoom)
-    ax[0].plot(data_chan)
-    ax[0].set_title(f'Full CXCORR. Peak: {peak_idx}')
+    ax[0].plot(x1, data_chan)
+    ax[0].set_title(f'Full CXCORR')
     ax[0].set_xlabel("Spectrum Offset")
     ax[0].set_ylabel("Amplitude")
 
     #data information
     stats_text = f"SNR: {snr:.0f}\nMAD: {noise_amp:.4f}\nOffset: {peak_idx-100000} "
     ax[0].text(
-        0.02, 0.95, stats_text,
+        0.65, 0.95, stats_text,
         transform=ax[0].transAxes,
         fontsize=12,
         verticalalignment='top',
@@ -59,8 +62,8 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     
     #right plot (with zoom)
     data_chan_zoomed = data_chan[peak_idx - N2: peak_idx + N2]
-    ax[1].plot(data_chan_zoomed)
-    ax[1].set_title('Zoomed CXCORR')
+    ax[1].plot(x2, data_chan_zoomed)
+    ax[1].set_title('Zoomed on Peak')
     ax[1].set_xlabel("Spectrum Offset")
 
 
@@ -106,26 +109,35 @@ def makeplot_fringes_phase(coords,
     '''
     chan_small_idx = np.where(chanlist == chan_big_idx)[0][0]
     chunk_length = v_acclen*T_SPECTRA
-
-    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle(f'Pulse {times[0]} Channel {chan_big_idx}/{chan_small_idx}')
+    plt.rcParams.update({
+                "font.size": 16,
+                "axes.labelsize": 16,
+                "axes.titlesize": 20,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "figure.titlesize": 22
+            })
+    fig, ax = plt.subplots(1, 2, figsize=(13, 5))
+    fig.subplots_adjust(wspace=0.4)
+    #fig.suptitle(f'Pulse {times[0]} Channel {chan_big_idx}/{chan_small_idx}')
 
     im = ax[0].imshow(vis_angle, aspect='auto', cmap='RdBu', interpolation='none')
-    ax[0].set_xlabel("channel idx (~60 kHz interval)")
-    ax[0].set_ylabel("chunk number (~0.5 s interval)")
+    ax[0].set_title('Wrapped Phases')
+    ax[0].set_xlabel("Channel Index (~60kHz interval)")
+    ax[0].set_ylabel(f"Chunk (~{np.round(chunk_length, decimals=2)}s interval)")
     cbar = fig.colorbar(im, ax=ax[0], orientation='vertical')
-    cbar.set_label("phase (radians)")
+    cbar.set_label("Wrapped Phase (radians)", fontsize = 12)
 
-    ax[1].plot(phase, label='detected phase')
-    #ax[1].plot(pred_phase, label='predicted phase')
-    ax[1].set_xlabel(f"chunk number (~{np.round(chunk_length, decimals=2)} s interval)")
-    ax[1].set_ylabel("phase (radians)")
+    ax[1].plot(phase, label='Detected phase')
+    ax[1].set_title(f'Unwrapped Phase (Chan. {chan_small_idx})')
+    ax[1].set_xlabel(f"Chunk (~{np.round(chunk_length, decimals=2)}s interval)")
+    ax[1].set_ylabel("Unwrapped Phase (radians)")
     for sat in sats_present:
         satID = satmap[sat]
         print("getting prediction for", satID)
         pred_phase = outils.pred(coords[0], coords[1], times[0], times[1], chan_big_idx, int(satID), v_acclen=v_acclen)[:len(phase)]
         #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
-        ax[1].plot(pred_phase, label=f'sat {satID}')
+        ax[1].plot(pred_phase, label=f'Satellite {satID}')
     ax[1].legend()
 
     return fig

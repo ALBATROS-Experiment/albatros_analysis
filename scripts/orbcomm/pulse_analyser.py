@@ -57,16 +57,16 @@ if __name__ == "__main__":
 
     c_acclen = 3*10**6
     v_acclen = 10000
-    bline_ants = ['Antenna 1', 'Antenna 6']
-    file_save_names = ['MARS1', 'MARS6']
-    sats_present = [0, 1, 2, 3, 4, 5]
+    bline_ants = ['Antenna 1', 'Antenna 2']
+    file_save_names = ['MARS1', 'MARS2']
+    sats_present = [3]
     res_sat = 57166
 
     
-    pulse_rel_start_t = 16545
-    pulse_rel_end_t = 16810
+    pulse_rel_start_t =  16545 #36180
+    pulse_rel_end_t = 16810 #36580 
     buffer_start = 0
-    buffer_end = 80
+    buffer_end = 0
     t1 = pulse_rel_start_t + global_start_t + buffer_start
     t2 = pulse_rel_end_t + global_start_t - buffer_end
     
@@ -179,7 +179,7 @@ if __name__ == "__main__":
             continue
         sat = int(satmap[item])
         cxfig = fgs.zoomed_cxcorr_plot(cx[i], chan_small_idx)
-        cxfig.savefig(os.path.join(pulse_output, f'zoomed_cx_{satmap[item]}.jpg'))
+        cxfig.savefig(os.path.join(pulse_output, f'zoomed_cx_{satmap[item]}.jpg'), dpi = 300)
         print(-sug.get_snr_from_coords(ant1_coords,
                                       ant2_coords,
                                       ant1_chunk,
@@ -190,8 +190,8 @@ if __name__ == "__main__":
                                       chan_small_idx,
                                       c_acclen = c_acclen))
 
-    visfig.savefig(os.path.join(pulse_output, f'vis_plot.jpg'))
-    res_plot.savefig(os.path.join(pulse_output, f'residuals_{res_sat}.jpg'))
+    visfig.savefig(os.path.join(pulse_output, f'vis_plot.jpg'), dpi = 300)
+    res_plot.savefig(os.path.join(pulse_output, f'residuals_{res_sat}.jpg'), dpi = 300)
     print('vis plot saved to:', os.path.join(pulse_output, f'vis_plot.jpg'))
     print('res plot saved to:', os.path.join(pulse_output, f'residuals_{res_sat}.jpg'))
 

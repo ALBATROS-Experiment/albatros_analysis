@@ -24,9 +24,10 @@ if __name__ == "__main__":
         "-o", "--output_path", type=str, default="/scratch/thomasb", help="Output directory for debug and pulses")
     args = parser.parse_args()
 
+
     out_path = args.output_path
     T_SPECTRA = 4096/250e6
-    v_acclen = 1000  #accumulation length for visibility sanity-checks
+    v_acclen = 5000  #accumulation length for visibility sanity-checks
     bline_ants = ['Antenna 1', 'Antenna 6']
     file_save_names = ['MARS1', 'MARS6']
     sat = 57166
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     alpha1_linear = -2*np.pi*chan_big_idx*vis_idxs*alpha1
     alpha2_linear = -2*np.pi*chan_big_idx*vis_idxs*alpha2
     visfig = fgs.plot_vis_alpha(blk_phase, alpha1_linear, alpha2_linear, v_acclen = v_acclen)
-    visfig.savefig(os.path.join(pulse_output, 'phase_block.jpg'))
+    visfig.savefig(os.path.join(pulse_output, 'phase_block.jpg'), dpi=300)
 
     #PLOT OF AMPLITUDES
     trialfig = fgs.plot_around_guess(xc, 
