@@ -40,7 +40,8 @@ def make_alpha_approximator_plot(xc_fft, N2=100):
     return fig
 
 
-def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000):
+def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000, T_SPECTRA = 4096/250e6):
+    chunk_length = T_SPECTRA * v_acclen
     fig=plt.figure(figsize=(8,4))
     plt.rcParams.update({
             "font.size": 16,
@@ -53,18 +54,19 @@ def plot_vis_alpha(xc_vis, old_alpha, new_alpha, v_acclen = 10000):
         })
 
     plt.plot(xc_vis, label='Unwrapped Phase')
-    plt.plot(old_alpha, color='green', linestyle='--', alpha = 0.7, label='Initial Alpha')
-    plt.plot(new_alpha, color='red', linestyle='--', alpha = 0.7, label='Fitted Alpha')
+    plt.plot(old_alpha, color='green', linestyle='--', alpha = 0.7, label=r'Initial $\alpha$')
+    plt.plot(new_alpha, color='red', linestyle='--', alpha = 0.7, label=r'Fitted $\alpha$')
     plt.legend()
-    plt.suptitle(f'Clock Drift on Block Visibility')
-    plt.xlabel(f"Visibility Chunk ({v_acclen//1000}k spectra)")
+    #plt.suptitle(f'Clock Drift on Block Visibility')
+    plt.xlabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
     plt.ylabel("Phase (radians)")
 
     plt.tight_layout()
     return fig
 
 
-def plot_vis_all(xc_vis, v_acclen = 10000):
+def plot_vis_all(xc_vis, v_acclen = 10000, T_SPECTRA = 4096/250e6):
+    chunk_length = v_acclen * T_SPECTRA
     fig=plt.figure(figsize=(8,4))
     plt.rcParams.update({
             "font.size": 16,
@@ -74,13 +76,11 @@ def plot_vis_all(xc_vis, v_acclen = 10000):
             "ytick.labelsize": 14,
             "figure.titlesize": 22
         })
-
-    plt.plot(xc_vis, label='Phase')
-    plt.legend()
-    plt.suptitle(f'Unwrapped Phase of Beamformed Pulse')
-    plt.xlabel(f"Vis Chunk ({(v_acclen/1000):.1f}k spectra)")
+    plt.plot(xc_vis)
+    #plt.suptitle(f'Unwrapped Phase of Beamformed Pulse')
+    plt.xlabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
     plt.ylabel("Phase (radians)")
-
+    
     plt.tight_layout()
     return fig
 

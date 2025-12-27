@@ -27,8 +27,8 @@ def get_bline_arrays(ant_names, ant_nums, ant_enus):
             # print('first, second ant:', ant_names[i_idx], ant_names[j_idx])
             # print('first, second #', i, j)
             # print('first, second idxs', i_idx, j_idx)
-            print(ant_enus[i_idx])
-            print(ant_enus[j_idx])
+            #print(ant_enus[i_idx])
+            #print(ant_enus[j_idx])
             v = ant_enus[j_idx] - ant_enus[i_idx] #by convention ant2-ant1
             #print('vector:', v)
             bl_vectors.append(v)
@@ -83,6 +83,41 @@ def get_bl_pol_maps(nant, npol):
             pol_idx_map[i, j] = pol_tot_idx
 
     return bl_idx_map, pol_idx_map
+
+
+def compare_metadata(uv1, uv2):
+    attributes = ['Nants_data', 'Nbls', 'Nblts', 'Nfreqs', 'Nphase', 'Npols',
+                         'Nspws', 'Ntimes', 'ant_1_array', 'ant_2_array', 'baseline_array',
+                         'channel_width', 'data_array', 'flag_array', 'flex_spw_id_array',
+                         'freq_array', 'freq_array', 'integration_time', 'lst_array',
+                         'nsample_array', 'phase_center_app_dec', 'phase_center_app_ra',
+                         'phase_center_catalog', 'phase_center_frame_pa', 'phase_center_id_array',
+                         'polarization_array', 'spw_array', 'time_array', 'uvw_array', 'vis_units']
+    for attr in attributes:
+        print(f'\nCOMPARING {attr}')
+        attr1 = getattr(uv1, attr)
+        attr2 = getattr(uv2, attr)
+        if isinstance(attr1, int) or isinstance(attr1, float): 
+            assert attr1 == attr2
+            print(type(attr1))
+        elif isinstance(attr1, str):
+            assert attr1 == attr2
+            print(type(attr1))
+        elif isinstance(attr1, dict):
+            assert attr1 == attr2
+            print(type(attr1))
+        elif isinstance(attr1, np.ndarray):
+            assert np.array_equal(attr1, attr2)
+            print(type(attr1))
+        elif attr1 is None:
+            assert np.array_equal(attr1, attr2)
+            print(type(attr1))
+        else:
+            print('couldnt figure out the type')
+            print(type(attr1))
+            print(attr1)
+            print(type(attr2))
+            print(attr2)
 
 
 
@@ -194,7 +229,7 @@ def benchmark_uvh5_write(filename, configname):
     uv.polarization_array = np.array([-5, -6, -7, -8])
 
     #times/baselines
-    uv.Nbls = get_nbls(uv.Nants_data, auto=True)
+    uv.Nbls = uv.Nants_data * (uv.Nants_data +1)/2
     uv.Ntimes = nchunks * pfb_size // (osamp * new_acclen)
     uv.Nblts = uv.Ntimes * uv.Nbls
 

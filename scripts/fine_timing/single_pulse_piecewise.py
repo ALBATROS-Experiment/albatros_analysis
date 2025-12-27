@@ -216,7 +216,7 @@ if __name__ == "__main__":
     tot_phase = np.unwrap(tot_angle) - tot_angle[0]
     tot_phase = tot_phase.get()
     visfig_tot = fgs.plot_vis_all(tot_phase, v_acclen = v_acclen)
-    visfig_tot.savefig(os.path.join(pulse_output, 'full vis.jpg'))
+    visfig_tot.savefig(os.path.join(pulse_output, 'full vis.jpg'), dpi=300)
 
 
 

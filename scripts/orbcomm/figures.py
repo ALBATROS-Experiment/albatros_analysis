@@ -8,6 +8,29 @@ from src.utils import orbcomm_utils as outils
 from scripts.orbcomm import sat_utils as su
 import cupy as cp
 
+def make_ampfig(vis, v_acclen=10000, T_SPECTRA=4096/250e6):
+    vis_amp = np.abs(vis)
+    chan_width = 1/T_SPECTRA
+    chunk_length = v_acclen*T_SPECTRA
+    fig, ax = plt.subplots(figsize=(10, 8))
+    plt.rcParams.update({
+                "font.size": 16,
+                "axes.labelsize": 16,
+                "axes.titlesize": 20,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "figure.titlesize": 22
+            })
+
+    im = ax.imshow(vis_amp.T, aspect='auto', cmap='plasma', interpolation='none')
+    ax.set_xlabel(f"Channel Index (~{int(chan_width/1000)} kHz)")
+    ax.set_ylabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
+    cbar = fig.colorbar(im, ax=ax, orientation='vertical')
+    cbar.set_label("Amplitude", fontsize = 12)
+
+    return fig
+
+
 
 def make_cxcorr_plot(data):
     data_cpu = cp.asnumpy(data)
@@ -47,7 +70,7 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     #left plot (no zoom)
     ax[0].plot(x1, data_chan)
     ax[0].set_title(f'Full CXCORR')
-    ax[0].set_xlabel("Spectrum Offset")
+    ax[0].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
     ax[0].set_ylabel("Amplitude")
 
     #data information
@@ -64,7 +87,7 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     data_chan_zoomed = data_chan[peak_idx - N2: peak_idx + N2]
     ax[1].plot(x2, data_chan_zoomed)
     ax[1].set_title('Zoomed on Peak')
-    ax[1].set_xlabel("Spectrum Offset")
+    ax[1].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
 
 
     plt.tight_layout()
@@ -87,9 +110,9 @@ def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
     fig.set_size_inches(10,4)
     fig.suptitle(f"Risen sats for starting time {global_start_t}")
     ax[0].plot(num_sats_risen)
-    ax[0].set_xlabel(f"time (in units of {T_SCAN} sec)")
-    ax[1].set_ylabel(f"time in units of {T_SCAN} sec")
-    ax[1].set_xlabel("Sat Index (from satlist)") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
+    ax[0].set_xlabel(f"Time ({T_SCAN} s)")
+    ax[1].set_ylabel(f"Time ({T_SCAN} s)")
+    ax[1].set_xlabel("Sat Index") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
     ax[1].imshow(arr,aspect='auto',interpolation="none")
     plt.tight_layout()
     return fig
@@ -123,21 +146,21 @@ def makeplot_fringes_phase(coords,
 
     im = ax[0].imshow(vis_angle, aspect='auto', cmap='RdBu', interpolation='none')
     ax[0].set_title('Wrapped Phases')
-    ax[0].set_xlabel("Channel Index (~60kHz interval)")
-    ax[0].set_ylabel(f"Chunk (~{np.round(chunk_length, decimals=2)}s interval)")
+    ax[0].set_xlabel("Channel Index (~60 kHz)")
+    ax[0].set_ylabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
     cbar = fig.colorbar(im, ax=ax[0], orientation='vertical')
     cbar.set_label("Wrapped Phase (radians)", fontsize = 12)
 
-    ax[1].plot(phase, label='Detected phase')
+    ax[1].plot(phase, linewidth = 5, alpha=0.5, label='Detected phase')
     ax[1].set_title(f'Unwrapped Phase (Chan. {chan_small_idx})')
-    ax[1].set_xlabel(f"Chunk (~{np.round(chunk_length, decimals=2)}s interval)")
+    ax[1].set_xlabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
     ax[1].set_ylabel("Unwrapped Phase (radians)")
     for sat in sats_present:
         satID = satmap[sat]
         print("getting prediction for", satID)
         pred_phase = outils.pred(coords[0], coords[1], times[0], times[1], chan_big_idx, int(satID), v_acclen=v_acclen)[:len(phase)]
         #print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
-        ax[1].plot(pred_phase, label=f'Satellite {satID}')
+        ax[1].plot(pred_phase, linestyle='--', color = 'red', linewidth=1, label=f'Satellite {satID}')
     ax[1].legend()
 
     return fig
@@ -477,9 +500,8 @@ def plot_phase_residuals(phase,
                          T_SPECTRA = 4096/250e6,
                          v_acclen = 10000):
 
-    
-
-    fig, ax = plt.subplots(figsize=(8, 6))
+    chunk_length = v_acclen *T_SPECTRA
+    fig, ax = plt.subplots(figsize=(10, 5))
     plt.rcParams.update({"font.size": 16,
                          "axes.labelsize": 18,
                          "axes.titlesize": 20,
@@ -495,6 +517,9 @@ def plot_phase_residuals(phase,
                        satID, 
                        T_SPECTRA=T_SPECTRA, 
                        v_acclen=v_acclen)
+    
+    ax.set_xlabel(f'Visibility Chunks (~{np.round(chunk_length, decimals=2)} s)')
+    ax.set_ylabel('Phase Residual (radians)')
                        
     assert len(phase) == len(pred)
     

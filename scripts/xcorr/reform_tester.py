@@ -30,7 +30,6 @@ row_orig = cp.copy(test_data)
 #extract all upper triangle antenna pairs
 ai_gpu, aj_gpu = cp.triu_indices(nants)
 
-
 tm_st = time.time()
 row_reshaped = cp.reshape(test_data, (npols, nants, npols, nants, -1), order='F')
 row_ut = row_reshaped[:, ai_gpu, :, aj_gpu, : ] #shape (nbl, npol, npol, nchan)

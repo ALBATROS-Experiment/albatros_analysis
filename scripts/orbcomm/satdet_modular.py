@@ -77,7 +77,7 @@ if __name__ == "__main__":
             arr[i,satmap[sat_ID]] = 1
 
     fig = fgs.make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN=T_SCAN)
-    fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{characteristic_time}.jpg"))
+    fig.savefig(path.join(out_path,f"risen_sats_{global_start_t}_{characteristic_time}.jpg"), dpi=300)
     fig.clf()
     plt.close(fig)
     del fig

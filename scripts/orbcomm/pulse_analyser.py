@@ -63,8 +63,8 @@ if __name__ == "__main__":
     res_sat = 57166
 
     
-    pulse_rel_start_t =  16545 #36180
-    pulse_rel_end_t = 16810 #36580 
+    pulse_rel_start_t =  16545   # 36180 #19735
+    pulse_rel_end_t =  16810 #36580  # 20295
     buffer_start = 0
     buffer_end = 0
     t1 = pulse_rel_start_t + global_start_t + buffer_start
@@ -166,6 +166,8 @@ if __name__ == "__main__":
                                         sats_present,
                                         v_acclen)
     
+    ampfig = fgs.make_ampfig(pol00, v_acclen=v_acclen, T_SPECTRA=T_SPECTRA)
+    
     res_plot = fgs.plot_phase_residuals(phase,
                                         [ant1_coords, ant2_coords],
                                         [t1, t2],
@@ -192,6 +194,7 @@ if __name__ == "__main__":
 
     visfig.savefig(os.path.join(pulse_output, f'vis_plot.jpg'), dpi = 300)
     res_plot.savefig(os.path.join(pulse_output, f'residuals_{res_sat}.jpg'), dpi = 300)
+    ampfig.savefig(os.path.join(pulse_output, f'amp_plot.jpg'), dpi = 300)
     print('vis plot saved to:', os.path.join(pulse_output, f'vis_plot.jpg'))
     print('res plot saved to:', os.path.join(pulse_output, f'residuals_{res_sat}.jpg'))
 

@@ -51,7 +51,7 @@ if __name__=="__main__":
     channels = np.arange(chanstart, chanend)
     idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
     
-    fname = f"xcorr_all_ant_1bit_{str(init_t)}_{str(end_t)}_{str(new_acclen)}_{str(osamp)}_{str(n_achks)}_{chanstart}_{chanend}.pyuv"
+    fname = f"xcorr_all_ant_1bit_{str(init_t)}_{str(end_t)}_{str(new_acclen)}_{str(osamp)}_{str(n_achks)}_{chanstart}_{chanend}.uvh5"
     fpath = path.join(args.outdir,fname)
     os.makedirs(os.path.dirname(fpath), exist_ok=True)
 
@@ -90,6 +90,7 @@ if __name__=="__main__":
     all_ant_ecef = np.array(all_ant_ecef)
 
     print('----initialize uvdata object------')
+    print()
     #BASIC
     uv = UVData()
     nants = len(ant_names)
@@ -122,7 +123,7 @@ if __name__=="__main__":
     uv.channel_width = np.ones(uv.Nfreqs) * channel_width
     uv.freq_array = np.array(new_channels)*channel_width
     uv.Npols = 4
-    uv.polarization_array = np.array([-5, -6, -7, -8])
+    uv.polarization_array = np.array([-5, -7, -6, -8]) #due to how we reform!
 
     #BASELINE STUFF
     bl_vectors, bl_idxs, bl_tup, ant1_idxs, ant2_idxs = ph.get_bline_arrays(ant_names, ant_numbers, ant_pos_enu)
@@ -194,8 +195,11 @@ if __name__=="__main__":
     print('fpath', fpath)
     print('filt_thresh', filt_thresh)
 
+    print('ant1 array start:')
     print(uv.ant_1_array[:28])
+    print('ant2 array start:')
     print(uv.ant_2_array[:28])
+    print('baseline array start:')
     print(uv.baseline_array[:28])
     print('--------------END----------')
 
@@ -215,5 +219,18 @@ if __name__=="__main__":
                                                     uv,
                                                     cutsize=16,
                                                     filt_thresh=filt_thresh)
+    
+    # pols,new_channels=helper_gpu.repfb_xcorr_avg_part(idxs,
+    #                                              files,
+    #                                              pfb_size,
+    #                                              n_achks,
+    #                                              channels,
+    #                                              osamp,
+    #                                              new_acclen,
+    #                                              fpath,
+    #                                              cutsize=16,
+    #                                              filt_thresh=filt_thresh)
+
+
     t2=time.time()
     print("Total time taken", t2-t1)
