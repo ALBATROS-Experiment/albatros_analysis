@@ -7,7 +7,7 @@ import sys
 import helper
 from pyuvdata import UVData
 from pyuvdata import telescopes
-from pyuvdata.utils import ENU_from_ECEF
+from pyuvdata.utils import ENU_from_ECEF, ECEF_from_ENU, LatLonAlt_from_XYZ
 import helper_gpu
 import pyuv_helper as ph
 sys.path.insert(0,path.expanduser("~"))
@@ -60,8 +60,11 @@ if __name__=="__main__":
     print('names', ant_names)
     print('numbers', ant_numbers)
     print('paths', dir_parents)
-    print('coords', ant_coords)
     print('offsets', spec_offsets)
+
+    print('antenna coordinates:')
+    for i in range(len(ant_coords)):
+        print(ant_names[i], ant_coords[i])
 
     #PFB STUFF
     print("final idxs", idxs)
@@ -90,7 +93,6 @@ if __name__=="__main__":
     all_ant_ecef = np.array(all_ant_ecef)
 
     print('----initialize uvdata object------')
-    print()
     #BASIC
     uv = UVData()
     nants = len(ant_names)
@@ -112,9 +114,20 @@ if __name__=="__main__":
     alb_tel.antenna_names = np.array(ant_names)
     alb_tel.antenna_numbers = ant_numbers
     alb_tel.location = tel_loc
-    ant_pos_enu = ENU_from_ECEF(all_ant_ecef, center_loc = tel_loc)
+    ant_pos_enu = ENU_from_ECEF(all_ant_ecef, center_loc=tel_loc)
     alb_tel.antenna_positions = ant_pos_enu
+    print('antenna enu positions')
+    print(ant_pos_enu)
+
+    #sanity check (want to make sure we can recover the correct coordinates)
+    ant_ecef_2 = ECEF_from_ENU(ant_pos_enu, center_loc=tel_loc)
+    ant_coords_2 = np.array(LatLonAlt_from_XYZ(ant_ecef_2)).T
+    ant_coords_2[:,0] *= 180/np.pi
+    ant_coords_2[:,1] *= 180/np.pi
+    for i in range(len(ant_coords)):
+        assert np.max(np.array(ant_coords[i]) - np.array(ant_coords_2[i]))< 1e-8
     
+
     #FREQUENCY, POLARIZATION STUFF
     new_channels = np.arange(osamp) + channels[:, None] * osamp
     new_channels = new_channels.ravel()
@@ -141,13 +154,8 @@ if __name__=="__main__":
     uv.set_lsts_from_time_array(astrometry_library='astropy')
 
     #MISC PLACEHOLDER
-    uv.phase_center_catalog = {
-    0: {"cat_type": "drift",
-        "cat_name": "phase_center_0",
-        "cat_frame": "icrs",
-        "cat_lon": 0.0,   
-        "cat_lat": 0.0, 
-        "cat_epoch": 2000.0}}
+    uv.phase_center_catalog = {0: {"cat_type": "zenith",
+                                   "cat_name": "zenith"}}
     uv.Nphase = 1
     uv.phase_center_id_array = np.zeros(uv.Nblts, dtype=int)
     uv.phase_center_app_ra = np.zeros(uv.Nblts)    
@@ -202,6 +210,9 @@ if __name__=="__main__":
     print('baseline array start:')
     print(uv.baseline_array[:28])
     print('--------------END----------')
+
+    #print(alb_tel.antenna_positions)
+    #print(uv.uvw_array)
 
     #sys.exit()
 

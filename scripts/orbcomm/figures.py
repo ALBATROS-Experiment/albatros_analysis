@@ -165,6 +165,47 @@ def makeplot_fringes_phase(coords,
 
     return fig
 
+def makeplot_fringes_phase_upsampled(data_angle, 
+                                     chan_new, 
+                                     start_time, 
+                                     end_time,
+                                     coords1,
+                                     coords2, 
+                                     acclen=512, 
+                                     osamp=64, 
+                                     satID = 57166):
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    #fig.suptitle(f'METEOR M2-3 on {name1}-{name2} Channel {chan_old}')
+    chan_old = 1834 + chan_new/osamp
+    chunk_len = (acclen*4096*osamp)/250e6
+    print('old_channel:', chan_old)
+
+    im = ax[0].imshow(data_angle, aspect='auto', cmap='RdBu', interpolation='none')
+    ax[0].set_xlabel(f"Channel idx (~{int(250e6/(4096*osamp))} Hz)")
+    ax[0].set_ylabel(f"Visibility Chunk (~{np.round(chunk_len, decimals=2)} s)")
+    cbar = fig.colorbar(im, ax=ax[0], orientation='vertical')
+    cbar.set_label("Phase (radians)")
+
+    phase = np.unwrap(data_angle[:, chan_new] - data_angle[0, chan_new])
+    pred_phase = outils.pred(coords1, 
+                             coords2, 
+                             start_time, 
+                             end_time, 
+                             chan_old, 
+                             int(satID), 
+                             v_acclen=acclen, 
+                             T_SPECTRA = (4096*osamp)/250e6)[:len(phase)]
+
+    ax[1].plot(phase, label='Detected')
+    ax[1].plot(pred_phase, label=f'Predicted {satID}')
+    ax[1].set_xlabel(f"Visibility Chunk (~{np.round(chunk_len, decimals=2)} s)")
+    ax[1].set_ylabel("Phase (radians)")
+
+    print('MAX PHASE DIFFERENCE:', np.max(np.diff(np.abs(pred_phase))))
+    ax[1].legend()
+    plt.tight_layout
+    return fig
+
 
 def makeplot_fringes_phase2(coords1, 
                             coords2,

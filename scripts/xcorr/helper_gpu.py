@@ -728,6 +728,7 @@ def repfb_xcorr_avg_tb(idxs,
                 row_ut = row_reshaped[:, ai_gpu, :, aj_gpu, : ] #shape (nbl, npol, npol, nchan)
                 row_ut = row_ut.transpose(0, 3, 1, 2).reshape(uv.Nbls,-1, 4) #shape (nbl, nchan, npol*npol)
                 assert row_ut.shape == row_new_shape
+                print(row_ut)
                 print('DONE REFORMING, time:', time.time() - treform)
                 
                 #WRITE EACH ROW INTO VIS CHUNK
