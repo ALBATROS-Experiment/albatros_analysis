@@ -11,29 +11,35 @@ import cupy as cp
 import numpy as np
 from . import pycufft
 
-def apply_delay(arr, delay, freqs, out=None):
+def apply_delay(arr, delay, freqs, out=None, copy=True):
     """Apply a time-dependent exponential phase to a timestream.
     Timestream can be E-field, or visibility, or anything else a user desires.
-    Output = Input * exp(j 2 pi freq tau)
+    Output = Input * exp(-j 2 pi freq tau)
 
     Parameters
     ----------
     arr : cp.ndarray
-        Usually nspec x nchan
-    delay : 
-        _description_
-    freqs : _type_
-        _description_
-    out : _type_, optional
-        _description_, by default None
+        Usually n_time x n_chan
+    delay : cp.ndarray
+        Delay timestream of length n_time
+    freqs : cp.ndarray
+        Frequency array of length n_chan
+    out : cp.ndarray, optional
+        Write to this array, should be of the same shape as input array, by default None.
+        Overrides copy, if passed.
+    copy : bool, optional
+        Make a copy of the input array for the output, by default True
 
     Returns
     -------
-    _type_
-        _description_
+    cp.ndarray
+        out array
     """
     if out is None:
-        out = cp.empty(arr.shape,dtype=arr.dtype)
+        if copy:
+            out = cp.empty(arr.shape,dtype=arr.dtype, order='C')
+        else:
+            out = arr
     out[:] = arr * cp.exp(-2j * cp.pi * freqs[cp.newaxis,:]*delay[:,cp.newaxis])
     return out
 

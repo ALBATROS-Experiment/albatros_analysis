@@ -54,6 +54,7 @@ def make_continuous_gpu(spec, specnum, channels, nspec, nchans=2049, out=None):
             return spec
     if out is None:
         out=xp.zeros((nspec, nchans), dtype=spec.dtype)
+    print("make cont gpu is filling...")
     out[xp.ix_(specnum,channels)] = spec[:len(specnum)]
     # print("specnum is", specnum)
     assert out.base is None
@@ -636,7 +637,7 @@ class BasebandFileIterator:
             # print("Rem is", rem)
             if self.spec_num_start < self.obj.spec_num[0]: #wont be triggered for the first file, since we need to start somewhere
                 # we are in a gap between the files
-                print("IN A GAP BETWEEN FILES")
+                # print("IN A GAP BETWEEN FILES")
                 step = min(self.obj.spec_num[0] - self.spec_num_start, rem)
                 rem -= step
                 # i+=self.acclen-rem
@@ -674,6 +675,7 @@ class BasebandFileIterator:
                     # print("Reading new file")
                     self.fileidx += 1
                     if len(self.file_paths) == self.fileidx:
+                        print("goddamn no more files.")
                         raise StopIteration("BFI Ran out of files!")
                     self.obj = self.file_loader(
                         self.file_paths[self.fileidx],

@@ -108,8 +108,9 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     
     if len(spec_offsets) == 1: #only one antenna
         return idxs, files
-
-    for jj in range(1, len(idxs)):  # all except first antenna
+    spec_offsets = np.asarray(spec_offsets,dtype='int64')
+    spec_offsets -= spec_offsets[0] #normalize to specoffset of the first (ref) ant
+    for jj in range(0, len(idxs)):  # all except first antenna
         init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
         print("before correction", idxs[0], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
