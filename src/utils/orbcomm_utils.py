@@ -1,5 +1,6 @@
 import skyfield.api as sf
 import numpy as np
+from skyfield.api import wgs84, load
 import operator
 import time
 from matplotlib import pyplot as plt
@@ -667,8 +668,6 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False
 
 
 def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnorad, altaz=False):
-    from skyfield.api import wgs84, load
-    import numpy as np
 
     program_start = time.time()
 
@@ -694,7 +693,6 @@ def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnor
     jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
     t = ts.ut1_jd(jd_times)
 
-   
     diff1 = target_sat - obs1
     diff2 = target_sat - obs2
 
@@ -718,8 +716,6 @@ def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnor
 
 
 def get_sat_delay2(pos1, pos2, sats_objects, time_start, duration_seconds, satnorad, altaz=False):
-    from skyfield.api import wgs84, load
-    import numpy as np
 
     c = 299792458 
     
@@ -739,8 +735,8 @@ def get_sat_delay2(pos1, pos2, sats_objects, time_start, duration_seconds, satno
 
     jd_start = ctime2mjd(time_start, type="JD")
     jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
-    print(jd_times)
-    print(len(jd_times))
+    #print(jd_times)
+    #print(len(jd_times))
     t = ts.ut1_jd(jd_times)
 
    

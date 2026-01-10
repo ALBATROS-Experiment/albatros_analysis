@@ -12,7 +12,7 @@ def make_ampfig(vis, v_acclen=10000, T_SPECTRA=4096/250e6):
     vis_amp = np.abs(vis)
     chan_width = 1/T_SPECTRA
     chunk_length = v_acclen*T_SPECTRA
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(6, 4))
     plt.rcParams.update({
                 "font.size": 16,
                 "axes.labelsize": 16,
@@ -23,7 +23,7 @@ def make_ampfig(vis, v_acclen=10000, T_SPECTRA=4096/250e6):
             })
 
     im = ax.imshow(vis_amp.T, aspect='auto', cmap='plasma', interpolation='none')
-    ax.set_xlabel(f"Channel Index (~{int(chan_width/1000)} kHz)")
+    ax.set_xlabel(f"Channel Index (~{int(chan_width)} Hz)")
     ax.set_ylabel(f"Visibility Chunk (~{np.round(chunk_length, decimals=2)} s)")
     cbar = fig.colorbar(im, ax=ax, orientation='vertical')
     cbar.set_label("Amplitude", fontsize = 12)
