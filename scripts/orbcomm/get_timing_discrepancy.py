@@ -17,12 +17,21 @@ from skyfield.api import load, wgs84
 import cupy
 import offset_helper as oh
 
+#config 1
+#config_path = '/home/thomasb/albatros_analysis/scripts/xcorr/config/config_bright_test.json'
+#disk_path = '/scratch/thomasb/raw_1753216650:1753217000_bit=1_ant=7_pol=2_cha=1834:1852_tim=650_upx=64_acc=512_ipfb=0.4_complex64_regular_20260110T114008.npy'
 
-config_path = '/home/thomasb/albatros_analysis/scripts/xcorr/config/config_bright_test.json'
-disk_path = '/scratch/thomasb/raw_1753216650:1753217000_bit=1_ant=7_pol=2_cha=1834:1852_tim=650_upx=64_acc=512_ipfb=0.4_complex64_regular_20260110T114008.npy'
+#config 2
+#config_path = '/home/thomasb/albatros_analysis/scripts/xcorr/config/config_bright_test2.json'
+#disk_path = '/scratch/thomasb/raw_1753221865:1753222245_bit=1_ant=7_pol=2_cha=1834:1852_tim=706_upx=64_acc=512_ipfb=0.4_complex64_regular_20260106T105646.npy'
 
+#config 4
+config_path = '/home/thomasb/albatros_analysis/scripts/xcorr/config/config_bright_test4.json'
+disk_path = '/scratch/thomasb/raw_1753240805:1753241265_bit=1_ant=7_pol=2_cha=1834:1852_tim=856_upx=64_acc=512_ipfb=0.4_complex64_regular_20260107T190531.npy'
 
-data_all = np.load(disk_path)
+out_path = '/scratch/thomasb'
+data_all = np.load(disk_path, mmap_mode='r')
+
 
 #need to extract the starting specnumber from the data we get: first baseband spectrum index
 #once we have that and the time offset we have our mapping
@@ -60,21 +69,25 @@ ant_idxs = [0, 2, 3, 4, 5, 6]
 
 #--------------------------PULSE DEPENDENT STUFF------------
 satID = 57166
-chan_new = 140
+chan_new = 170
 freq = sat_freqs[chan_new]
 
-cut_spectra_start = 60000
-cut_seconds_end = 150
+cut_spectra_start = 40000
+cut_seconds_end = 280
 
 pulse_start_ts = batch_start_ts + T_SPECTRA* cut_spectra_start
 pulse_end_ts = batch_end_ts - cut_seconds_end
 
+print('starting data slice')
 data_slice_cut = data_all[:, :, cut_spectra_start:, chan_new]
+print('done data slice')
 
-
+figpath = os.path.join(out_path, f"timing_discrepancies_{batch_start_ts}_{satID}")
+os.makedirs(figpath, exist_ok=True)
 
 #-------------------------PLOT PHASES PRE-FIT------------------
-chisq_unfitted, phases_fig_unfitted = objective_times(0,
+print('starting initial phase plot')
+chisq_unfitted, phases_fig_unfitted = oh.objective_times(0,
                                     pulse_start_ts,
                                     pulse_end_ts,
                                     data_slice_cut,
@@ -85,14 +98,16 @@ chisq_unfitted, phases_fig_unfitted = objective_times(0,
                                     plot=True,
                                     bb_spectrum_T=bb_spectrum_T,
                                     osamp=osamp)
+phases_fig_unfitted.savefig(os.path.join(figpath, 'unfitted_phases.png'))
 
 
 #------------------------GET COST CURVE---------------------
-offsets, chisqs, cost_fig = cost_curve(-2, 
+print('starting cost curve for guess')
+offsets, chisqs, cost_fig = oh.cost_curve(-2, 
                                     2, 
                                     101, 
                                     pulse_start_ts, 
-                                    pulse_start_ts, 
+                                    pulse_end_ts, 
                                     data_slice_cut, 
                                     ant_idxs, 
                                     ant_coords, 
@@ -101,32 +116,35 @@ offsets, chisqs, cost_fig = cost_curve(-2,
                                     bb_spectrum_T=bb_spectrum_T, 
                                     osamp=osamp,
                                     include_fig=True)
+cost_fig.savefig(os.path.join(figpath, 'cost_curve_initial.png'))
 offset_guess = offsets[np.argmin(chisqs)]
 
 
 #--------------------FIT FOR MINIMUM USING GUESS-------------------
-result = minimize(objective_times, 
-    offset_guess,
-    args=(pulse_start_ts, 
-            pulse_start_ts, 
-            data_slice_cut, 
-            ant_idxs, 
-            ant_coords, 
-            freq, 
-            satID,
-            False,
-            bb_spectrum_T,
-            osamp,
-            acclen), 
-    method='Nelder-Mead',
-    tol=1e-12)
+print('starting fit')
+result = minimize(oh.objective_times, 
+                    offset_guess,
+                    args=(pulse_start_ts, 
+                            pulse_end_ts, 
+                            data_slice_cut, 
+                            ant_idxs, 
+                            ant_coords, 
+                            freq, 
+                            satID,
+                            False,
+                            bb_spectrum_T,
+                            osamp,
+                            acclen), 
+                    method='Nelder-Mead',
+                    tol=1e-12)
 offset_fitted = result.x[0]
 
 
 #----------------------------PLOT ZOOMED COST CURVE------------------------
+print('starting zoomed cost curve')
 offset_rounded = np.round(offset_fitted, decimals = 2)
 print(offset_rounded)
-_, _, cost_fig_zoomed = cost_curve(offset_rounded-0.2, 
+_, _, cost_fig_zoomed = oh.cost_curve(offset_rounded-0.2, 
                                     offset_rounded+0.2, 
                                     101, 
                                     pulse_start_ts, 
@@ -140,10 +158,12 @@ _, _, cost_fig_zoomed = cost_curve(offset_rounded-0.2,
                                     bb_spectrum_T=bb_spectrum_T, 
                                     osamp=osamp,
                                     vline=offset_fitted)
+cost_fig_zoomed.savefig(os.path.join(figpath, 'cost_curve_zoomed.png'))
 
 
 #--------------------------PLOT PHASES POST-FIT----------------------------------
-chisq_fitted, phases_fig_fitted = objective_times(offset_fitted,
+print('starting post-fit phase plot')
+chisq_fitted, phases_fig_fitted = oh.objective_times(offset_fitted,
                                 pulse_start_ts,
                                 pulse_end_ts,
                                 data_slice_cut,
@@ -154,15 +174,17 @@ chisq_fitted, phases_fig_fitted = objective_times(offset_fitted,
                                 plot=True,
                                 bb_spectrum_T=bb_spectrum_T,
                                 osamp=osamp)
-
-
-#------------------------SAVE FIGURES AND PRINT STUFF---------------------------
-figpath = os.path.join(out_path, f"timing_discrepancies_{batch_start_ts}_{satID}")
-cost_fig.savefig(os.path.join(figpath, 'cost_curve_initial.png'))
-cost_fig_zoomed.savefig(os.path.join(figpath, 'cost_curve_zoomed.png'))
 phases_fig_fitted.savefig(os.path.join(figpath, 'fitted_phases.png'))
-phases_fig_unfitted.savefig(os.path.join(figpath, 'unfitted_phases.png'))
 
+
+#------------------------PRINT STUFF---------------------------
+
+start_specnum = oh.get_start_specnum(batch_start_ts, dir_parents[0])
+print('----------RESULTS-----------------')
+print('start_specnum', start_specnum)
+print()
 print('initial chisq', chisq_unfitted)
 print('final chisq', chisq_fitted)
+print()
+print('guess offset', offset_guess)
 print('fitted offset', offset_fitted)

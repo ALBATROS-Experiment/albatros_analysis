@@ -8,7 +8,7 @@ from albatros_analysis.src.utils import orbcomm_utils as outils
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
 import astropy.units as u
-
+import matplotlib.pyplot as plt
 
 def load_json(path):
     with open(path, "r") as f:
@@ -20,7 +20,47 @@ def unix_to_lst(unix_t, coords):
     lst_time = t_obj.sidereal_time("mean").degree % 360
     return lst_time
 
-    
+
+def extract_snr_dict(data, ant_name):
+    snr_dict = {}
+    for start_timestamp, antenna_data in data.items():
+        pulses = antenna_data.get(ant_name, {}).get("pulse_data", [])
+        for pulse in pulses:
+            start = pulse["start"]
+            end = pulse["end"]
+            sats_present = pulse.get("sats_present", {})
+
+            for satID, detections in sats_present.items():
+                max_snr = max(det[2] for det in detections)
+                key = (start, end)
+                snr_dict[key] = (max_snr, satID)
+    return start_timestamp, snr_dict
+
+
+def get_snr_vs_time(path, start_ts, end_ts, ant_name, plot=False):
+    ''' 
+    Extracts (and optionally plots) SNR with time for a given non-ref antenna baseline given a pulsedata file path.
+    '''
+    f = load_json(path)
+    t_start, snr_dict = extract_snr_dict(f, ant_name)
+    print(start_ts, 'input')
+    print(t_start, 'from file')
+    assert int(t_start) == int(start_ts)
+    nstep = end_ts - start_ts
+    snrs = np.zeros(nstep)
+    for start, stop in snr_dict.keys():
+        snrs[start:stop] = snr_dict[(start, stop)][0]
+    if plot:          
+        fig, ax = plt.subplots(dpi=300)
+        fig.set_size_inches(10,4)
+        ax.plot(snrs)
+        ax.set_xlabel('Time after batch start (s)')
+        ax.set_ylabel('Pulse max SNR')
+        return snrs, fig
+    return snrs
+
+
+
 def print_no_sat_times(data):
     time_set = set()
     for timestamp, all_data in data.items():
@@ -47,6 +87,8 @@ def print_no_sat_times(data):
     print('mean seconds with no sat risen', int(np.mean(lengths)))
     print('in minutes:', int(np.mean(lengths)/60))
     print('longest in minutes:', int(max(lengths)/60))
+
+
 
 
 
@@ -265,9 +307,4 @@ def get_sim_passes_lst(json_paths, coords, same_sat = False, fixed_sats = None, 
             sim_pulses.append(group)
 
     return sim_pulses
-
-
-
-
- #GET DIFF IN SNR
 

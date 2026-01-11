@@ -17,6 +17,23 @@ from skyfield.api import load, wgs84
 import cupy
 #from pyuvdata import UVData
 
+def get_start_specnum(t_start, dir_parent):
+    files, idx = butils.get_init_info(t_start, t_start+100, dir_parent)
+    pulse = bdc.BasebandFileIterator(
+            files,
+            0,
+            idx,
+            1024,
+            None,
+            chanstart=1834,
+            chanend=1852,
+            type="float",
+        )
+    start_specnum = pulse.spec_num_start
+    print('start specnum', start_specnum)
+    return start_specnum
+
+
 @nb.njit(parallel=True)
 def apply_delay(arr, out, delay, freqs):
     # apply delay to an array of complex electric field or their correlation
@@ -231,7 +248,7 @@ def objective_times(time_offset,
             aj = ant_idxs[j]
             a1_coords=ant_coords[ai]
             a2_coords=ant_coords[aj]
-            dist = oh.haversine(a1_coords,a2_coords)
+            dist = haversine(a1_coords,a2_coords)
             sum_wt += dist**2
 
 

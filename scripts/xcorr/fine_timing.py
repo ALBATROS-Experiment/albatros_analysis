@@ -72,6 +72,8 @@ def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,o
             channels=channel_indices,
             type='float'
         )
+        print(f'initial spectrum ant {i}')
+        print(aa.spec_num_start)
         antenna_objs.append(aa)
     #print("channels present", aa.obj.channels)
     print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
