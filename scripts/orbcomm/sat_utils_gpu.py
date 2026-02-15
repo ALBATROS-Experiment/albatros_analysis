@@ -25,6 +25,11 @@ def get_complex_snr(data):
     return cp.asnumpy(cp.max(cp.abs(data), axis=1) / outils_g.median_abs_deviation(cp.abs(data),axis=1))
 
 
+def median_abs_deviation(x,axis=1):
+    med = cp.median(x,axis=axis)
+    return cp.median(cp.abs(x-med[:, cp.newaxis]),axis=axis)
+
+
 def get_cxcorr_many_sats(p0_ref,
                          p0_nref, 
                          tle_path, 
@@ -90,8 +95,8 @@ def get_cxcorr_many_sats(p0_ref,
     nchans = len(p0_ref[0,:])
     freqs = 250e6 * (1 - cp.arange(1834, 1852) / 4096)
     cx = []
-    ref_coords, nref_coords = coords[0], coords[1]
-    p0_nra_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
+    coords_ref, coords_nref = coords[0], coords[1]
+    p0_nref_delayed = cp.zeros((c_acclen, nchans), dtype="complex64")
     
     pulse_start, pulse_end = times[0], times[1]
     niter = int(pulse_end - pulse_start) + 1  #+1 to avoid edge effects
@@ -100,7 +105,7 @@ def get_cxcorr_many_sats(p0_ref,
     delays = np.zeros((c_acclen, len(sats_present)))
     for i, satidx in enumerate(sats_present):
         d = outils.get_sat_delay(  #get delay for whole pulse even though we only interpolate over one chunk.
-            ref_coords,nref_coords,tle_path,pulse_start,niter,satmap[satidx]
+            coords_ref, coords_nref, tle_path, pulse_start, niter, satmap[satidx]
             )
         delays[:, i] = np.interp(
             np.arange(0, c_acclen) * T_SPECTRA, np.arange(0, niter), d
@@ -116,8 +121,8 @@ def get_cxcorr_many_sats(p0_ref,
     #CORRECTED
     for i, satidx in enumerate(sats_present):
         print("getting cxcorr of:", satmap[satidx])
-        outils_g.apply_delay(p0_nref, delays[:,i], freqs, out=p0_nra_delayed)
-        cx.append(outils_g.coarse_xcorr(p0_ref, p0_nra_delayed, dN))
+        outils_g.apply_delay(p0_nref, delays[:,i], freqs, out=p0_nref_delayed)
+        cx.append(outils_g.coarse_xcorr(p0_ref, p0_nref_delayed, dN))
 
     return cx
 
@@ -163,7 +168,7 @@ def get_vis_gpu(pulse_start_t,
 
 
 
-def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
+def get_chunk_data(files, idxs, chanstart, chanend, nchunks = None, c_acclen = 10**6):
     ''' 
     Get chunk data for two antenna given times and paths, using bfi.
 
@@ -212,7 +217,7 @@ def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
         0,
         idxs[0],
         c_acclen,
-        None,
+        nchunks,
         chanstart=chanstart,
         chanend=chanend,
         type="float",
@@ -222,14 +227,14 @@ def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
         0,
         idxs[1],
         c_acclen,
-        None,
+        nchunks,
         chanstart=chanstart,
         chanend=chanend,
         type="float",
     )
 
-    print(ref.acclen)
-    print(nref.acclen)
+    print('Reference antenna acclen:', ref.acclen)
+    print('Non-reference antenna acclen', nref.acclen)
 
     #PICK THE CHUNK, PUT IN DATA
     p0_ref = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
@@ -241,7 +246,8 @@ def get_chunk_data(files, idxs, chanstart, chanend, c_acclen = 10**6):
     for i, (chunk_ra, chunk_nra) in enumerate(zip(ref, nref)):
         perc_missing_ra = (1 - len(chunk_ra["specnums"]) / c_acclen) * 100
         perc_missing_nra = (1 - len(chunk_nra["specnums"]) / c_acclen) * 100
-        print("missing a1", perc_missing_ra, "missing a2", perc_missing_nra)
+        print("percentage data missing ref ant", perc_missing_ra)
+        print("percentage data missing nonref ant", perc_missing_nra)
         if perc_missing_ra > 10 or perc_missing_nra > 10:
             ra_start = ref.spec_num_start
             nra_start = nref.spec_num_start

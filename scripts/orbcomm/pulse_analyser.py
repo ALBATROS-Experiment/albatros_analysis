@@ -63,8 +63,8 @@ if __name__ == "__main__":
     res_sat = 57166
 
     
-    pulse_rel_start_t =  16545   # 36180 #19735
-    pulse_rel_end_t =  16810 #36580  # 20295
+    pulse_rel_start_t =  16545 # 78890#66950 # 36180  #19735
+    pulse_rel_end_t =  16810 #79000  # 67100 #36580   # 20295
     buffer_start = 0
     buffer_end = 0
     t1 = pulse_rel_start_t + global_start_t + buffer_start
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     dN = int(10**5)
     print('dN value', dN)
 
-    pulse_output = os.path.join(out_path, f'p_analysis_{pulse_rel_start_t}_{file_save_names[0]}_{file_save_names[1]}_{int(time.time())}')
+    pulse_output = os.path.join(out_path, f'p_analysis_{pulse_rel_start_t}_{file_save_names[0]}_{file_save_names[1]}')
     os.makedirs(pulse_output, exist_ok=True)
     
     cx = sug.get_cxcorr_many_sats(ant1_chunk,
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         if item == "Uncorrected":
             continue
         sat = int(satmap[item])
-        cxfig = fgs.zoomed_cxcorr_plot(cx[i], chan_small_idx)
+        cxfig = fgs.zoomed_cxcorr_plot(cx[i], chan_small_idx, x='secs')
         cxfig.savefig(os.path.join(pulse_output, f'zoomed_cx_{satmap[item]}.jpg'), dpi = 300)
         print(-sug.get_snr_from_coords(ant1_coords,
                                       ant2_coords,

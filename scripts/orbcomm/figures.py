@@ -45,7 +45,8 @@ def make_cxcorr_plot(data):
         plt.tight_layout()
     return fig
 
-def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
+def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200, x = 'spectra', T_SPECTRA = 4096/250e6):
+    assert (x == 'spectra') or (x == 'secs')
     data_cpu = cp.asnumpy(data)
     fig, ax=plt.subplots(1,2)
     plt.rcParams.update({
@@ -62,7 +63,12 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     nspec1 = len(data_chan)/2
     x1 = np.arange(-nspec1, nspec1)
     x2 = np.arange(-N2, N2)
-    peak_idx=np.argmax(data_chan)
+    peak_idx = np.argmax(data_chan)
+    offset = peak_idx-100000
+    if x == 'secs':
+        x1 = x1 * T_SPECTRA
+        x2 = x2 * T_SPECTRA * 1000
+        offset = np.round(offset * T_SPECTRA, decimals=3)
     peak_amp = data_chan[peak_idx]
     noise_amp = su.median_abs_deviation(data_chan)
     snr = peak_amp/noise_amp
@@ -70,13 +76,23 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     #left plot (no zoom)
     ax[0].plot(x1, data_chan)
     ax[0].set_title(f'Full CXCORR')
-    ax[0].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
+    if x == 'secs':
+        ax[0].set_xlabel(r"Offset (s)")
+    else:
+        ax[0].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
     ax[0].set_ylabel("Amplitude")
+    interval1 = 0.5
+    ticks1 = np.arange(-3*interval1, 4*interval1, interval1)
+    ax[0].set_xticks(ticks1)
+    ax[0].grid(True)
 
     #data information
-    stats_text = f"SNR: {snr:.0f}\nMAD: {noise_amp:.4f}\nOffset: {peak_idx-100000} "
+    stats_text = f"SNR: {snr:.0f}\nMAD: {noise_amp:.4f}\nOffset: {offset} s"
+    box_xloc = 0.65
+    if offset>0:
+        box_xloc = 0.05
     ax[0].text(
-        0.65, 0.95, stats_text,
+        box_xloc, 0.95, stats_text,
         transform=ax[0].transAxes,
         fontsize=12,
         verticalalignment='top',
@@ -87,9 +103,14 @@ def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200):
     data_chan_zoomed = data_chan[peak_idx - N2: peak_idx + N2]
     ax[1].plot(x2, data_chan_zoomed)
     ax[1].set_title('Zoomed on Peak')
-    ax[1].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
-
-
+    ax[1].grid(True)
+    interval2 = 1
+    ticks2 = np.arange(-3*interval2, 4*interval2, interval2)
+    ax[1].set_xticks(ticks2)
+    if x == 'secs':
+        ax[1].set_xlabel(r"Offset (ms)")
+    else:
+        ax[1].set_xlabel(r"Spectrum Offset ($\sim16$ $\mu$s)")
     plt.tight_layout()
 
     return fig
@@ -105,15 +126,17 @@ def make_snr_plot(data, temp_satmap):
     snrax.legend()
     return snrfig
 
-def make_risen_sats_plot(arr, global_start_t, num_sats_risen, T_SCAN = 5):
+def make_risen_sats_plot(arr, global_start_t, num_sats_risen, satlist, T_SCAN = 5):
     fig, ax = plt.subplots(1, 2)
     fig.set_size_inches(10,4)
     fig.suptitle(f"Risen sats for starting time {global_start_t}")
     ax[0].plot(num_sats_risen)
     ax[0].set_xlabel(f"Time ({T_SCAN} s)")
     ax[1].set_ylabel(f"Time ({T_SCAN} s)")
-    ax[1].set_xlabel("Sat Index") #Sat Index with respect to the satlist dictionary indexing, corresponds to an actual satellite ID
+    ax[1].set_xlabel("Sat ID") #Satellite ID
     ax[1].imshow(arr,aspect='auto',interpolation="none")
+    ax[1].set_xticks(range(len(satlist)))
+    ax[1].set_xticklabels(satlist)
     plt.tight_layout()
     return fig
 

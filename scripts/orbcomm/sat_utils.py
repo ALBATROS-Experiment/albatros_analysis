@@ -19,6 +19,9 @@ from scripts.xcorr import helper as hp
 import matplotlib.cm as cm
 from skyfield.api import load, EarthSatellite, Topos, wgs84
 from datetime import datetime, timezone
+from astropy.coordinates import EarthLocation
+import astropy.units as u
+from astropy.time import Time
 
 def median_abs_deviation(x):
     med = np.median(x)
@@ -29,6 +32,72 @@ def print_memory_usage(note=""):
     process = psutil.Process(os.getpid())
     mem = process.memory_info().rss / 1e6  # Resident Set Size in MB
     print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
+
+
+
+
+
+def get_risen_sats2(tle_file, coords, t_start, satlist, dt=5, niter=560, good=None, altitude_cutoff=1):
+    """Get all satellites risen at a particular point on earth at a list of epochs.
+    Epochs start at t_start and a list of risen satellites is returned for every t_start + i * dt epoch
+    The satellites are read form a TLE file.
+
+    Parameters
+    ----------
+    coords : tuple of floats
+        (latitude, longitude, elevation) of the position on Earth. Elevation is measured in meteres.
+    t_start : float
+        Start timestamp (ctime). Converted to JD internally.
+    dt : float, optional
+        Delta between epochs, by default None which sets it to 6.44 seconds internally (accumulation time of direct spectra).
+    niter : int, optional
+        Number of iterations, by default 560
+    elevation_cutoff : float, optional
+        Altitude cutoff (in degrees) above which a satellite is considered risen, by default 1 degree.
+
+    Returns
+    -------
+    risen_sats : list of lists
+        One list of risen satellites per epoch. Each epoch's list carries the name of the risen satellite at that epoch.
+        E.g. [["FM118","NOAA15"], ["NOAA15"]]
+    """
+    
+    obs1 = sf.wgs84.latlon(*coords)
+    sats = sf.load.tle_file(tle_file)
+
+    tt = t_start
+    ts = sf.load.timescale()
+    risen_sats = []
+
+    print("Starting Time of", tt, "with a dt of", dt)
+    for iter in range(niter):
+        visible = []
+        alt_count = 0
+        jd = ctime2mjd(tt, type="JD")
+        t = ts.ut1_jd(jd)
+
+        for sat in sats:
+            # if sat.model.satnum in junk: continue
+            if sat.model.satnum not in good: continue
+            # if (
+            # "[+]" not in sat.name and "NOAA" not in sat.name
+            # ):  # extracting operational ORBCOMM ([+]) and NOAA from TLE file
+            # continue
+            diff = sat - obs1
+            topocentric = diff.at(t)
+            alt, az, dist = topocentric.altaz()
+            # print(sat.name)
+            if alt.degrees > altitude_cutoff:
+                # print(alt.degrees, az.degrees)
+                # if sat.name is None:
+                #     sat.name =
+                visible.append([sat.model.satnum, alt.degrees, az.degrees])
+        #         if(alt_count in (1,)):
+        #             print(iter,'have ',alt_count,' in beam -6 dB range', visible)
+        risen_sats.append(visible)
+        tt += dt
+    return risen_sats
+
 
 
 def get_bline_dist(coord1, coord2):
@@ -54,6 +123,7 @@ def get_bline_dist(coord1, coord2):
     dist_total = np.sqrt(delta_lat_m**2 + delta_lon_m**2 + delta_alt**2)
 
     return dist_total
+
 
 
 def get_rel_ratio(data):
@@ -230,3 +300,188 @@ def get_fringes_phase(vis, chanlist):
     phase = np.unwrap(p_vis[chan_s_idx, :]) - p_vis[chan_s_idx, 0] #zero the initial phase
     return p_vis.T, phase, chan_b_idx
 
+
+
+
+
+
+def load_json(path):
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def unix_to_lst(unix_t, coords):
+    loc = EarthLocation(lon=coords[1]*u.deg, lat=coords[0]*u.deg, height=coords[2]*u.m)
+    t_obj = Time(unix_t, format="unix", location=loc)
+    lst_time = t_obj.sidereal_time("mean").degree % 360
+    return lst_time
+
+
+def unix_to_lst_with_fix(start_unix, end_unix, coords):
+    """ 
+    Assume that interval can be no longer than 24 hrs, so that we can unwrap safely by 360
+    """
+
+    start_lst = unix_to_lst(start_unix, coords)
+    end_lst = unix_to_lst(end_unix, coords)
+
+    if start_lst > end_lst:
+        return (start_lst, end_lst + 360)
+    else:
+        return (start_lst, end_lst)
+
+
+def snr_times_single(json_path, batch_start_unix, batch_end_unix, antname, dt=1):
+    data_all = load_json(json_path)
+    data = data_all[f'{batch_start_unix}'][f'{antname}']
+
+    # make time grid
+    t_start = 0
+    t_end = batch_end_unix - batch_start_unix
+
+    time = np.arange(t_start, t_end + 1, dt)
+    snr  = np.zeros_like(time, dtype=float)
+
+    # extract pulse times (floats since chunked)
+    for block in data:
+        t0, t1 = block["times"]
+        t0 -= batch_start_unix
+        t1 -= batch_start_unix
+        snr_vals = [x[0] for x in block["SNR, Chan, Sat"]] #beware name might change here
+        n = len(snr_vals)
+
+        # get chunk boundaries (since SNR will change across them)
+        boundaries = np.linspace(t0, t1, n + 1)
+
+        for i, val in enumerate(snr_vals):
+            # seconds covered by this SNR value
+            mask = (time >= boundaries[i]) & (time < boundaries[i + 1])
+            snr[mask] = val
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    plt.rcParams.update({
+                "font.size": 16,
+                "axes.labelsize": 16,
+                "axes.titlesize": 20,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "figure.titlesize": 22,
+                "figure.dpi": 100,
+                "savefig.dpi": 300
+            })
+    ax.step(time, snr2db(snr), where="post")
+    ax.set_xlabel(f"Time after Batch Start ({int(dt)} s)")
+    ax.set_ylabel("SNR (dB)")
+    fig.suptitle(f"Antenna 1 - {antname}")
+    ax.grid(True)
+    plt.tight_layout()
+    
+    return time, snr, fig
+
+def snr2db(snrarr):
+    """
+    Sends snr as ratio to dB
+    By convention of snr_times output, sends snr of zero to 0 dB.  
+    """
+    snrarr = np.asarray(snrarr)
+    snr_db = np.where(snrarr > 0, 10 * np.log10(snrarr), 0.0)
+    return snr_db
+
+
+def snr_times_many(json_paths, 
+                    batch_starts, 
+                    batch_ends, 
+                    antname, 
+                    dt=1, 
+                    coords = [79.41717895, -90.76721818, 188.095],
+                    T_SPECTRA = 4096/250e6,
+                    c_acclen = 3e6):
+    #using coords of MARS 1 as a reference for LST
+    assert len(json_paths) == len(batch_starts)
+    assert len(json_paths) == len(batch_ends)
+    nbatches = len(json_paths)
+
+    secs, lsts, snrs = [], [], []
+    for i in range(nbatches):
+        data = load_json(json_paths[i])[f'{batch_starts[i]}'][f'{antname}']
+        secs.append(np.arange(0, batch_ends[i]-batch_starts[i] + 1, dt))
+        lsts.append(unix_to_lst_with_fix(batch_starts[i], batch_ends[i], coords))
+        snr  = np.zeros_like(secs[i], dtype=float)
+
+        # extract pulse times (floats since chunked)
+        for pulse in data:
+            t0, t1 = pulse["times"]
+            t0 -= batch_starts[i]
+            t1 -= batch_starts[i]
+            snr_vals = [x[0] for x in pulse["SNR, Chan, Sat"]]
+            n = len(snr_vals)
+
+            # get chunk boundaries (since SNR will change across them)
+            boundaries = np.linspace(t0, t1, n + 1)
+
+            for j, val in enumerate(snr_vals):
+                # seconds covered by this SNR value
+                mask = (secs[i] >= boundaries[j]) & (secs[i] < boundaries[j + 1])
+                snr[mask] = val
+        snrs.append(snr)
+
+    start_lsts = [float(lst[0]) for lst in lsts]
+    print('start lsts', start_lsts)
+    lst_min = min(start_lsts)
+    print('min lst', lst_min)
+
+    secs_raw = secs.copy()
+    snrs_raw = snrs.copy()
+
+    lst_to_sec = 240
+    aligned_secs = []
+    aligned_snrs = []
+
+    #padding at the start
+    for sec, snr, start_lst in zip(secs, snrs, start_lsts):
+        shift_sec = int((start_lst - lst_min) * lst_to_sec)
+        if shift_sec > 0:
+            print(f'Front padding triggered at {shift_sec}')
+            snr = np.pad(snr, (shift_sec, 0), constant_values=0)
+            sec = np.concatenate([np.arange(-shift_sec, 0), sec])
+        aligned_snrs.append(snr)
+        aligned_secs.append(sec)
+
+    max_len = max(len(s) for s in aligned_snrs)
+    print('max array len', max_len)
+
+    for i in range(len(aligned_snrs)):
+        pad = max_len - len(aligned_snrs[i])
+        print('pad', pad)
+        if pad > 0:
+            aligned_snrs[i] = np.pad(
+                aligned_snrs[i], (0, pad), constant_values=0
+            )
+            aligned_secs[i] = np.concatenate(
+                [aligned_secs[i], np.arange(max(aligned_secs[i]), max(aligned_secs[i]) + pad)]
+            )
+
+    
+    fig, ax = plt.subplots(nbatches, 1, figsize=(12, 4 * nbatches))
+    plt.rcParams.update({
+                "font.size": 16,
+                "axes.labelsize": 16,
+                "axes.titlesize": 20,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "figure.titlesize": 22,
+                "figure.dpi": 100,
+                "savefig.dpi": 300
+            })
+    if nbatches == 1:
+        ax = [ax]
+    fig.suptitle(f"Antenna 1 - {antname} (aligned by LST, integration time ~{int(c_acclen * T_SPECTRA)} s)")
+    for i in range(nbatches):
+        ax[i].step(aligned_secs[i], snr2db(aligned_snrs[i]), where="post")
+        ax[i].set_ylabel("SNR (dB)")
+        ax[i].grid(True)
+    
+    ax[nbatches-1].set_xlabel(f"Time after Batch Start ({int(dt)} s)")
+    plt.tight_layout()
+    
+    return secs_raw, snrs_raw, fig 
