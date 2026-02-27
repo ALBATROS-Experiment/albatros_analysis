@@ -39,6 +39,8 @@ def apply_delay(arr, delay, freqs, out=None, copy=True):
             out = cp.empty(arr.shape,dtype=arr.dtype, order='C')
         else:
             out = arr
+    # print(out.shape)
+    # print(out.flags)
     out[:] = arr * cp.exp(-2j * cp.pi * freqs[cp.newaxis,:]*delay[:,cp.newaxis])
     return out
 

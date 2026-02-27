@@ -80,6 +80,7 @@ def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,o
     start_event = cp.cuda.Event()
     end_event = cp.cuda.Event()
     ant_ptr = np.zeros(nant, dtype=np.int32)
+    T_SPECTRA = lblock * osamp / 250e6
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
         # start_event.record()
         ts1=time.time()
@@ -163,7 +164,7 @@ if __name__=="__main__":
     print("nchunks", nchunks)
     # print("loaded files", files)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    filt_thresh = 0.4
+    filt_thresh = 0.2
     # t_acclen = acclen*4096/250e6
     # sys.exit()
     nant = len(dir_parents)
