@@ -9,7 +9,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.scripts.xcorr.fine_timing import dump_upchan_baseband
-from albatros_analysis.scripts.orbcomm.get_timing_discrepancy_mod import run_from_config
+from albatros_analysis.scripts.orbcomm.get_pulse_discrepancy import get_discrepancy
 from albatros_analysis.scripts.xcorr import helper as xchelper
 import numba as nb
 import time
@@ -21,6 +21,7 @@ import cupy
 import fitting_helper as fh
 import argparse
 import json
+import gc
 
 
 if __name__ == "__main__":
@@ -28,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument("config_path", type=str)
     #parser.add_argument("pulse_list", type = list)
     parser.add_argument("-o", "--out_path", type=str, default="/scratch/thomasb")
+    parser.add_argument('-c', "--coherent", action='store_true')
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -65,33 +67,62 @@ if __name__ == "__main__":
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
 
-    discrepancy_list = []
+    master_discrepancies = {}
 
-    pulse_list = [[1753216650,1753217000,57166]]
+    pulse_path = '/scratch/thomasb/full_timing_discrepancies_1753200150/pulses2.json'
+    with open(pulse_path, "r") as f:
+        pulse_list = json.load(f)
 
     for pulse in pulse_list:
         print(pulse)
-        pulse_start_ts, pulse_end_ts = pulse[0], pulse[1]
-        satID = pulse[2]
-        nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
-        idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
-        nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-        fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}.npy"
-        print(fname)
+        pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
+        satID = pulse['sat']
+        det_chan = channels[pulse['channel']] #if want to compute with fewer channels
+        if det_chan%2 == 0:
+            compute_chans = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
+        else:
+            compute_chans = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
+
+        fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
+        print('Looking at file:', fname)
         disk_path = os.path.join(module_path, fname)
+
+        with open("/scratch/thomasb/full_timing_discrepancies_1753200150/cutting.json", "r") as f1:
+                cuts = json.load(f1)
+
         if os.path.exists(disk_path):
             print('Data already exists! Skipping Computation')
+            if fname not in cuts:
+                cuts[fname] = {'satID': int(satID)}
+                print("Wasn't in cutter, adding it!")
+        
         else:
+            nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
+            idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
+            nrows_total = nchunks * pfb_size // (osamp * new_acclen)
+    
             t1=time.time()
-            pols,new_channels=dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,disk_path,cutsize=16,filt_thresh=filt_thresh)
+            _,_=dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,disk_path,cutsize=16,filt_thresh=filt_thresh)
             t2=time.time()
             print("Total time taken", t2-t1)
-        results = run_from_config(args.config_path, disk_path, 
-                                pulse_start_ts, pulse_end_ts, satID, 
-                                output_path=module_path, osamp = osamp, plot=False)
-        discrepancy_list.append(results)
+            del _
+            gc.collect()
 
-    print(discrepancy_list)
+            #add it to cut list to know it's been computed. still need to cut manually though
+            cuts.setdefault(fname, {})['satID'] = int(satID)
 
+        with open("/scratch/thomasb/full_timing_discrepancies_1753200150/cutting.json", "w") as f2:
+            json.dump(cuts, f2, indent=4)
 
+        results = get_discrepancy(args.config_path, 
+                                    disk_path, 
+                                    satID, 
+                                    out_path=module_path, 
+                                    osamp=osamp, 
+                                    plot=True,
+                                    coherent=args.coherent)
+        print(results)
+        master_discrepancies[fname] = results
 
+    with open(os.path.join(module_path, 'times_all_coherent.json'), 'w') as f:
+        json.dump(master_discrepancies, f, indent=4)

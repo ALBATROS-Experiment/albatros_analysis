@@ -35,8 +35,6 @@ def print_memory_usage(note=""):
 
 
 
-
-
 def get_risen_sats2(tle_file, coords, t_start, satlist, dt=5, niter=560, good=None, altitude_cutoff=1):
     """Get all satellites risen at a particular point on earth at a list of epochs.
     Epochs start at t_start and a list of risen satellites is returned for every t_start + i * dt epoch

@@ -136,28 +136,23 @@ def objective_coords(
 
 def objective_coords_all(pos_offset, 
                         data,
-                        metadata,
+                        pulses,
+                        cutter,
                         ant_idxs, 
                         fit_ant_idx, 
                         ant_coords,
                         bb_spectrum_T=4096/250e6,
                         osamp=64,
                         acclen = 1024):
-    assert len(data) == len(metadata)
+    assert len(data) == len(pulses)
+    assert len(data) == len(cutter)
     chisq = 0
-    for i, info in enumerate(metadata):
-        # print(f'entry {i}')
-        # print(pos_offset)
-        # print(info[2])
-        # print(info[0])
-        # print(info[1])
-        # print(data[i])
-        # print(ant_idxs)
-        # print(fit_ant_idx) 
-        # print(ant_coords)
-        # print(info[4])
-        # print(info[3])
-        # sys.exit()
+    for i, pulse in enumerate(pulses):
+        pulse_start_ts = pulse['t_start']
+        pulse_start_ts = pulse['t_end']
+        satID = pulse['sat']
+        fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
+        
         chisq += objective_coords(
                         pos_offset,
                         info[2],
@@ -320,12 +315,18 @@ def cost_curve_all(lats,
     else:
         return chisqs
 
-config_path = '/home/thomasb/albatros_analysis/scripts/xcorr/config/config_bright_test.json'
-disk_path = '/scratch/thomasb/raw_1753216650:1753217000_bit=1_ant=7_pol=2_cha=1834:1852_tim=650_upx=64_acc=512_ipfb=0.4_complex64_regular_20260110T114008.npy'
+acclen=1024
+bb_spectrum_T = 4096/250e6
+osamp = 64
+T_SPECTRA = bb_spectrum_T * osamp
 
-out_path = '/scratch/thomasb'
-fig_path = os.path.join(out_path, f'coord_fitting')
-os.makedirs(fig_path, exist_ok=True)
+nstep = 51
+lats = np.linspace(-5, 5, nstep)
+lons = np.linspace(-5, 5, nstep)
+
+ant_idxs = ant_idxs = [0, 2, 3, 4, 5, 6]
+
+config_path = '/home/thomasb/albatros_analysis/scripts/orbcomm/config/config_batch2.json'
 
 with open(config_path, "r") as f:
     config = json.load(f)
@@ -334,53 +335,108 @@ for i, (ant, details) in enumerate(config["antennas"].items()):
     ant_coords.append(details["coordinates"])
 batch_start_ts = config["correlation"]["start_timestamp"]
 batch_end_ts = config["correlation"]["end_timestamp"]
+chanstart = config["frequency"]["start_channel"]
+chanend = config["frequency"]["end_channel"]
+channels_old = np.arange(chanstart, chanend)
 
-acclen=1024
-bb_spectrum_T = 4096/250e6
-osamp = 64
-T_SPECTRA = bb_spectrum_T * osamp
+batch_path = f'/scratch/thomasb/full_timing_discrepancies_{batch_start_ts}'
+pulse_fname = 'pulses2.json'
+cutter_fname = 'cutting.json'
+times_fname = 'times.json'
 
-satID = 57166
-chan_new = 170
+with open(os.path.join(batch_path, pulse_fname), "r") as f:
+    pulses = json.load(f)
 
-data_all = np.load(disk_path, mmap_mode='r')
-data = data_all[:, :, 60000:, chan_new]  #find way to properly cut data off the end to save space later
+with open(os.path.join(batch_path, cutter_fname), "r") as f:
+    cutter = json.load(f)
 
-nchans = data_all.shape[3]
-sat_freqs = 250e6 - ((np.arange(nchans)/osamp + 1834)/(4096/250e6))
+with open(os.path.join(batch_path, times_fname), "r") as f:
+    time_map = json.load(f)
 
+fitting_path = os.path.join(batch_path, 'coord_fitting')
+os.makedirs(fitting_path, exist_ok=True)
 
+chisq_tot = np.zeros((nstep, nstep))
 
-metadata_list = [[1753216712.91456, 1753216850, -1.265, 57166, sat_freqs[chan_new]]]
-data_list = [data]
+for pulse in pulses:
+    pulse_start_ts_file = pulse['t_start']
+    pulse_end_ts_file = pulse['t_end']
+    satID = pulse['sat']
 
+    det_chan = channels_old[pulse['channel']] #if want to compute with fewer channels
+    if det_chan%2 == 0:
+        compute_chans = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
+    else:
+        compute_chans = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
+    print('old compute chans', compute_chans)
+    
+    fname = f"data_raw_osamp={osamp}_start={pulse_start_ts_file}_end={pulse_end_ts_file}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
+    cuts = cutter[fname]
+    new_chan = cuts["new_channel"]
+    spectra_start = cuts["spectra_start"]
+    spectra_end = cuts["spectra_end"]
+    disk_path = os.path.join(f'/scratch/thomasb/full_timing_discrepancies_{batch_start_ts}/{fname}')
+    data = np.load(disk_path)
+    data_cut = data[:, :, spectra_start:-spectra_end, new_chan]
 
-nstep = 51
-lats = np.linspace(-5, 5, nstep)
-lons = np.linspace(-5, 5, nstep)
+    nchans = data.shape[3]
+    sat_freqs = 250e6 - ((np.arange(nchans)/osamp + compute_chans[0])/(4096/250e6))
+    freq = sat_freqs[new_chan]
 
-ant_idxs = ant_idxs = [0, 2, 3, 4, 5, 6]
+    pulse_start_ts = pulse_start_ts_file + T_SPECTRA*spectra_start
+    pulse_end_ts =   pulse_end_ts_file -   T_SPECTRA*spectra_end -2
 
-print(data.shape)
+    time_offset = time_map[fname]['offset_fitted']/1000
+    print('TIME OFFSET', time_offset)
 
-
-chisqs, cost_fig = cost_curve_all(lats,
+    chisqs, cost_fig = cost_curve(lats,
                                 lons,
-                                0,
-                                data_list,
-                                metadata_list,
-                                ant_idxs,
-                                1,
-                                ant_coords,
+                                0,              #alt offset
+                                time_offset,    #time offset
+                                pulse_start_ts, #tstart
+                                pulse_end_ts,   #tend
+                                data_cut,       #data slice
+                                ant_idxs,       #ant indices
+                                1,              #fit ant idx
+                                ant_coords,    
+                                freq,  
+                                satID, 
                                 bb_spectrum_T=bb_spectrum_T,
                                 osamp=osamp,
                                 include_fig = True)
+    chisq_tot += chisqs
+    cost_fig.savefig(os.path.join(fitting_path, f'coordfit_plot_{pulse_start_ts_file}.png'))
+    plt.close(cost_fig)
+    del(data)
+    del(data_cut)
+    del(chisqs)
 
-cost_fig.savefig(os.path.join(fig_path, 'test_coord_fitting.png'))
-
-
-
-
-
-
-
+fig, ax = plt.subplots()
+im = ax.imshow(
+    chisq_tot,
+    origin='lower',
+    aspect='auto',
+    cmap='viridis',
+    extent=[lats[0], lats[-1], lons[0], lons[-1]]  
+)
+plt.rcParams.update({
+            "font.size": 16,
+            "axes.labelsize": 18,
+            "axes.titlesize": 20,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "figure.titlesize": 22,
+            "legend.fontsize": 14
+        })
+ax.set_xlabel('Lat Offset ()')
+ax.set_ylabel('Lon Offset ()')
+cbar = fig.colorbar(im, ax=ax)
+cbar.set_label(r'$\chi^2$')
+ax.plot(
+    0, 0,
+    marker='x',
+    color='red',
+    markersize=10,
+    markeredgewidth=2)
+plt.tight_layout()
+plt.savefig(os.path.join(fitting_path, f'all_coordfit_plot.png'))

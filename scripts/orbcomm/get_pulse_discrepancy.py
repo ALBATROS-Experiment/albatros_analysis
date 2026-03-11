@@ -22,11 +22,13 @@ import argparse
 def objective_times(time_offset,
                     t_start, t_end,
                     data_slice, ant_idxs,
-                    ant_coords, freq,
+                    ant_coords, freqs,
                     satID,
+                    coherent = False,
                     plot=False,
                     bb_spectrum_T=4096/250e6, osamp=64, acclen = 1024,
-                    ylims = None):
+                    ylims = None
+                    ):
 
     """ 
     t_start needs to coincide with the first spectrum of the data.
@@ -56,10 +58,19 @@ def objective_times(time_offset,
     nspec = int((t_end-t_start)/T_SPECTRA)
     print('nspec total', nspec_tot)
     print('nspec', nspec)
-    data_slice = data_slice[:, :, :nspec].copy()
 
     assert nspec_tot > nspec
     assert (nspec*bb_spectrum_T) < (t_end-t_start+1)
+
+    many_chans = False
+    if data_slice.ndim == 4:
+        nchans = data_slice.shape[3]
+        many_chans = True
+        assert len(freqs) == nchans
+        data_slice = data_slice[:, :, :nspec, :].copy()
+    else:
+        assert len(freqs) == 1
+        data_slice = data_slice[:, :, :nspec].copy()
 
     chisq = 0
     sum_wt = 0
@@ -71,7 +82,6 @@ def objective_times(time_offset,
             a2_coords=ant_coords[aj]
             dist = fh.haversine(a1_coords,a2_coords)
             sum_wt += dist**2
-
 
             dly = outils.get_sat_delay2(
                                 a1_coords,
@@ -85,24 +95,39 @@ def objective_times(time_offset,
             delay = np.interp(
                 np.arange(0, nspec) * T_SPECTRA, np.arange(0, int(t_end-t_start)+1), dly
             )
-            spec2_phased = np.empty_like(data_slice[aj,0,:])
-            spec2_phased = fh.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freq)
-            Vxx = fh.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
-            spec2_phased = fh.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freq)
-            Vyy = fh.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
-            V=(Vxx+Vyy)/2
+            if many_chans:
+                spec2_phased = np.empty_like(data_slice[aj,0,:,:])
+                spec2_phased = fh.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
+                Vxx = fh.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
+                spec2_phased = fh.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
+                Vyy = fh.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
+                V=(Vxx+Vyy)/2
+                if plot:
+                    ax.plot(np.unwrap(np.angle(V[:,0]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
+                    plt.legend()
+                Vnew  =  np.exp(1j*np.angle(V))
+                if coherent:
+                    chisq -= dist**2*np.abs(np.mean(np.sum(Vnew, axis=1)))
+                else:
+                    for chan_idx in range(nchans):
+                        chisq -= dist**2*np.abs(np.mean(Vnew[:,chan_idx]))**2 
 
-
-            if plot:
-                ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')
-                plt.legend()
-
-            
-            Vnew = np.exp(1j*np.angle(V))
-            chisq-= dist**2*np.abs(np.mean(Vnew))**2 
+            else:
+                spec2_phased = np.empty_like(data_slice[aj,0,:])
+                spec2_phased = fh.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
+                Vxx = fh.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
+                spec2_phased = fh.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
+                Vyy = fh.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
+                V=(Vxx+Vyy)/2
+                if plot:
+                    ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')
+                    plt.legend()
+                Vnew  =  np.exp(1j*np.angle(V))
+                chisq -= dist**2*np.abs(np.mean(Vnew))**2 
     chisq/=sum_wt
     print('time for objective compute:', time.time()-process_start_ts)
     print("offset", time_offset, "chisq", chisq)
+    print('nchans', len(freqs))
 
     if plot:
         ax.set_xlabel(f"Visibility Chunk(~{np.round(T_SPECTRA*acclen, decimals=2)} s)")
@@ -125,8 +150,9 @@ def cost_curve(offset_start, offset_end,
                 ntimes,
                 batch_start_ts,batch_end_ts,
                 data_slice, ant_idxs,
-                ant_coords, freq,
+                ant_coords, freqs,
                 satID,
+                coherent = False,
                 bb_spectrum_T=4096/250e6, osamp=64,
                 include_fig=False, vline = None):
     """ 
@@ -143,9 +169,10 @@ def cost_curve(offset_start, offset_end,
                             data_slice,
                             ant_idxs,
                             ant_coords,
-                            freq,
+                            freqs,
                             satID,
                             plot=False,
+                            coherent = coherent,
                             bb_spectrum_T=bb_spectrum_T,
                             osamp=osamp)
     
@@ -162,13 +189,13 @@ def cost_curve(offset_start, offset_end,
         return offsets, chisqs, None
 
 
-def run_from_config(config_path, 
+def get_discrepancy(config_path, 
                     disk_path,
-                    pulse_start_ts, pulse_end_ts, 
                     satID,
                     osamp=64,
-                    output_path="/scratch/thomasb", 
-                    plot=False):
+                    out_path="/scratch/thomasb", 
+                    plot=False,
+                    coherent=False):
 
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -190,33 +217,57 @@ def run_from_config(config_path,
     data_all = np.load(disk_path, mmap_mode='r')
     print(data_all.shape)
 
+    fname = os.path.basename(disk_path)
+    parts = fname.split("_")
+    pulse_start_ts_file = int(parts[3].split("=")[1])
+    pulse_end_ts_file = int(parts[4].split("=")[1])
+    chan_range = parts[5].split("=")[1].split(".")[0]
+    old_chan_start, old_chan_end = map(int, chan_range.split(":"))
+    print('pulse start file:', pulse_start_ts_file)
+    print(old_chan_start, old_chan_end)
+
+    #batch_path = os.path.join(out_path, f'full_timing_discrepancies_{batch_start_ts}')
+    #os.makedirs(batch_path, exist_ok=True)
+
     #-----------------------SET GLOBAL VARIABLE STUFF--------------
     acclen = 1024
     bb_spectrum_T = 4096/250e6
     T_SPECTRA = bb_spectrum_T * osamp
     nchans = data_all.shape[3]
-    sat_freqs = 250e6 - ((np.arange(nchans)/osamp + 1834)/(4096/250e6))  #put as chan_start instead of 1834?
+    sat_freqs = 250e6 - ((np.arange(nchans)/osamp + old_chan_start)/(4096/250e6))  #put as chan_start instead of 1834?
     ant_idxs = [0, 2, 3, 4, 5, 6]
 
     #IMPROVE LATER====
-    start_spectrum = fh.get_start_specnum(pulse_start_ts, dir_parents[0])
+    #still reliant on the function giving the same starting spectrum for each iteration
+    start_spectrum = fh.get_start_specnum(pulse_start_ts_file, dir_parents[0])
 
-    #--------------------------PULSE DEPENDENT STUFF------------
-    ####
-    #how to pick the channel and how to cut this thing properly???
+    #CUTTING DATA-------------------------------------
 
-    cut_spectra_start = 60000
-    cut_seconds_end = 150
-    chan_new = 170
+    cutting_path = os.path.join(out_path, 'cutting.json')
+    with open(cutting_path, "r") as f:
+        cutter = json.load(f)
+    cut_spectra_start = cutter[fname]["spectra_start"]
+    cut_spectra_end = cutter[fname]["spectra_end"]
+    assert cut_spectra_end>0
+    chans_new = cutter[fname]["new_chans"]
+    if len(chans_new)==1:
+        chans_new = np.array(chans_new)
+    else:
+        chans_new = np.arange(chans_new[0], chans_new[1])
 
-    freq = sat_freqs[chan_new]
-    pulse_start_ts = pulse_start_ts + T_SPECTRA* cut_spectra_start
-    pulse_end_ts = pulse_end_ts - cut_seconds_end
+    print(chans_new)
+    #sys.exit()
+
+    freqs = sat_freqs[chans_new]
+    pulse_start_ts = pulse_start_ts_file + T_SPECTRA*cut_spectra_start
+    pulse_end_ts =   pulse_end_ts_file -   T_SPECTRA*cut_spectra_end -2
 
     print('starting data slice')
-    data_slice_cut = data_all[:, :, cut_spectra_start:, chan_new]
+    data_slice_cut = data_all[:, :, cut_spectra_start:-cut_spectra_end, chans_new]
     print('done data slice')
 
+    #is this necessary?
+    #start_spectrum += cut_spectra_start
 
     #========================COMPUTE======================
     #UNFITTED INITIAL CHISQ (with phase plot)------------
@@ -224,12 +275,12 @@ def run_from_config(config_path,
     chisq_unfitted, phases_fig_unfitted = objective_times(0,
                                         pulse_start_ts, pulse_end_ts,
                                         data_slice_cut, ant_idxs,
-                                        ant_coords, freq,
+                                        ant_coords, freqs,
                                         satID,
                                         plot=True,
                                         bb_spectrum_T=bb_spectrum_T,
                                         osamp=osamp,
-                                        ylims=[-50, 70]
+                                        coherent=coherent
                                         )
 
     #COST CURVE----------------------
@@ -238,13 +289,14 @@ def run_from_config(config_path,
                                         101, 
                                         pulse_start_ts, pulse_end_ts, 
                                         data_slice_cut, ant_idxs, 
-                                        ant_coords, freq, 
+                                        ant_coords, freqs, 
                                         satID, 
+                                        coherent=coherent,
                                         bb_spectrum_T=bb_spectrum_T, 
                                         osamp=osamp,
-                                        include_fig=True)
+                                        include_fig=True
+                                        )
     offset_guess = offsets[np.argmin(chisqs)]
-
 
     #FIT FOR MINIMUM USING COST CURVE GUESS--------------
     print('starting fit')
@@ -252,8 +304,9 @@ def run_from_config(config_path,
                         offset_guess,
                         args=(pulse_start_ts, pulse_end_ts, 
                                 data_slice_cut, ant_idxs, 
-                                ant_coords, freq, 
+                                ant_coords, freqs, 
                                 satID,
+                                coherent,
                                 False,
                                 bb_spectrum_T,
                                 osamp,
@@ -267,8 +320,9 @@ def run_from_config(config_path,
     chisq_fitted, phases_fig_fitted = objective_times(offset_fitted,
                                     pulse_start_ts, pulse_end_ts,
                                     data_slice_cut, ant_idxs,
-                                    ant_coords, freq,
+                                    ant_coords, freqs,
                                     satID,
+                                    coherent=coherent,
                                     plot=True,
                                     bb_spectrum_T=bb_spectrum_T,
                                     osamp=osamp
@@ -285,8 +339,9 @@ def run_from_config(config_path,
                                             101, 
                                             pulse_start_ts, pulse_end_ts, 
                                             data_slice_cut, ant_idxs, 
-                                            ant_coords, freq, 
+                                            ant_coords, freqs, 
                                             satID,
+                                            coherent=coherent,
                                             include_fig=True,
                                             bb_spectrum_T=bb_spectrum_T, 
                                             osamp=osamp,
@@ -294,7 +349,7 @@ def run_from_config(config_path,
                                             )
 
         #MAKE DIR AND SAVE---------------------
-        figpath = os.path.join(module_out_path, f"timing_discrepancies_{batch_start_ts}_{satID}")
+        figpath = os.path.join(out_path, f"discrep_plots_{pulse_start_ts_file}_{satID}_c={coherent}")
         os.makedirs(figpath, exist_ok=True)
         plt.rcParams.update({
             "font.size": 16,
@@ -306,17 +361,21 @@ def run_from_config(config_path,
             "legend.fontsize": 14
         })
         phases_fig_unfitted.savefig(os.path.join(figpath, 'unfitted_phases.png'))
+        plt.close(phases_fig_unfitted)
         cost_fig.savefig(os.path.join(figpath, 'cost_curve_initial.png'))
+        plt.close(cost_fig)
         cost_fig_zoomed.savefig(os.path.join(figpath, 'cost_curve_zoomed.png'))
-        phases_fig_fitted_unzoomed.savefig(os.path.join(figpath, 'fitted_phases_unzoomed.png'))
-        phases_fig_fitted_zoomed.savefig(os.path.join(figpath, 'fitted_phases_zoomed.png'))
-
+        plt.close(cost_fig_zoomed)
+        phases_fig_fitted.savefig(os.path.join(figpath, 'fitted_phases_unzoomed.png'))
+        plt.close(phases_fig_fitted)
+        
     return {
-        "offset_fitted": offset_fitted,
-        "chisq_fitted": chisq_fitted,
-        "chisq_unfitted": chisq_unfitted,
-        "offset_guess": offset_guess,
-        "start_spectrum": start_spectrum
+        "offset_fitted": int(offset_fitted*1000),
+        "chisq_fitted": int(chisq_fitted*1000),
+        #"chisq_unfitted": chisq_unfitted,
+        #"offset_guess": offset_guess,
+        "start_spectrum": int(start_spectrum),
+        "pulse_start_ts": int(pulse_start_ts_file)
     }
 
 if __name__ == "__main__":
@@ -324,8 +383,15 @@ if __name__ == "__main__":
     parser.add_argument("config_path", type=str)
     parser.add_argument("disk_path", type=str)
     parser.add_argument("satID", type=int)
-    parser.add_argument("-o", "--output_path", type=str, default="/scratch/thomasb")
+    parser.add_argument("-o", "--out_path", type=str, default="/scratch/thomasb")
+    parser.add_argument('-p', '--plot', action='store_true')
+    parser.add_argument('-c', '--coherent', action='store_true')
     args = parser.parse_args()
 
-    results = run_from_config(args.config_path, args.disk_path, args.satID, output_path=args.output_path)
+    results = get_discrepancy(args.config_path, 
+                            args.disk_path,
+                            args.satID, 
+                            out_path=args.out_path, 
+                            plot=args.plot,
+                            coherent=args.coherent)
     print("Results:", results)
