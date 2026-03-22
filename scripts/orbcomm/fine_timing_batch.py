@@ -27,14 +27,16 @@ import mohan_timing as mt
 sys.path.append(os.path.expanduser('~'))
 
 path_config = "/home/thomasb/albatros_analysis/scripts/orbcomm/config/config_batch2.json"
-fname_pulses = "pulses2.json"
-fname_cutter = "cutting.json"
-fname_cutter2 = 'cutting_finetiming.json'
-fname_map = 'times_all_incoherent.json'
+fname_pulses = "data/pulses2.json"
+fname_cutter = "timing_discrepancies/cutting.json"
+fname_cutter2 = 'fine_timing/cutting.json'
+fname_map = 'timing_discrepancies/times_all_incoherent.json'
 
-batch_path = '/scratch/thomasb/full_timing_discrepancies_1753200150'
-finetiming_out = os.path.join(batch_path, 'fine_timing')
+path_batch = '/scratch/thomasb/batch_1753200150'
+finetiming_out = os.path.join(path_batch, 'fine_timing')
 os.makedirs(finetiming_out, exist_ok=True)
+debugplot_out = os.path.join(finetiming_out, 'debugplots')
+os.makedirs(debugplot_out, exist_ok=True)
 
 with open(path_config, "r") as f:
     config = json.load(f)
@@ -54,9 +56,7 @@ nant_used = len(ant_idxs)
 T_SPECTRA = 4096/250e6 * osamp
 spec_per_UTC = 1.638400946109685e-05
 UTC_offset = 1753200128.469018
-plot = False
-
-path_batch = f'/scratch/thomasb/full_timing_discrepancies_{batch_start_ts}'
+plot = True
 
 path_pulses = os.path.join(path_batch, fname_pulses)
 with open(path_pulses, "r") as f_pulses:
@@ -91,6 +91,10 @@ for idx_pulse in range(len(pulse_list)):
         chans_old = np.arange(chan_det-1, chan_det+3) + 1834
 
     fname_data = f"data_raw_osamp=64_start={pulse_start_ts}_end={pulse_end_ts}_chans={chans_old[0]}:{chans_old[-1]}.npy"
+    
+    if plot ==True:
+        pulse_out = os.path.join(debugplot_out, f'pulse_{pulse_start_ts}')
+        os.makedirs(pulse_out, exist_ok=True)
     cut = cutter_dict[fname_data]
     cut2 = cutter_dict2[fname_data]
     map = map_dict[fname_data]
@@ -119,7 +123,7 @@ for idx_pulse in range(len(pulse_list)):
     freqs = 250e6-freqs
     print(freqs.shape)
 
-    data_all = np.load(os.path.join(path_batch, fname_data))
+    data_all = np.load(os.path.join(path_batch, 'data', fname_data))
     data = data_all[:, :, spectra_cut_start:spectra_cut_end, chans_new]
     print(data.shape)
     nant_tot = data.shape[0]
@@ -197,7 +201,7 @@ for idx_pulse in range(len(pulse_list)):
 
     #=====PLOT THE PHASE NOISE
     if plot == True:
-        fig1.savefig(os.path.join(finetiming_out,"phases_unfitted.png"))
+        fig1.savefig(os.path.join(pulse_out,"phases_unfitted.png"))
 
         fig2, ax = plt.subplots()
         for bl in range(n_blines):
@@ -207,7 +211,7 @@ for idx_pulse in range(len(pulse_list)):
         ax.set_xlabel("Time (s)")
         ax.set_ylim(0.05,2)
         ax.grid(True)
-        fig2.savefig(os.path.join(finetiming_out,"noise.png"))
+        fig2.savefig(os.path.join(pulse_out,"noise.png"))
         plt.close(fig2)
         
     noise_var = median_filter(thermal_noise[:,:],3,axes=1)**2
@@ -263,14 +267,14 @@ for idx_pulse in range(len(pulse_list)):
     if plot == True:
         fig3, ax3 = plt.subplots()
         ax3.plot(taus_fitted)
-        fig3.savefig(os.path.join(finetiming_out, 'fitted_taus.png'))
+        fig3.savefig(os.path.join(pulse_out, 'fitted_taus.png'))
 
         fig4, ax4 = plt.subplots()
         ax4.plot(taus_unwrapped[:,:],label=labels)
         ax4.set_ylabel('Relative Delay (ns)')
         ax4.set_xlabel('Time (s)')
         ax4.legend()
-        fig4.savefig(os.path.join(finetiming_out, "taus_unwrapped.png"))
+        fig4.savefig(os.path.join(pulse_out, "taus_unwrapped.png"))
 
 
     fig5,ax5 = plt.subplots(5,3, constrained_layout=True)
@@ -299,7 +303,7 @@ for idx_pulse in range(len(pulse_list)):
     # plt.tight_layout()
     if plot == True:
         fig5.suptitle(f"stokes I (phase), int. time {T_SPECTRA*acclen:4.2f}s")
-        fig5.savefig(os.path.join(finetiming_out, 'fitted_phases.png'))
+        fig5.savefig(os.path.join(pulse_out, 'fitted_phases.png'))
 
     #take average across time once aligned to boost SNR
     avg_multi_vis = np.mean(phased_vis,axis=1)
@@ -317,11 +321,12 @@ for idx_pulse in range(len(pulse_list)):
         noise_matrix_avg[0,bl] = np.std(residual)
     print(noise_matrix_avg)
 
+
+    #=======FINAL FIT
     ntime2=1
     nant=6
     nbl=nant*(nant-1)//2
 
-    #can now just fit linearly using normal equations
     data_matrix = np.unwrap(np.angle(avg_multi_vis),axis=0)
     data_matrix = data_matrix.reshape(ntime2,nchans,nbl)
 
@@ -338,22 +343,26 @@ for idx_pulse in range(len(pulse_list)):
                                 fit_constant=True)
 
     AtA_inv2 = np.linalg.inv(AtA2)
-
     mfit2 = AtA_inv2 @ Atd2
 
     # Total parameters for tau: ntime * (nant-1)
     bs = nant - 1
     tau_linear2 = mfit2[:ntime2 * bs]
     phi_linear2 = mfit2[ntime2 * bs:]
-    print(np.sqrt(np.diag(AtA_inv2)))
-    print(tau_linear2)
+    errs_all = np.sqrt(np.diag(AtA_inv2))
 
     taus_fitted_all = tau_linear2[:, np.newaxis] + taus_unwrapped.T
+    taus_errs_all = errs_all[:bs]
 
     with h5py.File(os.path.join(finetiming_out, 'finetiming_dump1.h5'), 'a') as f:
-        if fname_data in f:
-            del f[fname_data]
-        ds = f.create_dataset(fname_data, data=taus_fitted_all)
-        ds.attrs['starting_specnum'] = pulse_start_spec
+        if fname_data not in f:
+            grp = f.create_group(fname_data)
+        else:
+            grp = f[fname_data]
+        if 'taus' in grp:
+            del grp['taus']
+        taus = grp.create_dataset('taus', data=taus_fitted_all)
+        taus.attrs['starting_specnum'] = pulse_start_spec
+        taus_errs = grp.create_dataset('errs', data = taus_errs_all)
 
 print('done!')
