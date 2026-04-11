@@ -19,10 +19,9 @@ from scipy.optimize import minimize,check_grad,least_squares
 from scipy.ndimage import median_filter 
 from skyfield.api import load, wgs84
 
-import fitting_helper as fh
+import helper_discrepancies as hd
+import helper_finetiming as hf
 import figures as fgs
-import mohan_timing as mt
-
 
 sys.path.append(os.path.expanduser('~'))
 
@@ -51,11 +50,15 @@ osamp = config['correlation']['osamp']
 acclen = config['correlation']['new_acclen']
 
 ant_idxs = [0, 2, 3, 4, 5, 6]
+n_blines = len(ant_idxs)*(len(ant_idxs)-1)//2
 antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
 nant_used = len(ant_idxs)
 T_SPECTRA = 4096/250e6 * osamp
+
+#batch2
 spec_per_UTC = 1.638400946109685e-05
 UTC_offset = 1753200128.469018
+
 plot = True
 
 path_pulses = os.path.join(path_batch, fname_pulses)
@@ -77,19 +80,32 @@ with open(path_map, "r") as f_map:
 taus_fitted_all = {}
 overflow = False
 pulse_start_spec = 0
+
+
 for idx_pulse in range(len(pulse_list)):
+    #get pulse start/end times from file
     print(f'=======STARTING PULSE INDEX {idx_pulse}')
     pulse = pulse_list[idx_pulse]
     pulse_start_ts,pulse_end_ts=pulse['t_start'],pulse['t_end']
+
+    #determine sat type and if masking is necessary
     satID = pulse['sat']
+    assert satID in {28654,25338,33591,57166,59051}
+    if satID in {59051, 57166}:
+        masking = False
+    if satID in {28654,25338,33591}:
+        masking = True
+    print(f'Masking is {masking}')
+
+    #get baseband detection channels
     chan_det = pulse['channel']
     print('detection channel', chan_det)
-
     if chan_det%2 == 0:
         chans_old = np.arange(chan_det-2, chan_det+2) + 1834
     else:
         chans_old = np.arange(chan_det-1, chan_det+3) + 1834
 
+    #get data filename
     fname_data = f"data_raw_osamp=64_start={pulse_start_ts}_end={pulse_end_ts}_chans={chans_old[0]}:{chans_old[-1]}.npy"
     
     if plot ==True:
@@ -99,15 +115,15 @@ for idx_pulse in range(len(pulse_list)):
     cut2 = cutter_dict2[fname_data]
     map = map_dict[fname_data]
 
+    #via cutting json, get new channels and cut spectra
+    spectra_cut_start,spectra_cut_end=cut2['spectra_start'],cut2['spectra_end']
     chan_new_start, chan_new_end  = cut["new_chans"]
     chans_new = np.arange(chan_new_start, chan_new_end)
-    spectra_cut_start,spectra_cut_end=cut2['spectra_start'],cut2['spectra_end']
-
     nchans = len(chans_new)
-    n_blines = len(ant_idxs)*(len(ant_idxs)-1)//2
     print(nchans)
     print(chans_new)
 
+    #get proper start time/end time via discrep fits
     new_pulse_start = map["start_spectrum"] + spectra_cut_start * 64
     if new_pulse_start < pulse_start_spec - 2**30: 
         overflow = True
@@ -118,15 +134,17 @@ for idx_pulse in range(len(pulse_list)):
     pulse_start_fitted = spec_per_UTC*pulse_start_spec + UTC_offset
     print('fitted starting UTC',pulse_start_fitted)
 
+    #get TLE path, frequencies in our data
     tle_path = outils.get_tle_file(pulse_start_fitted, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     freqs = (chans_new/64 + chans_old[0])*250e6/4096
     freqs = 250e6-freqs
     print(freqs.shape)
 
+    #load up the data
     data_all = np.load(os.path.join(path_batch, 'data', fname_data))
     data = data_all[:, :, spectra_cut_start:spectra_cut_end, chans_new]
     print(data.shape)
-    nant_tot = data.shape[0]
+    nant = data.shape[0]
 
     #=======GET VISIBILITIES
     multi_vis = np.zeros((n_blines, data.shape[2]//acclen, data.shape[3]), dtype='complex64', order='c')
@@ -165,6 +183,16 @@ for idx_pulse in range(len(pulse_list)):
                 multi_vis[bl_proc,:,:] = (Vxx+Vyy)/2
                 bl_proc+=1
                 print("done", ai,aj,".Processed",bl_proc, "baselines")
+
+
+
+
+
+
+
+
+
+
 
     #=====MAKE PHASE PLOTS, CALCULATE THERMAL NOISE
     nant=7

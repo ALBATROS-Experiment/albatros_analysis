@@ -16,7 +16,7 @@ import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
 import cupy
-import fitting_helper as fh
+import helper_discrepancies as hd
 import argparse
 
 def objective_times(time_offset,
@@ -59,7 +59,7 @@ def objective_times(time_offset,
     print('nspec total', nspec_tot)
     print('nspec', nspec)
 
-    assert nspec_tot > nspec
+    assert nspec_tot >= nspec
     assert (nspec*bb_spectrum_T) < (t_end-t_start+1)
 
     many_chans = False
@@ -80,7 +80,7 @@ def objective_times(time_offset,
             aj = ant_idxs[j]
             a1_coords=ant_coords[ai]
             a2_coords=ant_coords[aj]
-            dist = fh.haversine(a1_coords,a2_coords)
+            dist = hd.haversine(a1_coords,a2_coords)
             sum_wt += dist**2
 
             dly = outils.get_sat_delay2(
@@ -97,10 +97,10 @@ def objective_times(time_offset,
             )
             if many_chans:
                 spec2_phased = np.empty_like(data_slice[aj,0,:,:])
-                spec2_phased = fh.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
-                Vxx = fh.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
-                spec2_phased = fh.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
-                Vyy = fh.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
+                spec2_phased = hd.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
+                Vxx = hd.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
+                spec2_phased = hd.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
+                Vyy = hd.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V[:,0]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
@@ -110,14 +110,14 @@ def objective_times(time_offset,
                     chisq -= dist**2*np.abs(np.mean(np.sum(Vnew, axis=1)))
                 else:
                     for chan_idx in range(nchans):
-                        chisq -= dist**2*np.abs(np.mean(Vnew[:,chan_idx]))**2 
+                        chisq -= dist**2*np.abs(np.mean(Vnew[:,chan_idx]))**2
 
             else:
                 spec2_phased = np.empty_like(data_slice[aj,0,:])
-                spec2_phased = fh.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
-                Vxx = fh.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
-                spec2_phased = fh.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
-                Vyy = fh.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
+                spec2_phased = hd.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
+                Vxx = hd.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
+                spec2_phased = hd.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
+                Vyy = hd.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')
@@ -196,7 +196,7 @@ def get_discrepancy(config_path,
                     out_path="/scratch/thomasb", 
                     plot=False,
                     coherent=False):
-
+    print(f'Starting Discrepancy Fit for {disk_path}')
     with open(config_path, "r") as f:
         config = json.load(f)
     ant_coords, dir_parents = [], []
@@ -239,17 +239,17 @@ def get_discrepancy(config_path,
 
     #IMPROVE LATER====
     #still reliant on the function giving the same starting spectrum for each iteration
-    start_spectrum = fh.get_start_specnum(pulse_start_ts_file, dir_parents[0])
+    start_spectrum = hd.get_start_specnum(pulse_start_ts_file, dir_parents[0])
 
     #CUTTING DATA-------------------------------------
 
-    cutting_path = os.path.join(out_path, 'cutting.json')
+    cutting_path = os.path.join(out_path, 'data/cutting_discrep.json')
     with open(cutting_path, "r") as f:
         cutter = json.load(f)
     cut_spectra_start = cutter[fname]["spectra_start"]
     cut_spectra_end = cutter[fname]["spectra_end"]
     assert cut_spectra_end>0
-    chans_new = cutter[fname]["new_chans"]
+    chans_new = cutter[fname]["cut_chans"]
     if len(chans_new)==1:
         chans_new = np.array(chans_new)
     else:
@@ -260,10 +260,10 @@ def get_discrepancy(config_path,
 
     freqs = sat_freqs[chans_new]
     pulse_start_ts = pulse_start_ts_file + T_SPECTRA*cut_spectra_start
-    pulse_end_ts =   pulse_end_ts_file -   T_SPECTRA*cut_spectra_end -2
+    pulse_end_ts =   pulse_start_ts_file +  T_SPECTRA*cut_spectra_end 
 
     print('starting data slice')
-    data_slice_cut = data_all[:, :, cut_spectra_start:-cut_spectra_end, chans_new]
+    data_slice_cut = data_all[:, :, cut_spectra_start:cut_spectra_end, chans_new]
     print('done data slice')
 
     #is this necessary?

@@ -18,7 +18,7 @@ import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
 import cupy
-import fitting_helper as fh
+import helper_discrepancies as hd
 import argparse
 import json
 import gc
@@ -47,6 +47,7 @@ if __name__ == "__main__":
         print(ref_ant, ant, details)
         dir_parents.append(details["path"])
         spec_offsets.append(details["clock_offset"])
+        ant_coords.append(details["coordinates"])
 
     batch_start_ts = config["correlation"]["start_timestamp"]
     batch_end_ts = config["correlation"]["end_timestamp"]
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     nant = len(dir_parents)
     npol = 2
 
-    module_path = os.path.join(args.out_path, f"full_timing_discrepancies_{batch_start_ts}")
+    module_path = os.path.join(args.out_path, f"batch_{batch_start_ts}")
     os.makedirs(module_path, exist_ok=True)
 
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
@@ -69,11 +70,12 @@ if __name__ == "__main__":
 
     master_discrepancies = {}
 
-    pulse_path = '/scratch/thomasb/full_timing_discrepancies_1753200150/pulses2.json'
+    pulse_path = f'/scratch/thomasb/batch_{batch_start_ts}/data/pulses.json'
     with open(pulse_path, "r") as f:
         pulse_list = json.load(f)
 
-    for pulse in pulse_list:
+    for i, pulse in enumerate(pulse_list):
+        print(f'STARTING PULSE {i}\n')
         print(pulse)
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
         satID = pulse['sat']
@@ -85,34 +87,81 @@ if __name__ == "__main__":
 
         fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
         print('Looking at file:', fname)
-        disk_path = os.path.join(module_path, fname)
+        disk_path = os.path.join(module_path, 'data', fname)
 
-        with open("/scratch/thomasb/full_timing_discrepancies_1753200150/cutting.json", "r") as f1:
-                cuts = json.load(f1)
+        cutter_path = f"/scratch/thomasb/batch_{batch_start_ts}/data/cutting_discrep.json"
+        if not os.path.exists(cutter_path):
+            os.makedirs(os.path.dirname(cutter_path), exist_ok=True)
+            with open(cutter_path, "w") as f:
+                json.dump({}, f)  # or whatever default you want`
+        with open(cutter_path, "r") as f1:
+            cuts = json.load(f1)
 
-        if os.path.exists(disk_path):
-            print('Data already exists! Skipping Computation')
-            if fname not in cuts:
-                cuts[fname] = {'satID': int(satID)}
-                print("Wasn't in cutter, adding it!")
-        
+        if os.path.exists(disk_path) and (fname in cuts):
+            print('Data already computed and cut! Skipping Computation')
+            
+        elif os.path.exists(disk_path):
+            print('Data exists but still have to cut it!')
+            print('Loading Data')
+            data_all = np.load(disk_path)
+            new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
+            freqs = 250e6 - (new_chans/(4096/250e6))
+            print('Computing V')
+            V = hd.efield_to_vis(data_all,
+                                pulse_start_ts,
+                                pulse_end_ts-1,
+                                [0, 2, 3, 4, 5, 6],        
+                                ant_coords,
+                                satID,
+                                freqs,
+                                acclen = new_acclen,
+                                osamp = osamp,
+                                bb_spectrum_T = 4096/250e6)
+            print('Cutting')
+            start_spectrum, end_spectrum, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cuts[fname] = {'satID': satID,
+                            'spectra_start': start_spectrum,
+                            'spectra_end': end_spectrum,
+                            'cut_chans': cut_chans}
+
+
         else:
+            print('Need to make data and cut it!')
             nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
             idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
             nrows_total = nchunks * pfb_size // (osamp * new_acclen)
     
             t1=time.time()
-            _,_=dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,disk_path,cutsize=16,filt_thresh=filt_thresh)
+            baseband, _ =dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,disk_path,cutsize=16,filt_thresh=filt_thresh)
             t2=time.time()
             print("Total time taken", t2-t1)
-            del _
+
+            new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
+            freqs = 250e6 - (new_chans/(4096/250e6))
+            V = hd.efield_to_vis(baseband,
+                                pulse_start_ts,
+                                pulse_end_ts-1,
+                                [0, 2, 3, 4, 5, 6],        
+                                ant_coords,
+                                satID,
+                                freqs,
+                                acclen = new_acclen,
+                                osamp = osamp,
+                                bb_spectrum_T = 4096/250e6)
+
+            start_spectrum, end_spectrum, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cuts[fname] = {'satID': satID,
+                            'spectra_start': start_spectrum,
+                            'spectra_end': end_spectrum,
+                            'cut_chans': cut_chans}
+
+            del baseband
             gc.collect()
 
-            #add it to cut list to know it's been computed. still need to cut manually though
-            cuts.setdefault(fname, {})['satID'] = int(satID)
-
-        with open("/scratch/thomasb/full_timing_discrepancies_1753200150/cutting.json", "w") as f2:
+        
+        with open(f"/scratch/thomasb/batch_{batch_start_ts}/data/cutting_discrep.json", "w") as f2:
             json.dump(cuts, f2, indent=4)
+        print('Saved to Cutting Json')
 
         results = get_discrepancy(args.config_path, 
                                     disk_path, 
