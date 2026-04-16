@@ -20,11 +20,25 @@ def _print_class_mem_usage(arr_dict, header):
     lines.append(f"Total memory: {total_mem/1e6:.2f} MB")
     return "\n".join(lines)
 
+def as_slice_if_contiguous(idx):
+    idx = cp.asarray(idx)
+    if idx.ndim == 1 and len(idx) > 0:
+        d = cp.diff(idx)
+        if cp.all(d == 1):
+            return slice(idx[0], idx[-1] + 1)
+    return idx
+
 class StreamingPFB():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
-    def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming'):
+    def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming', dtype='float'):
+        if dtype=='float':
+            self.dtype = 'float32'
+            self.fft = pycufft.rfft
+        else:
+            self.dtype = 'complex64'
+            self.fft = pycufft.fft
         self.nant = nant
         self.npol = npol
         self.nchan =lblock//2+1
@@ -33,14 +47,14 @@ class StreamingPFB():
         self.timestream_size = timestream_size
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
-        self.win = self.win.astype("float32")
+        self.win = self.win.astype(self.dtype)
         self.win = self.win.reshape(ntap, lblock)
         self.nblock = timestream_size // lblock
         self.rem = timestream_size % lblock
         self.overlap = (self.ntap - 1)*self.lblock
         # print(f"tssize: {timestream_size}\noverlap: {self.overlap}\nrem: {self.rem}\nnblock: {self.nblock}\nlblock: {self.lblock}\n")
-        self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype='float32', order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
-        self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype='float32', order='C') #little bit extra to accomodate rem spillover
+        self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype=self.dtype, order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
+        self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype=self.dtype, order='C') #little bit extra to accomodate rem spillover
         # print("rembuf size", self.rembuf.shape)
         self.remptr = cp.zeros((self.nant, self.npol), dtype='int32')
     
@@ -60,7 +74,7 @@ class StreamingPFB():
             #onwards to pfb
             y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
-            out = pycufft.rfft(y,axis=1)
+            out = self.fft(y,axis=1)
             self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
         self.rembuf[antidx, polidx,  : incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr[antidx, polidx] = incoming - used
@@ -88,6 +102,8 @@ class StreamingIPFB():
         self.npol = npol
         self.read_size = nblock - 2*cut
         self.channels = cp.asarray(channels, dtype='int32')
+        self.chan_sel = as_slice_if_contiguous(self.channels)
+        print("chan_select from IPFB", self.chan_sel)
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
         self.cut = cut
@@ -109,11 +125,11 @@ class StreamingIPFB():
         # print("incoming spectra shape", spectra.shape)
         assert spectra.shape[0]==self.read_size #incoming spectra is pfbsize - 2*cut
         # print("specbuf slice shape", self.specbuf[antidx,polidx,2*self.cut:, :].shape,self.specbuf[antidx,polidx,2*self.cut:, :].flags )
-        self.specbuf[antidx,polidx,2*self.cut:, :][:,self.channels] = spectra
+        self.specbuf[antidx,polidx,2*self.cut:, :][:,self.chan_sel] = spectra
         dd=pycufft.irfft(self.specbuf[antidx, polidx , :, :],axis=1)
         assert dd.flags.c_contiguous and dd.base is None
         if self.cut > 0:
-            self.specbuf[antidx, polidx, :2*self.cut, :][:, self.channels] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
+            self.specbuf[antidx, polidx, :2*self.cut, :][:, self.chan_sel] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
         dd2=dd.T.copy()
         ddft=pycufft.rfft(dd2,axis=1)
         #print("DDFT", ddft)
@@ -161,7 +177,7 @@ class StreamingIPFB_IQ():
         self.read_size = nblock - 2*cut
         self.channels = cp.asarray(channels, dtype='int32')
         # self.lblock = 2* 2**(int(np.log2(len(channels))) + 1) # closest multiple of 2 times 2 (for nyquist)
-        self.lblock = next_fast_len(2 * (len(channels))) #rely on scipy for fast lengths
+        self.lblock = next_fast_len(2 *len(channels)+1) #rely on scipy for fast lengths
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
         self.cut = cut
@@ -202,7 +218,7 @@ class StreamingIPFB_IQ():
             "matft": self.matft,
         }
         header = (
-            f"StreamingIPFB(nant={self.nant}, npol={self.npol}, "
+            f"StreamingIPFB_IQ(nant={self.nant}, npol={self.npol}, "
             f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)}, cut={self.cut})"
         )
         return _print_class_mem_usage(arrays, header)
@@ -214,10 +230,12 @@ class StreamingCorrelator():
         self.npol = npol
         self.acclen = acclen
         self.channels = cp.asarray(channels, dtype='int32')
+        self.chan_sel = as_slice_if_contiguous(self.channels)
+        print("chan_select from correlator", self.chan_sel)
         self.nchan = len(channels)
         self.split = split
         self.bufsize = int(bufsize_frac * acclen)
-        print("XCORR CHANNELS", self.channels)
+
         self.inp = cp.zeros((nant*npol, self.bufsize, self.nchan), dtype="complex64", order="C") #incoming input size
 
         # self.out = cp.zeros((nant*npol, nant*npol, nchan*split), dtype="complex64", order="F")
@@ -234,7 +252,7 @@ class StreamingCorrelator():
             raise RuntimeError("Input buffersize not big enough to store the incoming number of spectra.")
         self.incoming = data.shape[0]
         idx = antidx*self.npol + polidx
-        self.inp[idx, :self.incoming, :] = data[:, self.channels] #save relevant channels to input buffer
+        self.inp[idx, :self.incoming, :] = data[:, self.chan_sel] #save relevant channels to input buffer
         self.loaded_num += 1
         
     def xcorr(self):
