@@ -60,12 +60,10 @@ def load_all_parts(dir_path):
 if __name__ == "__main__":
     # Path provided by user
     with_changes = "/scratch/thomasb/mohan/disk_optimize_results/vis_ant=7_pol=2_cha=196:280_20260416T193207"
-    without_changes = "/scratch/thomasb/mohan/disk_optimize_results/vis_ant=7_pol=2_cha=196:280_20260416T193624"
+    without_changes = "/scratch/thomasb/mohan/disk_optimize_results/vis_ant=7_pol=2_cha=196:280_test_nochange_IQ_20260416T233430"
     
     data1 = load_all_parts(with_changes)
     data2 = load_all_parts(without_changes)
-
-    total_time = data1.shape[1]
-
-    print(np.sum(data1[:,:,:,:]-data2[:,:total_time,:,:]))
+    n=data1.shape[1] #in the old code, I was saving the whole final vis_file array
+    assert np.array_equal(data1, data2[:,:n,:,:])
     # print(data1.shape, data2.shape)
