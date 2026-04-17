@@ -61,21 +61,23 @@ if __name__ == "__main__":
     filt_thresh = 0.4
     nant = len(dir_parents)
     npol = 2
-
-    module_path = os.path.join(args.out_path, f"batch_{batch_start_ts}")
-    os.makedirs(module_path, exist_ok=True)
-
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
 
-    master_discrepancies = {}
-
-    pulse_path = f'/scratch/thomasb/batch_{batch_start_ts}/data/pulses.json'
-    with open(pulse_path, "r") as f:
+    # set up some paths
+    path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
+    os.makedirs(path_batch, exist_ok=True)
+    path_discrepancies = os.path.join(path_batch, 'timing_discrepancies')
+    os.makedirs(path_discrepancies, exist_ok=True)
+    path_pulses = os.path.join(path_batch, 'data/pulses.json')
+    with open(path_pulses, "r") as f:
         pulse_list = json.load(f)
 
+    master_discrepancies = {}
     for i, pulse in enumerate(pulse_list):
-        print(f'STARTING PULSE {i}\n')
+        print(f'\nSTARTING PULSE {i}')
+        if i != 24:
+            continue
         print(pulse)
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
         satID = pulse['sat']
@@ -87,29 +89,28 @@ if __name__ == "__main__":
 
         fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
         print('Looking at file:', fname)
-        disk_path = os.path.join(module_path, 'data', fname)
+        path_disk = os.path.join(path_batch, 'data', fname)
 
-        cutter_path = f"/scratch/thomasb/batch_{batch_start_ts}/data/cutting_discrep.json"
-        if not os.path.exists(cutter_path):
-            os.makedirs(os.path.dirname(cutter_path), exist_ok=True)
-            with open(cutter_path, "w") as f:
-                json.dump({}, f)  # or whatever default you want`
-        with open(cutter_path, "r") as f1:
-            cuts = json.load(f1)
+        path_cutter = os.path.join(path_batch, "data/cutting_discrep.json")
+        if os.path.exists(path_cutter):
+            with open(path_cutter, "r") as f1:
+                cuts = json.load(f1)
+        else:
+            cuts = {}
 
-        if os.path.exists(disk_path) and (fname in cuts):
+        if os.path.exists(path_disk) and (fname in cuts):
             print('Data already computed and cut! Skipping Computation')
-            
-        elif os.path.exists(disk_path):
+
+        elif os.path.exists(path_disk):
             print('Data exists but still have to cut it!')
             print('Loading Data')
-            data_all = np.load(disk_path)
+            data_all = np.load(path_disk)
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
             print('Computing V')
             V = hd.efield_to_vis(data_all,
                                 pulse_start_ts,
-                                pulse_end_ts-1,
+                                pulse_end_ts,
                                 [0, 2, 3, 4, 5, 6],        
                                 ant_coords,
                                 satID,
@@ -124,15 +125,16 @@ if __name__ == "__main__":
                             'spectra_end': end_spectrum,
                             'cut_chans': cut_chans}
 
-
         else:
             print('Need to make data and cut it!')
+            print(pulse_end_ts-pulse_start_ts)
             nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
+            print('nchunks:', nchunks)
             idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
             nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    
+            print('nrows total:', nrows_total)
             t1=time.time()
-            baseband, _ =dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,disk_path,cutsize=16,filt_thresh=filt_thresh)
+            baseband, _ = dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,path_disk,cutsize=16,filt_thresh=filt_thresh)
             t2=time.time()
             print("Total time taken", t2-t1)
 
@@ -140,7 +142,7 @@ if __name__ == "__main__":
             freqs = 250e6 - (new_chans/(4096/250e6))
             V = hd.efield_to_vis(baseband,
                                 pulse_start_ts,
-                                pulse_end_ts-1,
+                                pulse_end_ts,
                                 [0, 2, 3, 4, 5, 6],        
                                 ant_coords,
                                 satID,
@@ -149,29 +151,27 @@ if __name__ == "__main__":
                                 osamp = osamp,
                                 bb_spectrum_T = 4096/250e6)
 
-            start_spectrum, end_spectrum, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            spec_cut_start, spec_cut_end, chans_cut = hd.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
-                            'spectra_start': start_spectrum,
-                            'spectra_end': end_spectrum,
-                            'cut_chans': cut_chans}
-
+                            'spec_cut_start': start_spectrum,
+                            'spec_cut_end': end_spectrum,
+                            'chans_cut': chans_cut}
             del baseband
             gc.collect()
-
-        
+        #save the cutting to file (no matter what happens, even if we don't change it)
         with open(f"/scratch/thomasb/batch_{batch_start_ts}/data/cutting_discrep.json", "w") as f2:
             json.dump(cuts, f2, indent=4)
         print('Saved to Cutting Json')
-
+        #fit for discrepancy once data is set up and cut
         results = get_discrepancy(args.config_path, 
-                                    disk_path, 
+                                    path_disk, 
                                     satID, 
-                                    out_path=module_path, 
+                                    out_path=path_batch, 
                                     osamp=osamp, 
                                     plot=True,
                                     coherent=args.coherent)
         print(results)
         master_discrepancies[fname] = results
-
-    with open(os.path.join(module_path, 'times_all_coherent.json'), 'w') as f:
+    #save all results to file
+    with open(os.path.join(path_discrepancies, 'times_all_incoherent.json'), 'w') as f:
         json.dump(master_discrepancies, f, indent=4)

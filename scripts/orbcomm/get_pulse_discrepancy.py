@@ -211,6 +211,8 @@ def get_discrepancy(config_path,
     chanend = config["frequency"]["end_channel"]
     osamp = config["correlation"]["osamp"]
 
+    
+
     print('batch start ts', batch_start_ts)
     print('batch end ts', batch_end_ts)
 
@@ -349,7 +351,7 @@ def get_discrepancy(config_path,
                                             )
 
         #MAKE DIR AND SAVE---------------------
-        figpath = os.path.join(out_path, f"discrep_plots_{pulse_start_ts_file}_{satID}_c={coherent}")
+        figpath = os.path.join(out_path, "timing_discrepancies/debugplots", f"pulse_{pulse_start_ts_file}_{satID}_c={coherent}")
         os.makedirs(figpath, exist_ok=True)
         plt.rcParams.update({
             "font.size": 16,
@@ -378,6 +380,7 @@ def get_discrepancy(config_path,
         "pulse_start_ts": int(pulse_start_ts_file)
     }
 
+#(if you want to run it from terminal)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_path", type=str)

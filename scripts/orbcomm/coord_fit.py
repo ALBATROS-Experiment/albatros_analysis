@@ -1,21 +1,28 @@
 import os
 import sys
 sys.path.append(os.path.expanduser('~'))
+#general
 import numpy as np 
+import numba as nb
+import json
+import importlib
+import time
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
+#scipy
+from scipy.optimize import minimize
+#skyfield/astropy
+from skyfield.api import load, wgs84
+#in-house
 import figures as fgs
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
-import numba as nb
-import time
-import importlib
-import json
-from scipy.optimize import minimize
-from skyfield.api import load, wgs84
-import cupy
-import fitting_helper as fh
+import helper_discrepancies as hd
+
+#=================================================
+#fitting functions
+#=================================================
 
 def objective_coords(
     pos_offset,
@@ -26,7 +33,7 @@ def objective_coords(
     ant_idxs,
     fit_ant_idx, 
     ant_coords,
-    freq,
+    freqs,
     satID,
     plot=False,
     bb_spectrum_T=4096/250e6,
@@ -36,12 +43,6 @@ def objective_coords(
 
     """
     Gives chi squared given some antenna coordinates and a timing discrepancy
-
-    t_start needs to coincide with the first spectrum of the data.
-    however, t_end will determine how much the data is cut by, so as long as it's
-    BEFORE the last spectrum in the data, we're all good.
-
-    this is done to make cutting garbage time at the end easier, and minimize interference with the data array
     """
     print(pos_offset)
 
@@ -65,15 +66,17 @@ def objective_coords(
     T_SPECTRA = bb_spectrum_T * osamp
     tle_path = outils.get_tle_file(t_start, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     sats_objects = load.tle_file(tle_path)
-    
-    nspec_tot = data_slice.shape[2]
-    nspec = int((t_end-t_start)/T_SPECTRA)
-    print('nspec total', nspec_tot)
+    nspec = data_slice.shape[2]
+    print(data_slice.shape)
     print('nspec', nspec)
-    data_slice = data_slice[:, :, :nspec].copy()
 
-    assert nspec_tot > nspec
-    assert (nspec*bb_spectrum_T) < (t_end-t_start+1)
+    many_chans = False
+    if data_slice.ndim == 4:
+        nchans = data_slice.shape[3]
+        many_chans = True
+        assert len(freqs) == nchans
+    else:
+        assert len(freqs) == 1
     
     chisq = 0
     sum_wt = 0
@@ -81,9 +84,8 @@ def objective_coords(
     for j in range(len(ant_idxs)):
         nonfit_ant_idx = ant_idxs[j]
         a2_coords = ant_coords[nonfit_ant_idx]
-        dist = fh.haversine(a1_coords, a2_coords)
+        dist = hd.haversine(a1_coords, a2_coords)
         sum_wt += dist
-
 
         dly = outils.get_sat_delay2(
                             [a1_coords[0]+1e-4*pos_offset[0], a1_coords[1]+1e-4*pos_offset[1], a1_coords[2]+pos_offset[2]],
@@ -98,21 +100,32 @@ def objective_coords(
         delay = np.interp(
             np.arange(0, nspec) * T_SPECTRA, np.arange(0, int(t_end-t_start)+1), dly
         )
+        if many_chans:
+            spec2_phased = np.empty_like(data_slice[nonfit_ant_idx,0,:,:])
+            spec2_phased = hd.apply_delay(data_slice[nonfit_ant_idx,0,:,:], spec2_phased, -delay, freqs)
+            Vxx = hd.xcorr_avg(data_slice[fit_ant_idx,0,:,:], spec2_phased, acclen)
+            spec2_phased = hd.apply_delay(data_slice[nonfit_ant_idx,1,:,:], spec2_phased, -delay, freqs)
+            Vyy = hd.xcorr_avg(data_slice[fit_ant_idx,1,:,:],spec2_phased,acclen)
+            V=(Vxx+Vyy)/2
+            if plot:
+                ax.plot(np.unwrap(np.angle(V[:,0]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
+                plt.legend()
+            Vnew  =  np.exp(1j*np.angle(V))
+            for chan_idx in range(nchans):
+                chisq -= dist*np.abs(np.mean(Vnew[:,chan_idx]))**2
 
-        spec2_phased = np.empty_like(data_slice[nonfit_ant_idx, 0, :])
-        spec2_phased = fh.apply_delay_1d(data_slice[nonfit_ant_idx, 0, :], spec2_phased, -delay, freq)
-        Vxx = fh.xcorr_avg_1d(data_slice[fit_ant_idx,0,:], spec2_phased, acclen)
-        spec2_phased = fh.apply_delay_1d(data_slice[nonfit_ant_idx, 1, :], spec2_phased, -delay, freq)
-        Vyy = fh.xcorr_avg_1d(data_slice[fit_ant_idx,1,:], spec2_phased, acclen)
-        V=(Vxx+Vyy)/2
-
-
-        if plot:
-            ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{fit_ant_idx}-{nonfit_ant_idx}')
-            plt.legend()
-
-        Vnew = np.exp(1j*np.angle(V))
-        chisq-= dist * np.abs(np.mean(Vnew))**2 #cut it off where snr drops
+        else:
+            spec2_phased = np.empty_like(data_slice[nonfit_ant_idx,0,:])
+            spec2_phased = hd.apply_delay_1d(data_slice[nonfit_ant_idx,0,:], spec2_phased, -delay, freqs[0])
+            Vxx = hd.xcorr_avg_1d(data_slice[fit_ant_idx,0,:],spec2_phased,acclen)
+            spec2_phased = hd.apply_delay_1d(data_slice[nonfit_ant_idx,1,:], spec2_phased, -delay, freqs[0])
+            Vyy = hd.xcorr_avg_1d(data_slice[fit_ant_idx,1,:],spec2_phased,acclen)
+            V=(Vxx+Vyy)/2
+            if plot:
+                ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')
+                plt.legend()
+            Vnew  =  np.exp(1j*np.angle(V))
+            chisq -= dist*np.abs(np.mean(Vnew))**2 
     chisq/=sum_wt
     print('time for objective compute:', time.time()-process_start_ts)
 
@@ -133,44 +146,42 @@ def objective_coords(
     return chisq
 
 
-
-def objective_coords_all(pos_offset, 
-                        data,
-                        pulses,
-                        cutter,
-                        ant_idxs, 
-                        fit_ant_idx, 
-                        ant_coords,
-                        bb_spectrum_T=4096/250e6,
-                        osamp=64,
-                        acclen = 1024):
-    assert len(data) == len(pulses)
-    assert len(data) == len(cutter)
-    chisq = 0
-    for i, pulse in enumerate(pulses):
-        pulse_start_ts = pulse['t_start']
-        pulse_start_ts = pulse['t_end']
-        satID = pulse['sat']
-        fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
-        
-        chisq += objective_coords(
-                        pos_offset,
-                        info[2],
-                        info[0],
-                        info[1],
-                        data[i],
+def objective_coords_all(pos_offset,
+                        times_all,
+                        data_all,
                         ant_idxs,
                         fit_ant_idx, 
                         ant_coords,
-                        info[4],
-                        info[3],
+                        freqs_all,
+                        satIDs_all,
                         plot=False,
-                        bb_spectrum_T=bb_spectrum_T,
-                        osamp=osamp,
-                        acclen = acclen
-                        )
-    return chisq
-
+                        bb_spectrum_T=4096/250e6,
+                        osamp=64,
+                        acclen = 1024
+                        ):
+    npulses = len(data_all)
+    assert len(times_all)==npulses
+    assert len(freqs_all)==npulses
+    assert len(satIDs_all)==npulses
+    chisq_tot = 0
+    for i in range(npulses):
+        print(f'\nGetting chisq for PULSE {i}')
+        chisq_tot += objective_coords(pos_offset,
+                                0,#time offset
+                                times_all[i][0],
+                                times_all[i][1],
+                                data_all[i],
+                                ant_idxs,
+                                fit_ant_idx,
+                                ant_coords,
+                                freqs_all[i],
+                                satIDs_all[i],
+                                plot=False,
+                                bb_spectrum_T=bb_spectrum_T,
+                                osamp=osamp,
+                                acclen = acclen
+                                )
+    return chisq_tot
 
 def cost_curve(
     lats,
@@ -315,6 +326,10 @@ def cost_curve_all(lats,
     else:
         return chisqs
 
+#=================================================
+#set up global stuff
+#=================================================
+
 acclen=1024
 bb_spectrum_T = 4096/250e6
 osamp = 64
@@ -324,7 +339,7 @@ nstep = 51
 lats = np.linspace(-5, 5, nstep)
 lons = np.linspace(-5, 5, nstep)
 
-ant_idxs = ant_idxs = [0, 2, 3, 4, 5, 6]
+ant_idxs = [0, 2, 3, 4, 5, 6]
 
 config_path = '/home/thomasb/albatros_analysis/scripts/orbcomm/config/config_batch2.json'
 
@@ -339,104 +354,154 @@ chanstart = config["frequency"]["start_channel"]
 chanend = config["frequency"]["end_channel"]
 channels_old = np.arange(chanstart, chanend)
 
-batch_path = f'/scratch/thomasb/full_timing_discrepancies_{batch_start_ts}'
-pulse_fname = 'pulses2.json'
-cutter_fname = 'cutting.json'
-times_fname = 'times.json'
+#=================================================
+#paths and co
+#=================================================
 
-with open(os.path.join(batch_path, pulse_fname), "r") as f:
-    pulses = json.load(f)
-
-with open(os.path.join(batch_path, cutter_fname), "r") as f:
+#path for batch
+path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+#path for cutting info
+path_cutting = os.path.join(path_batch, 'data/cutting_discrep.json')
+with open(path_cutting, "r") as f:
     cutter = json.load(f)
-
-with open(os.path.join(batch_path, times_fname), "r") as f:
-    time_map = json.load(f)
-
-fitting_path = os.path.join(batch_path, 'coord_fitting')
+#path for pulse into
+path_pulses = os.path.join(path_batch, 'data/pulses.json')
+with open(path_pulses, "r") as f:
+    pulses = json.load(f)
+#path for discrepancy information (mainly starting spectrum)
+path_discreps = os.path.join(path_batch, 'timing_discrepancies/times_all_incoherent.json')
+with open(path_discreps, "r") as f:
+    discreps = json.load(f)
+#make new path for where we want to save coordinate fitting info
+fitting_path = os.path.join(path_batch, 'coord_fitting')
 os.makedirs(fitting_path, exist_ok=True)
+#timing discrepancy corrections
+#BATCH 2
+UTC_per_spec = 1.638400946109685e-05
+UTC_offset = 1753200128.469018
 
-chisq_tot = np.zeros((nstep, nstep))
 
-for pulse in pulses:
-    pulse_start_ts_file = pulse['t_start']
-    pulse_end_ts_file = pulse['t_end']
+#==========================================================
+#get all the required data, frequencies, satIDs, and times
+#==========================================================
+
+data_all, times_all, freqs_all, satIDs_all = [],[],[],[]
+for pnum, pulse in enumerate(pulses):
+    print(f'\nExtracting Data for PULSE {pnum}')
+    ts_pulse_start, ts_pulse_end = pulse['t_start'], pulse['t_end']
     satID = pulse['sat']
-
-    det_chan = channels_old[pulse['channel']] #if want to compute with fewer channels
+    print('satID', satID)
+    #determine baseband channels in data
+    det_chan = channels_old[pulse['channel']]
     if det_chan%2 == 0:
-        compute_chans = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
+        chans_old = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
     else:
-        compute_chans = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
-    print('old compute chans', compute_chans)
-    
-    fname = f"data_raw_osamp={osamp}_start={pulse_start_ts_file}_end={pulse_end_ts_file}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
-    cuts = cutter[fname]
-    new_chan = cuts["new_channel"]
-    spectra_start = cuts["spectra_start"]
-    spectra_end = cuts["spectra_end"]
-    disk_path = os.path.join(f'/scratch/thomasb/full_timing_discrepancies_{batch_start_ts}/{fname}')
-    data = np.load(disk_path)
-    data_cut = data[:, :, spectra_start:-spectra_end, new_chan]
+        chans_old = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
+    #determine the raw data filename (standardized naming method)
+    fname = f"data_raw_osamp={osamp}_start={ts_pulse_start}_end={ts_pulse_end}_chans={chans_old[0]}:{chans_old[-1]}.npy"
+    print('fname:', fname)
+    #extract information from cutting json
+    cut_pulse = cutter[fname]
+    chan_new_start,chan_new_end = cut_pulse["new_chans"]
+    chans_new = np.arange(chan_new_start, chan_new_end)
+    spec_cut_start,spec_cut_end = cut_pulse["spectra_start"],cut_pulse["spectra_end"]
+    print('spectra cut:', spec_cut_start, spec_cut_end)
+    #open the data and cut right away
+    disk_path = os.path.join(path_batch, 'data', fname)
+    data = np.load(disk_path, mmap_mode='r')
+    data_cut = data[:, :, spec_cut_start:spec_cut_end, chans_new]  #check slicing convention
+    print('Data shape:', data_cut.shape)
+    nant, npol, ntimes, nchans = data_cut.shape
+    #get frequencies
+    freqs = 250e6 - (chans_new/osamp+chans_old[0])/(4096/250e6)
+    #get discrepancy-fitted pulse starting time
+    discrep_pulse = discreps[fname]
+    spec_pulse_start = discrep_pulse["start_spectrum"] + spec_cut_start*osamp
+    ts_pulse_start_fitted = UTC_per_spec*spec_pulse_start + UTC_offset
+    print('fitted starting timestamp', ts_pulse_start_fitted)
 
-    nchans = data.shape[3]
-    sat_freqs = 250e6 - ((np.arange(nchans)/osamp + compute_chans[0])/(4096/250e6))
-    freq = sat_freqs[new_chan]
+    data_all.append(data_cut)
+    times_all.append([ts_pulse_start_fitted, ts_pulse_end])
+    freqs_all.append(freqs)
+    satIDs_all.append(satID)
 
-    pulse_start_ts = pulse_start_ts_file + T_SPECTRA*spectra_start
-    pulse_end_ts =   pulse_end_ts_file -   T_SPECTRA*spectra_end -2
 
-    time_offset = time_map[fname]['offset_fitted']/1000
-    print('TIME OFFSET', time_offset)
+#==========================================================
+#get a chisq to test
+#==========================================================
+chisq = objective_coords_all([0,0,0],
+                        times_all,
+                        data_all,
+                        ant_idxs,
+                        1, 
+                        ant_coords,
+                        freqs_all,
+                        satIDs_all,
+                        plot=False,
+                        bb_spectrum_T=4096/250e6,
+                        osamp=64,
+                        acclen = 1024)
+print(chisq)
+sys.exit()
 
-    chisqs, cost_fig = cost_curve(lats,
-                                lons,
-                                0,              #alt offset
-                                time_offset,    #time offset
-                                pulse_start_ts, #tstart
-                                pulse_end_ts,   #tend
-                                data_cut,       #data slice
-                                ant_idxs,       #ant indices
-                                1,              #fit ant idx
-                                ant_coords,    
-                                freq,  
-                                satID, 
-                                bb_spectrum_T=bb_spectrum_T,
-                                osamp=osamp,
-                                include_fig = True)
-    chisq_tot += chisqs
-    cost_fig.savefig(os.path.join(fitting_path, f'coordfit_plot_{pulse_start_ts_file}.png'))
-    plt.close(cost_fig)
-    del(data)
-    del(data_cut)
-    del(chisqs)
 
-fig, ax = plt.subplots()
-im = ax.imshow(
-    chisq_tot,
-    origin='lower',
-    aspect='auto',
-    cmap='viridis',
-    extent=[lats[0], lats[-1], lons[0], lons[-1]]  
-)
-plt.rcParams.update({
-            "font.size": 16,
-            "axes.labelsize": 18,
-            "axes.titlesize": 20,
-            "xtick.labelsize": 14,
-            "ytick.labelsize": 14,
-            "figure.titlesize": 22,
-            "legend.fontsize": 14
-        })
-ax.set_xlabel('Lat Offset ()')
-ax.set_ylabel('Lon Offset ()')
-cbar = fig.colorbar(im, ax=ax)
-cbar.set_label(r'$\chi^2$')
-ax.plot(
-    0, 0,
-    marker='x',
-    color='red',
-    markersize=10,
-    markeredgewidth=2)
-plt.tight_layout()
-plt.savefig(os.path.join(fitting_path, f'all_coordfit_plot.png'))
+
+
+
+
+#         #get cost curve for pulse
+#         chisqs, cost_fig = cost_curve(lats,
+#                                     lons,
+#                                     0,              #alt offset
+#                                     0,    #time offset
+#                                     ts_pulse_start_fitted, #tstart
+#                                     ts_pulse_end,   #tend
+#                                     data_cut,       #data slice
+#                                     ant_idxs,       #ant indices
+#                                     1,              #fit ant idx
+#                                     ant_coords,    
+#                                     freqs,  
+#                                     satID, 
+#                                     bb_spectrum_T=bb_spectrum_T,
+#                                     osamp=osamp,
+#                                     include_fig = True)
+#     #add cost to total
+#     chisq_tot += chisqs
+#     #save individual pulse cost surface figure
+#     cost_fig.savefig(os.path.join(fitting_path, f'cost_surface_pulse_{pulse_start_ts_file}.png'))
+#     plt.close(cost_fig)
+#     del(data)
+#     del(data_cut)
+#     del(chisqs)
+#     break
+
+# #make plot with summed cost surface
+# fig, ax = plt.subplots()
+# im = ax.imshow(
+#     chisq_tot,
+#     origin='lower',
+#     aspect='auto',
+#     cmap='viridis',
+#     extent=[lats[0], lats[-1], lons[0], lons[-1]]  
+# )
+# plt.rcParams.update({
+#             "font.size": 16,
+#             "axes.labelsize": 18,
+#             "axes.titlesize": 20,
+#             "xtick.labelsize": 14,
+#             "ytick.labelsize": 14,
+#             "figure.titlesize": 22,
+#             "legend.fontsize": 14
+#         })
+# ax.set_xlabel('Lat Offset ()')
+# ax.set_ylabel('Lon Offset ()')
+# cbar = fig.colorbar(im, ax=ax)
+# cbar.set_label(r'$\chi^2$')
+# ax.plot(
+#     0, 0,
+#     marker='x',
+#     color='red',
+#     markersize=10,
+#     markeredgewidth=2)
+# plt.tight_layout()
+# plt.savefig(os.path.join(fitting_path, f'all_coordfit_plot2.png'))

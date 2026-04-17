@@ -185,44 +185,81 @@ def efield_to_vis(
     """ 
     Notes: require t_start to coincide with the first spectrum of data_all.
     As long as t_end is after the last spectrum, the interpolation is fine.
+    We usually give a buffer for time_end, since a longer source interpolation array is not a problem
     """
     T_SPECTRA = bb_spectrum_T * osamp
-    nspec = int((t_end - t_start)/T_SPECTRA)
     nants = len(ant_idxs)
-    print(nspec)
-    data_all = data_all[:, :, :nspec, :]
-    print(data_all.shape)
+    _,_,nspec, nchans = data_all.shape
     tle_path = outils.get_tle_file(t_start, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     sats_objects = load.tle_file(tle_path)
     V = []
     arr_spectra = np.arange(0, nspec) * T_SPECTRA
-    arr_times = np.arange(0, int(t_end-t_start)+1)
+    arr_times = np.arange(0, int(t_end-t_start)+2)
     for i in range(nants):
         ant1_idx = ant_idxs[i]
         ant1_coords = ant_coords[ant1_idx]
         for j in range(i+1, nants):
             ant2_idx = ant_idxs[j]
             ant2_coords = ant_coords[ant2_idx]
-
             dly = outils.get_sat_delay2(
                                 ant1_coords,
                                 ant2_coords,
                                 sats_objects,
                                 t_start,
-                                int(t_end-t_start)+1,
+                                int(t_end-t_start)+2,
                                 satID,
                                 altaz=False
                         )
             #print(dly.shape)
-
             delay = np.interp(arr_spectra, arr_times, dly)
             #print(delay.shape)
-
             Vxx = beamformed_xcorr(data_all, ant1_idx, ant2_idx, 0, 0, delay, sat_freqs, acclen)
             Vyy = beamformed_xcorr(data_all, ant1_idx, ant2_idx, 1, 1, delay, sat_freqs, acclen)
             vis=(Vxx+Vyy)/2
             V.append(np.abs(vis))
     return np.array(V)
+
+
+def get_vis(data,satID,freqs, pstart,pend,antpos,ant_idxs,tle_path, T_SPECTRA,osamp,acclen):   
+    n_blines = len(ant_idxs)*(len(ant_idxs)-1)//2
+    multi_vis = np.zeros((n_blines, data.shape[2]//acclen, data.shape[3]), dtype='complex64', order='c')
+    print("multi_vis shape", multi_vis.shape)
+
+    bl_proc=0
+    for i in range(len(ant_idxs)):
+            for j in range(i+1, len(ant_idxs)):
+                ai = ant_idxs[i]
+                aj = ant_idxs[j]
+                a1_coords=antpos[ai]
+                a2_coords=antpos[aj]
+                dly = outils.get_sat_delay(
+                                    a1_coords,
+                                    a2_coords,
+                                    tle_path,
+                                    pstart,
+                                    int(pend - pstart)+2,
+                                    satID,
+                                    altaz=False
+                                )
+                delay = np.interp(
+                    np.arange(0, data.shape[2]) * T_SPECTRA, np.arange(0, int(pend - pstart)+2), dly
+                )
+                spec1=data[ai,0,:,:]
+                spec2=data[aj,0,:,:]
+                spec2_phased = np.empty_like(spec2)
+                # print("spec2", spec2_phased.shape)
+                # print(spec2_phased.flags)
+                spec2_phased = apply_delay(spec2, spec2_phased, -delay, freqs)
+                Vxx = xcorr_avg(spec1,spec2_phased,acclen)
+                spec1=data[ai,1,:,:]
+                spec2=data[aj,1,:,:]
+                spec2_phased = np.empty_like(spec2)
+                spec2_phased = apply_delay(spec2, spec2_phased, -delay, freqs)
+                Vyy = xcorr_avg(spec1,spec2_phased,acclen)
+                multi_vis[bl_proc,:,:] = (Vxx+Vyy)/2
+                bl_proc+=1
+                print("done", ai,aj,".Processed",bl_proc, "baselines")
+    return multi_vis
 
 
 def find_signal_channels(data, sat_type):
@@ -231,7 +268,7 @@ def find_signal_channels(data, sat_type):
     '''
     assert sat_type in {"METEOR","NOAA"}
     if sat_type == "METEOR":
-        nchan_signal = 100
+        nchan_signal = 80
     if sat_type == "NOAA":
         nchan_signal = 20
     nchan = data.shape[-1]

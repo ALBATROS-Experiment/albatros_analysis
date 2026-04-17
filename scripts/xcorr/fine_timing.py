@@ -91,6 +91,8 @@ def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,o
             expected_start_specnum = start_specnums[ant_idx] + (chunk_idx) * read_size
             # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
             assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
+            #print('chunk specnums', chunk['specnums'][0])
+            #print('other', start_specnums[ant_idx] + (chunk_idx) * read_size)
             assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
             pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
             pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
