@@ -1,5 +1,6 @@
 import sys
 from os import path
+
 sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 import cupy as cp
@@ -9,10 +10,24 @@ import time
 import os
 import datetime, uuid
 import argparse
-import json
 import helper
+import json
 
-def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45):
+
+def dump_upchan_baseband(
+    idxs,
+    files,
+    pfb_size,
+    nchunks,
+    channels,
+    osamp,
+    new_acclen,
+    outfile,
+    lblock=4096,
+    ntap=4,
+    cutsize=16,
+    filt_thresh=0.45,
+):
     """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
 
     Parameters
@@ -43,39 +58,59 @@ def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,o
     nant = len(idxs)
     npol = 2
 
-    read_size = pfb_size - 2*cutsize
+    read_size = pfb_size - 2 * cutsize
     timestream_size = read_size * lblock
     nchan = len(channels)
     new_channels = np.arange(osamp) + channels[:, None] * osamp
     new_channels = new_channels.ravel()
     new_nchan = len(new_channels)
-    #needs channels that are in the read data
-    ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
-    fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
-    #needs channels you want to cross-correlate in re-PFB'd data
+    # needs channels that are in the read data
+    ipfb = pu.StreamingIPFB(
+        nant,
+        npol,
+        channels,
+        nblock=pfb_size,
+        lblock=4096,
+        ntap=4,
+        window="hamming",
+        cut=cutsize,
+    )
+    fpfb = pu.StreamingPFB(
+        nant, npol, timestream_size=timestream_size, lblock=lblock * osamp
+    )
+    # needs channels you want to cross-correlate in re-PFB'd data
     nrows_total = nchunks * pfb_size // osamp
-    baseband = np.empty((nant, npol, nrows_total, new_nchan), dtype='complex64', order='C')
-    print("Baseband size:", baseband.nbytes/1e9, "GB")
+    baseband = np.empty(
+        (nant, npol, nrows_total, new_nchan), dtype="complex64", order="C"
+    )
+    print("Baseband size:", baseband.nbytes / 1e9, "GB")
     header = bdc.get_header(files[0][0])
-    #print(header)
-    bit_mode = header['bit_mode']
-    channel_indices = np.where(np.isin(header['channels'],channels))[0] #channels that are in requested channels
-    assert channel_indices[0]%2==0
-    assert len(channel_indices)%2 ==0
+    # print(header)
+    bit_mode = header["bit_mode"]
+    channel_indices = np.where(np.isin(header["channels"], channels))[
+        0
+    ]  # channels that are in requested channels
+    assert channel_indices[0] % 2 == 0
+    assert len(channel_indices) % 2 == 0
     antenna_objs = []
     for i in range(nant):
         aa = bdc.BasebandFileIterator(
             files[i],
-            0, #fileidx is 0 = start idx is inside the first file
+            0,  # fileidx is 0 = start idx is inside the first file
             idxs[i],
             read_size,
             nchunks=nchunks,
             channels=channel_indices,
-            type='float'
+            type="float",
         )
         antenna_objs.append(aa)
-    #print("channels present", aa.obj.channels)
-    print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
+    # print("channels present", aa.obj.channels)
+    print(
+        "Channel indices loaded",
+        aa.obj.channel_idxs,
+        "corresponding to",
+        aa.obj.channels[aa.obj.channel_idxs],
+    )
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
     ant_specnums = [ant.spec_num_start for ant in antenna_objs]
     start_event = cp.cuda.Event()
@@ -84,40 +119,63 @@ def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,o
     T_SPECTRA = lblock * osamp / 250e6
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
         # start_event.record()
-        ts1=time.time()
+        ts1 = time.time()
         for ant_idx in range(nant):
-            chunk=chunks[ant_idx]
+            chunk = chunks[ant_idx]
             expected_start_specnum = start_specnums[ant_idx] + (chunk_idx) * read_size
             # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
-            assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
-            assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
-            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
-            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
+            assert (
+                antenna_objs[ant_idx].spec_num_start
+                == start_specnums[ant_idx] + (chunk_idx + 1) * read_size
+            )
+            assert (
+                chunk["specnums"][0]
+                == start_specnums[ant_idx] + (chunk_idx) * read_size
+            )
+            pol0 = bdc.make_continuous_gpu(
+                chunk["pol0"],
+                chunk["specnums"] - expected_start_specnum,
+                cp.arange(0, nchan),
+                read_size,
+                nchan,
+            )
+            pol1 = bdc.make_continuous_gpu(
+                chunk["pol1"],
+                chunk["specnums"] - expected_start_specnum,
+                cp.arange(0, nchan),
+                read_size,
+                nchan,
+            )
             # print("continuous pol0 shape", pol0.shape)
             # start_event.record()
-            spec0=ipfb.ipfb(ant_idx,0,pol0,thresh=filt_thresh)
-            spec1=ipfb.ipfb(ant_idx,1,pol1,thresh=filt_thresh)
+            spec0 = ipfb.ipfb(ant_idx, 0, pol0, thresh=filt_thresh)
+            spec1 = ipfb.ipfb(ant_idx, 1, pol1, thresh=filt_thresh)
             # end_event.record()
             # end_event.synchronize()
             # print("tot ipfb time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
             # start_event.record()
-            pol0_new = fpfb.pfb(ant_idx,0, spec0)
-            pol1_new = fpfb.pfb(ant_idx,1, spec1)
+            pol0_new = fpfb.pfb(ant_idx, 0, spec0)
+            pol1_new = fpfb.pfb(ant_idx, 1, spec1)
             # end_event.record()
             # end_event.synchronize()
             # print("tot pfb time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
             n = pol0_new.shape[0]
             # print("Got ant", ant_idx, "chunk", chunk_idx, "n samples", n, "nchans", pol0_new.shape[1])
-            baseband[ant_idx, 0, ant_ptr[ant_idx]:ant_ptr[ant_idx]+n, :] = cp.asnumpy(pol0_new[:, new_channels])
-            baseband[ant_idx, 1, ant_ptr[ant_idx]:ant_ptr[ant_idx]+n, :] = cp.asnumpy(pol1_new[:, new_channels])
+            baseband[ant_idx, 0, ant_ptr[ant_idx] : ant_ptr[ant_idx] + n, :] = (
+                cp.asnumpy(pol0_new[:, new_channels])
+            )
+            baseband[ant_idx, 1, ant_ptr[ant_idx] : ant_ptr[ant_idx] + n, :] = (
+                cp.asnumpy(pol1_new[:, new_channels])
+            )
             ant_ptr[ant_idx] += n
-        ts2=time.time()
+        ts2 = time.time()
         print(f"chunk {chunk_idx}/{nchunks}, chunk time {ts2-ts1:5.3f}")
     print("final ant idxs", ant_ptr)
-    np.save(outfile,baseband)
+    np.save(outfile, baseband)
     return baseband, new_channels
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Path to config file")
@@ -156,8 +214,8 @@ if __name__=="__main__":
     pfb_size = config["correlation"]["pfb_size"]
     new_acclen = config["correlation"]["new_acclen"]
     cutsize = 16
-    print("pfbsize",pfb_size)
-    nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
+    print("pfbsize", pfb_size)
+    nchunks = int(np.floor((end_t - init_t) * 250e6 / 4096 / pfb_size))
     channels = np.arange(chanstart, chanend)
     print("init t", init_t, "end_t", end_t)
     idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
@@ -171,7 +229,7 @@ if __name__=="__main__":
     nant = len(dir_parents)
     npol = 2
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    tag = 'regular'
+    tag = "regular"
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     # uid = str(uuid.uuid4())[:4]  # short unique suffix
     bit_mode = 1
@@ -181,10 +239,23 @@ if __name__=="__main__":
         f"{'complex64'}_{tag}_{timestamp}"
     )
     print(fname)
-    data_dir = os.path.join(args.outdir, f'raw_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}') 
+    data_dir = os.path.join(
+        args.outdir, f"raw_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}"
+    )
     os.makedirs(data_dir, exist_ok=True)
     outfile = os.path.join(data_dir, fname)
-    t1=time.time()
-    pols,new_channels=dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh)
-    t2=time.time()
-    print("Total time taken", t2-t1)
+    t1 = time.time()
+    pols, new_channels = dump_upchan_baseband(
+        idxs,
+        files,
+        pfb_size,
+        nchunks,
+        channels,
+        osamp,
+        new_acclen,
+        outfile,
+        cutsize=16,
+        filt_thresh=filt_thresh,
+    )
+    t2 = time.time()
+    print("Total time taken", t2 - t1)

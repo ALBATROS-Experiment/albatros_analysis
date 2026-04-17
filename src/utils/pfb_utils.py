@@ -3,7 +3,7 @@ import cupy as cp
 from . import pycufft
 import time
 from ..correlations import correlations_gpu
-
+from scipy.fft import next_fast_len
 correlation_func = correlations_gpu.avg_xcorr_all_ant_gpu
 
 def _print_class_mem_usage(arr_dict, header):
@@ -93,6 +93,7 @@ class StreamingIPFB():
         self.cut = cut
         self.nchan=lblock//2+1
         self.specbuf = cp.zeros((self.nant, self.npol, self.nblock, self.nchan), dtype='complex64',order='C')
+        print("specbuf IPFB shape", self.specbuf.shape, "len input chans", len(self.channels))
         #mat will be deallocated after function returns
         mat=cp.zeros((nblock, lblock),dtype="float32")
         mat[:ntap,:]=cp.reshape(self.win,[ntap,len(self.win)//ntap])
@@ -150,6 +151,61 @@ class StreamingIPFB():
             f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)}, cut={self.cut})"
         )
         return _print_class_mem_usage(arrays, header)
+
+class StreamingIPFB_IQ():
+    def __init__(self, nant, npol, channels, nblock=100, lblock=4096, ntap=4, window='hamming', cut=10):
+        #no need to pass lblock. we assign it
+        self.nblock = nblock
+        self.nant = nant
+        self.npol = npol
+        self.read_size = nblock - 2*cut
+        self.channels = cp.asarray(channels, dtype='int32')
+        # self.lblock = 2* 2**(int(np.log2(len(channels))) + 1) # closest multiple of 2 times 2 (for nyquist)
+        self.lblock = next_fast_len(2 * (len(channels))) #rely on scipy for fast lengths
+        N = self.lblock * ntap
+        self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
+        self.cut = cut
+        self.nchan_input = len(self.channels)
+        self.specbuf = cp.zeros((self.nant, self.npol, self.nblock, self.lblock), dtype='complex64',order='C')
+        print("specbuf IPFB IQ shape", self.specbuf.shape, "len input chans", self.nchan_input)
+        #mat will be deallocated after function returns
+        mat=cp.zeros((self.nblock, self.lblock),dtype="float32")
+        mat[:ntap,:]=cp.reshape(self.win,[ntap,len(self.win)//ntap])
+        mat=mat.T.copy()
+        mat=mat.astype("complex64")
+        self.matft = pycufft.fft(mat,axis=1)
+    
+    def ipfb(self, antidx, polidx, spectra, thresh=0.):
+        #input spectra, fill timestream
+        assert spectra.shape[0]==self.read_size #incoming spectra is pfbsize - 2*cut
+        self.specbuf[antidx,polidx,2*self.cut:, :][:,:self.nchan_input] = spectra
+        dd=pycufft.ifft(self.specbuf[antidx, polidx , :, :],axis=1)
+        assert dd.flags.c_contiguous and dd.base is None
+        if self.cut > 0:
+            self.specbuf[antidx, polidx, :2*self.cut, :][:, :self.nchan_input] = spectra[-2*self.cut:, :] #copy the last two spectra back to buf
+        dd2=dd.T.copy()
+        ddft=pycufft.fft(dd2,axis=1)
+        #print("DDFT", ddft)
+        if thresh>0.:
+            # print("filtering...")
+            filt=cp.abs(self.matft)**2/(thresh**2+cp.abs(self.matft)**2)*(1+thresh**2)
+            ddft=ddft*filt
+        out = pycufft.ifft(ddft/cp.conj(self.matft),axis=1)
+        out = out.T[self.cut:-self.cut].ravel()
+        return out
+    
+    def __repr__(self):
+        arrays = {
+            "win": self.win,
+            "specbuf": self.specbuf,
+            "mat": getattr(self, "mat", None),
+            "matft": self.matft,
+        }
+        header = (
+            f"StreamingIPFB(nant={self.nant}, npol={self.npol}, "
+            f"nblock={self.nblock}, lblock={self.lblock}, #channels={len(self.channels)}, cut={self.cut})"
+        )
+        return _print_class_mem_usage(arrays, header)
         
 
 class StreamingCorrelator():
@@ -186,7 +242,7 @@ class StreamingCorrelator():
         assert self.loaded_num == self.nant*self.npol #can't xcorr if you havent loaded everything.
         chunks = []
         out_possible = (self.incoming + self.bufptr)//self.acclen
-        # print("out possible", out_possible, "bufptr", self.bufptr, "incoming", self.incoming)
+        # print("bufptr", self.bufptr, "incoming", self.incoming, "=> out possible", out_possible )
         used = 0
         if out_possible > 0:
             while out_possible:
@@ -194,16 +250,17 @@ class StreamingCorrelator():
                 out = correlation_func(xin, self.nant, self.npol, self.acclen-self.bufptr, self.nchan)
                 if self.bufptr > 0:
                     out[:] += self.buf #add prev buffer
+                    self.buf[:]=0
                 out[:] /= self.acclen
                 chunks.append(out)
                 used += self.acclen-self.bufptr
-                # print("used now", used)
+                # print("used from input now", used)
                 self.bufptr = 0
                 out_possible -= 1
         if used < self.incoming:  #this was fine without if statement in PFB, but here we don't want to invoke xcorr func if nothing to xcorr
             xin = cp.asfortranarray(self.inp[:, used:self.incoming , :])
-            self.buf = correlation_func(xin, self.nant, self.npol, self.incoming-used, self.nchan, out=self.buf)
-            self.bufptr = self.incoming - used
+            self.buf += correlation_func(xin, self.nant, self.npol, self.incoming-used, self.nchan)
+            self.bufptr += self.incoming - used #should be += but re-run unit tests
         self.loaded_num = 0 #ready to load again
         return chunks
     
@@ -286,8 +343,8 @@ def cupy_pfb(timestream, win, out=None,nchan=2049, ntap=4):
     win=win.reshape(ntap,lblock)
     y=timestream*win[:,cp.newaxis]
     y=y[0,:nblock,:]+y[1,1:nblock+1,:]+y[2,2:nblock+2,:]+y[3,3:nblock+3,:]
-    # out=cp.fft.rfft(y,axis=1)
     out=pycufft.rfft(y,axis=1)
+    # print(pycufft.pycufft_cache)
     return out
 
 def get_matft(nslice,nchan=2049,ntap=4):

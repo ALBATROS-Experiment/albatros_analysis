@@ -6,7 +6,6 @@ import pytz
 import datetime
 import glob
 import re
-from datetime import datetime, timezone
 
 def _find(dir_parent, search_type, search_tag, min_depth):
     return subprocess.run(
@@ -157,17 +156,20 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_g
     assert(search_type in ["f", "d"])
     assert(time_stop > time_start)
     time_start, time_stop = [str(t) for t in [time_start, time_stop]]
+    print(time_start, time_stop)
     stamps = np.arange(int(time_start[:5]), int(time_stop[:5])+1)
     search_tags = [f".*\/{stamp}[0-9]{{5}}" for stamp in stamps]
     if search_type == "f":
         search_tags = [tag + "\.raw" for tag in search_tags]
     search_tag = "|".join(search_tags)
     op = _find(dir_parent, search_type, search_tag, "2")
+    # print(op)
     files = op.split() #get all files for all 5-digit tstamps spanning the range.
     files.sort()
     tstamps = np.asarray(
         [int(s.split("/")[-1].split(".")[0]) for s in files]
     )
+    # print(tstamps)
     idx = np.where(np.bitwise_and(tstamps>=int(time_start),tstamps<=int(time_stop)))[0]
     if mind_gap:
         tdiff = np.diff(tstamps[idx])
@@ -216,12 +218,12 @@ def get_init_info(init_t, end_t, dir_parent):
     end_t: int or float
         End of time window we are interested in. (ctime)
     parent_dir: str
-        The directory we search in. 
+        The directory we search in.
 
     Returns
     -------
     idxstart: int
-        The index of the starting row of interest to us within the first
+        The index of the starting row of interest to us within a
         baseband data file.
     fileidx: int
         The index of the file in the sorted directory.

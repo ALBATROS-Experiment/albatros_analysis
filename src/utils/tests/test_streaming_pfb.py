@@ -124,8 +124,37 @@ def test_pfb_gpu_vs_cpu(mysize):
     # gpu_win = cp.asnumpy(pfbobj.win.ravel())
     # cpu_win = sinc_hamming(4,lblock).astype("float32")
     # print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
+<<<<<<< HEAD
 if __name__=="__main__":
 
     test_pfb_gpu_vs_cpu(4096) #some timestream value > lblock
     test_pfb_gpu_vs_cpu(4095) #some timestream value < lblock
     # reproduce_bug()
+=======
+
+def speed_test():
+    ts = cp.random.randn(65536*4096).astype('float32')
+
+    osamp = 8192
+    pfbobj = pu.StreamingPFB(1,1,timestream_size = ts.size, lblock = 4096*osamp)
+    niter=10
+    start_event = cp.cuda.Event()
+    end_event = cp.cuda.Event()
+    times=[]
+    for i in range(niter):
+        start_event.record()
+        spec=pfbobj.pfb(0,0,ts)
+        end_event.record()
+        end_event.synchronize()
+        # print("spec shape", spec.shape)
+        times.append(cp.cuda.get_elapsed_time(start_event, end_event)/1000)
+    print("Median PFB time:", np.median(times), "s")
+    print("Gsamp/s (ADC):", ts.size/np.median(times)/1e9)
+
+if __name__=="__main__":
+
+    # test_pfb_gpu_vs_cpu(4096) #some timestream value > lblock
+    # test_pfb_gpu_vs_cpu(4095) #some timestream value < lblock
+    # reproduce_bug()
+    speed_test()
+>>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b

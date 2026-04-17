@@ -1,6 +1,5 @@
 import skyfield.api as sf
 import numpy as np
-from skyfield.api import wgs84, load
 import operator
 import time
 from matplotlib import pyplot as plt
@@ -400,7 +399,7 @@ def gauss_smooth(data, sigma=5):
     return np.fft.irfft(dataft * kernelft)
 
 
-def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, good=None, altitude_cutoff=1):
+def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, good=None,altitude_cutoff=1):
     """Get all satellites risen at a particular point on earth at a list of epochs.
     Epochs start at t_start and a list of risen satellites is returned for every t_start + i * dt epoch
     The satellites are read form a TLE file (currently hardcoded).
@@ -439,7 +438,7 @@ def get_risen_sats(tle_file, coords, t_start, dt=None, niter=560, good=None, alt
     ts = sf.load.timescale()
     if not dt:
         dt = 393216 * 4096 / 250e6
-    print("Starting Time of", tt, "with a dt of", dt)
+    print("starting at ", tt, "dt is", dt)
     risen_sats = []
     for iter in range(niter):
         visible = []
@@ -484,10 +483,6 @@ def find_pulses(x, cond="==", thresh=None, pulses=True):
         Consider the effect of round-off error if you are using "eq" with a float array.
     thresh : float, optional
         If passed, (x - thresh) is compared against the condition, by default None
-
-    Returns
-    --------
-    TO FILL OUT
     """
     ops = {
         ">": operator.gt,
@@ -619,9 +614,6 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
 
 
 def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False):
-
-    program_start = time.time()
-
     obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
     obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
@@ -826,7 +818,6 @@ def chan2freq(chan,alias=False,samp=250e6,fftlen=4096):
     else:
         return samp*chan/fftlen
     
-
 
 def pred(coord1, coord2, start_t, end_t, channel, satID, T_SPECTRA=4096/250e6, v_acclen=30000):
     '''

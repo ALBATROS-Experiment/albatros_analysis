@@ -355,8 +355,6 @@ def sortpols(data, length_channels, bit_mode, rowstart, rowend, chanstart, chane
     pol1 = numpy.empty([nrows, ncols], dtype="uint8", order="c")
     # we're passing ncols because ncols not always chanend-chanstart. although could do it on C side.
     t1 = time.time()
-    print(data.dtype)
-    print(type(data))
     sortpols_c(
         data.ctypes.data,
         pol0.ctypes.data,

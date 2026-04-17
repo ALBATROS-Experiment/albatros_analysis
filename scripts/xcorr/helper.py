@@ -9,14 +9,13 @@ sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 from albatros_analysis.src.utils import baseband_utils as butils
-from albatros_analysis.src.utils import orbcomm_utils as outils
 import json
-#from helper_gpu import *
+from helper_gpu import *
 
 
 def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
     # spec offset definition:
-    # offset in actual spectrum numbers from two antennas that line up the two timestreams
+    # offset in actual spdcrum numbers from two antennas that line up the two timestreams
 
     f_start0, idx0 = butils.get_file_from_timestamp(init_t, dir_parent0, "f")
     f_end0, _ = butils.get_file_from_timestamp(end_t, dir_parent0, "f")
@@ -48,7 +47,6 @@ def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
     print("before correction", idx0, idx1)
     # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
     idx1 -= spec_offset - init_offset  # the other way around.
-    print("index 1:", idx1)
     if idx1 < 0:
         raise NotImplementedError(
             "Edge case, idx < 0. Don't start right at the beginning of a file."
@@ -194,10 +192,6 @@ def get_avg_fast(
     pols = np.ma.masked_invalid(pols)
     return pols, rowcounts, ant1.obj.channels
 
-
-
-
-
 def get_avg_fast2(idxs,files,acclen,nchunks,chanstart,chanend):
     nant = len(idxs)
     
@@ -255,70 +249,6 @@ def get_avg_fast2(idxs,files,acclen,nchunks,chanstart,chanend):
     print("Time taken final:", time.time() - st)
     vis = np.ma.masked_invalid(vis)
     return vis, rowcounts, aa.obj.channels
-
-
-
-
-def get_avg_fast_tb(idxs,files,acclen,nchunks,chanstart,chanend):
-    ''' 
-    same as get_avg_fast2 but rowcount is for each pol for each channel: more accurate
-    '''
-    nant = len(idxs)
-    antenna_objs = []
-    for i in range(nant):
-        aa = bdc.BasebandFileIterator(
-            files[i],
-            0, #fileidx is 0 = start idx is inside the first file
-            idxs[i],
-            acclen,
-            nchunks=nchunks,
-            chanstart=chanstart,
-            chanend=chanend,
-        )
-        antenna_objs.append(aa)
-    print(antenna_objs)
-    ncols = aa.obj.chanend - aa.obj.chanstart
-    npols = 2
-    nbl = nant * (nant - 1) // 2  # 01 02 03...12, 13...
-    polmap = {0: ["pol0", "pol0"], 1: ["pol1", "pol1"]}
-    print("nant", nant, "nbl", nbl, "nchunks", nchunks, "ncols", ncols)
-    vis = np.zeros((nchunks, nbl, npols, ncols), dtype="complex64", order="c")
-    rowcounts = np.empty((nchunks, nbl, npols), dtype="int64")
-    start_specnums = [ant.spec_num_start for ant in antenna_objs]
-    st = time.time()
-    for i, chunks in enumerate(zip(*antenna_objs)):
-        bl = 0
-        for j in range(nant):
-            for k in range(j+1, nant):
-                for pp in range(npols):
-                    # print(i,bl,pp)
-                    xcorr, rowcount = cr.avg_xcorr_1bit_vanvleck_2ant(
-                        chunks[j][polmap[pp][0]],
-                        chunks[k][polmap[pp][1]],
-                        ncols,
-                        chunks[j]["specnums"],
-                        chunks[k]["specnums"],
-                        start_specnums[j] + i * acclen,
-                        start_specnums[k] + i * acclen,
-                    )
-                    if rowcount < 100:
-                        vis[i, bl, pp, :] = np.nan
-                    else:
-                        vis[i, bl, pp, :] = cr.van_vleck_correction(
-                            *xcorr, rowcount
-                        )  # Van Vleck needs unpacked R0,R1,I0,I1
-                    rowcounts[i, bl, pp] = rowcount
-                bl += 1
-        # t2=time.time()
-        # print("time taken for one loop", t2-t1)
-        # j=ant1.spec_num_start
-        # print("After a loop spec_num start at:", j, "Expected at", m1+(i+1)*acclen)
-        if i % 1000 == 0:
-            print(i + 1, "CHUNK READ")
-    print("Time taken final:", time.time() - st)
-    vis = np.ma.masked_invalid(vis)
-    return vis, rowcounts, aa.obj.channels
-
 
 
 if __name__ == "__main__":

@@ -1,15 +1,14 @@
 # import skyfield.api as sf
 import time
-import os
-import sys
-sys.path.append(os.path.expanduser('~/albatros_analysis'))
 from matplotlib import pyplot as plt
 # from scipy.interpolate import CubicSpline
 # import skyfield.api as sf
+import os
+import sys
 # sys.path.insert(0,os.path.expanduser("~"))
 import cupy as cp
 import numpy as np
-from . import pycufft
+from albatros_analysis.src.utils import pycufft
 
 def apply_delay(arr, delay, freqs, out=None, copy=True):
     """Apply a time-dependent exponential phase to a timestream.
@@ -40,6 +39,8 @@ def apply_delay(arr, delay, freqs, out=None, copy=True):
             out = cp.empty(arr.shape,dtype=arr.dtype, order='C')
         else:
             out = arr
+    # print(out.shape)
+    # print(out.flags)
     out[:] = arr * cp.exp(-2j * cp.pi * freqs[cp.newaxis,:]*delay[:,cp.newaxis])
     return out
 

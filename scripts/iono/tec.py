@@ -38,7 +38,9 @@ el, az = 0, 0
 freq = 5000  # MHz
 test_tec = iri.stec(el, az, dt, lat1, lon1, heights=heights)
 test_tec2 = iri.refstec(el, az, dt, lat1, lon1, freq, heights=heights)
-print(f"Test 1:\n   stec: {test_tec:.3f}, refstec: {test_tec2:.3f}, diff: {test_tec2 - test_tec:.3f}")
+print(
+    f"Test 1:\n   stec: {test_tec:.3f}, refstec: {test_tec2:.3f}, diff: {test_tec2 - test_tec:.3f}"
+)
 np.testing.assert_almost_equal(test_tec, test_tec2, decimal=2)
 
 # Each method also has a parameter "return_hist". If True - a ray tracking data is returned.
@@ -56,13 +58,17 @@ np.testing.assert_almost_equal(test_tec, test_tec2, decimal=2)
 el, az = 0, 0
 freq = 40  # MHz
 test_tec, hist = iri.stec(el, az, dt, lat1, lon1, heights=heights, return_hist=True)
-test_tec2, hist2 = iri.refstec(el, az, dt, lat1, lon1, freq, heights=heights, return_hist=True)
+test_tec2, hist2 = iri.refstec(
+    el, az, dt, lat1, lon1, freq, heights=heights, return_hist=True
+)
 
-plt.plot(hist['lat'], hist['h'], label="stec")
-plt.plot(hist2['lat'], hist2['h'], label="refstec")
+plt.plot(hist["lat"], hist["h"], label="stec")
+plt.plot(hist2["lat"], hist2["h"], label="refstec")
 plt.xlabel("Latitude")
 plt.ylabel("Height")
-plt.title(f"Test 2\nstec: {test_tec:.3f}, refstec: {test_tec2:.3f}, diff: {test_tec2 - test_tec:.3f}")
+plt.title(
+    f"Test 2\nstec: {test_tec:.3f}, refstec: {test_tec2:.3f}, diff: {test_tec2 - test_tec:.3f}"
+)
 plt.legend()
 plt.show()
 
@@ -81,15 +87,25 @@ az2, el2 = radec2azel(ra, dec, lat2, lon2, dt)
 
 freq = 10  # MHz
 
-stec_plain1, hist_p1 = iri.stec(el1, az1, dt, lat1, lon1, heights=heights, return_hist=True)
-stec_plain2, hist_p2 = iri.stec(el2, az2, dt, lat2, lon2, heights=heights, return_hist=True)
-stec_ref1, hist_r1 = iri.refstec(el1, az1, dt, lat1, lon1, freq, heights=heights, return_hist=True)
-stec_ref2, hist_r2 = iri.refstec(el2, az2, dt, lat2, lon2, freq, heights=heights, return_hist=True)
+stec_plain1, hist_p1 = iri.stec(
+    el1, az1, dt, lat1, lon1, heights=heights, return_hist=True
+)
+stec_plain2, hist_p2 = iri.stec(
+    el2, az2, dt, lat2, lon2, heights=heights, return_hist=True
+)
+stec_ref1, hist_r1 = iri.refstec(
+    el1, az1, dt, lat1, lon1, freq, heights=heights, return_hist=True
+)
+stec_ref2, hist_r2 = iri.refstec(
+    el2, az2, dt, lat2, lon2, freq, heights=heights, return_hist=True
+)
 
 delta_stec_plain = stec_plain2 - stec_plain1
 delta_stec_ref = stec_ref2 - stec_ref1
-print(f"Test 3:\n   sTEC: {delta_stec_plain:.2e}, sTEC_ref {delta_stec_ref:.2e}, Relative diff: "
-      f"{(delta_stec_plain - delta_stec_ref) / delta_stec_plain * 100 :.3f} %")
+print(
+    f"Test 3:\n   sTEC: {delta_stec_plain:.2e}, sTEC_ref {delta_stec_ref:.2e}, Relative diff: "
+    f"{(delta_stec_plain - delta_stec_ref) / delta_stec_plain * 100 :.3f} %"
+)
 
 
 # Test 4
@@ -105,10 +121,18 @@ dstecplain = np.empty(len(dts))
 heights = np.linspace(90, 2000, 300)
 
 for i, dt in enumerate(tqdm(dts)):
-    stec_plain1, hist_p1 = iri.stec(el1, az1, dt, lat1, lon1, heights=heights, return_hist=True)
-    stec_plain2, hist_p2 = iri.stec(el2, az2, dt, lat2, lon2, heights=heights, return_hist=True)
-    stec_ref1, hist_r1 = iri.refstec(el1, az1, dt, lat1, lon1, freq, heights=heights, return_hist=True)
-    stec_ref2, hist_r2 = iri.refstec(el2, az2, dt, lat2, lon2, freq, heights=heights, return_hist=True)
+    stec_plain1, hist_p1 = iri.stec(
+        el1, az1, dt, lat1, lon1, heights=heights, return_hist=True
+    )
+    stec_plain2, hist_p2 = iri.stec(
+        el2, az2, dt, lat2, lon2, heights=heights, return_hist=True
+    )
+    stec_ref1, hist_r1 = iri.refstec(
+        el1, az1, dt, lat1, lon1, freq, heights=heights, return_hist=True
+    )
+    stec_ref2, hist_r2 = iri.refstec(
+        el2, az2, dt, lat2, lon2, freq, heights=heights, return_hist=True
+    )
     ddstec[i] = stec_ref2 - stec_plain2 - stec_ref1 + stec_plain1
     dstecplain[i] = stec_plain1 - stec_plain2
 
