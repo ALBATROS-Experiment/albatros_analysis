@@ -3,7 +3,7 @@ import os, warnings
 from matplotlib import pyplot as plt
 import subprocess
 import pytz
-import datetime
+from datetime import datetime, timezone
 import glob
 import re
 

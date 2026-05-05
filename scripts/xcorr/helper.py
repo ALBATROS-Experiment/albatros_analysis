@@ -10,7 +10,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.correlations import correlations as cr
 from albatros_analysis.src.utils import baseband_utils as butils
 import json
-from helper_gpu import *
+from albatros_analysis.scripts.xcorr.helper_gpu import *
 
 
 def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
@@ -103,16 +103,22 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
         )
         f_obj = bdc.Baseband(f_start)
         specnums[anum] = f_obj.spec_num[0] + idx
+
+    print('specnums', specnums)
     
     if len(spec_offsets) == 1: #only one antenna
         return idxs, files
     spec_offsets = np.asarray(spec_offsets,dtype='int64')
     spec_offsets -= spec_offsets[0] #normalize to specoffset of the first (ref) ant
+    print('spec offsets', spec_offsets)
     for jj in range(0, len(idxs)):  # all except first antenna
+        print(f'\nPROCESSING ANTENNA {jj}')
         init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
-        print("before correction", idxs[0], idxs[jj])
+        print('initial offset wrt ref ant', init_offset)
+        print("idxs before correction", idxs[0], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
-        print(spec_offsets[jj] - init_offset) #this is the offset within the respective files
+        print('spec offset', spec_offsets[jj], 'init offset', init_offset) #this is the offset within the respective files
+        print('correction', spec_offsets[jj]-init_offset)
         idxs[jj] -= spec_offsets[jj] - init_offset  # the other way around.
         if idxs[jj] < 0:
             raise NotImplementedError(

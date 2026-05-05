@@ -5,6 +5,7 @@ import time
 from matplotlib import pyplot as plt
 import numba as nb
 from scipy.interpolate import CubicSpline
+from skyfield.api import wgs84, load
 import skyfield.api as sf
 from scipy import fft
 import datetime
