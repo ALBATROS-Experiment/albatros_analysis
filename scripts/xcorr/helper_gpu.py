@@ -127,7 +127,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     
     # vis_file = np.memmap(outfile,mode="w+",shape=(nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64",order="F")
     # vis_file = np.memmap(outfile,mode="w+",shape=(nblt, new_nchan, npol*npol), dtype="complex64",order="F")
-    file_size_limit = 500*1024**2 # 500 MB
+    file_size_limit = 400*1024**2 # 500 MB
     vis_chunk_size = int(file_size_limit/(nbl*new_nchan*npol*npol*8))
     vis_file = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
 

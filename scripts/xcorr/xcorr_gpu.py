@@ -63,7 +63,7 @@ if __name__=="__main__":
     nant = len(dir_parents)
     npol = 2
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    tag = 'summer25_fullday_band2'
+    tag = 'test_nochange_IQ'
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     # uid = str(uuid.uuid4())[:4]  # short unique suffix
     bit_mode = 1
@@ -73,7 +73,7 @@ if __name__=="__main__":
         f"upx={osamp}_acc={new_acclen}_ipfb={filt_thresh}_"
         f"{'complex64'}_{tag}_{timestamp}"
     )
-    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}') 
+    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{tag}_{timestamp}') 
     os.makedirs(data_dir, exist_ok=True)
     outfile = os.path.join(data_dir, fname)
     print(outfile)

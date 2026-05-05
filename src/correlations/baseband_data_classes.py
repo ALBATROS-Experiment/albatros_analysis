@@ -86,7 +86,7 @@ def add_constant(arr,const):
     elif xp.__name__=='cupy': add_constant_gpu(arr,const)
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1):
+    def __init__(self, file_name, readlen=-1, verbose=True):
         """Create instance of Baseband object.
         Headers and spec_num always stored on host memory.
         Raw_data can be stored on either host/device depending on whether GPU is in use.
@@ -178,13 +178,13 @@ class Baseband:
             if readlen >= 1:
                 # interpreted as number of packets
                 self.read_packets = int(readlen)
-                print("Reading", self.read_packets, "packets")
+                if verbose: print("Reading", self.read_packets, "packets")
             elif readlen > 0 and readlen < 1:
                 # fraction of file
                 self.read_packets = int(self.num_packets * readlen)
-                print("Reading", self.read_packets, "packets")
+                if verbose: print("Reading", self.read_packets, "packets")
             elif readlen == 0:
-                print("Not reading any data")
+                if verbose: print("Not reading any data")
                 self.read_packets = 0
             else:
                 self.read_packets = -1
@@ -201,7 +201,7 @@ class Baseband:
                     ],
                 )
                 t2 = time.time()
-                print(f"took {t2-t1:5.3f} seconds to read raw data on ", file_name)
+                if verbose: print(f"took {t2-t1:5.3f} seconds to read raw data on ", file_name)
                 self.raw_data = xp.array(data["spectra"], dtype="uint8", order='c') #only raw data in GPU (if enabled)
                 self.spec_num = np.array(data["spec_num"], dtype="int64", order='c')
                 # check for specnum overflow in current file

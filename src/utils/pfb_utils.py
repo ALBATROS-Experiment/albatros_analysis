@@ -27,8 +27,7 @@ def as_slice_if_contiguous(idx):
         if cp.all(d == 1):
             return slice(idx[0], idx[-1] + 1)
     return idx
-
-class StreamingPFB():
+class StreamingPFB_CUDA():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
@@ -48,7 +47,6 @@ class StreamingPFB():
         N = self.lblock * ntap
         self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
         self.win = self.win.astype(self.dtype)
-        self.win = self.win.reshape(ntap, lblock)
         self.nblock = timestream_size // lblock
         self.rem = timestream_size % lblock
         self.overlap = (self.ntap - 1)*self.lblock
@@ -59,6 +57,7 @@ class StreamingPFB():
         self.remptr = cp.zeros((self.nant, self.npol), dtype='int32')
     
     def pfb(self, antidx, polidx, timestream):
+        timestream = cp.asarray(timestream)
         remptr = self.remptr[antidx, polidx]
         out=None
         incoming = len(timestream)
@@ -78,6 +77,88 @@ class StreamingPFB():
             self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
         self.rembuf[antidx, polidx,  : incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr[antidx, polidx] = incoming - used
+        # print("PFB OUT SHAPE", out.shape, out.flags)
+        return out
+
+    def __repr__(self):
+        arrays = {
+            "win": self.win,
+            "tsbuf": self.tsbuf,
+            "rembuf": self.rembuf
+        }
+        header = (
+            f"StreamingPFB(nant={self.nant}, npol={self.npol}, "
+            f"nblock={self.nblock}, lblock={self.lblock})"
+        )
+        return _print_class_mem_usage(arrays, header)
+
+class StreamingPFB():
+    """
+    Works for arbitrary timestream sizes. Can be less than lblock.
+    """
+    def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming', dtype='float'):
+        if dtype=='float':
+            self.dtype = 'float32'
+            self.fft = pycufft.rfft
+        else:
+            self.dtype = 'complex64'
+            self.fft = pycufft.fft
+        print("using fft", self.fft)
+        self.nant = nant
+        self.npol = npol
+        self.nchan =lblock//2+1
+        self.ntap = ntap
+        self.lblock = lblock
+        self.timestream_size = timestream_size
+        N = self.lblock * ntap
+        self.win = cp.__dict__[window](N) * cp.sinc((cp.arange(0, N) - N // 2) / self.lblock)
+        self.win = self.win.astype(self.dtype)
+        self.win = self.win.reshape(ntap, lblock)
+        self.nblock = timestream_size // lblock
+        self.rem = timestream_size % lblock
+        self.overlap = (self.ntap - 1)*self.lblock
+        print(f"tssize: {timestream_size}\noverlap: {self.overlap}\nrem: {self.rem}\nnblock: {self.nblock}\nlblock: {self.lblock}\n")
+        self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype=self.dtype, order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
+        self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype=self.dtype, order='C') #little bit extra to accomodate rem spillover
+        print("rembuf size", self.rembuf.shape)
+        self.remptr = cp.zeros((self.nant, self.npol), dtype='int32')
+    
+    def pfb(self, antidx, polidx, timestream):
+        timestream = cp.asarray(timestream)
+        remptr = self.remptr[antidx, polidx]
+        out=None
+        incoming = len(timestream)
+        used = 0
+        total_available = remptr + incoming
+        spec_possible = total_available // self.lblock
+        spec_size = spec_possible * self.lblock
+        # print("spec possible", spec_possible, "incoming", timestream)
+        # print("remptr @", remptr, "rembuf", self.rembuf)
+        # print("tsbuf", self.tsbuf)
+        if spec_possible > 0:
+            self.tsbuf[antidx, polidx, self.overlap : self.overlap + remptr] = self.rembuf[antidx, polidx,  : remptr]
+            self.tsbuf[antidx, polidx, self.overlap + remptr : self.overlap + spec_size] = timestream[ : spec_size - remptr]
+            used = (spec_size - remptr)
+            self.remptr[antidx, polidx] = 0  
+            # print("used", used, "reset remptr", self.remptr[antidx, polidx])  
+            x = self.tsbuf[antidx, polidx,  : spec_size + self.overlap].reshape(-1, self.lblock)
+            # y1 = cupy_pfb(x, self.win, nchan=self.nchan, ntap=self.ntap)
+            
+            # print("tsbuf\n", x)
+            #onwards to pfb
+            y = x * self.win[:,cp.newaxis,:]
+            y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
+            # out = self.fft(y,axis=1)
+            out = y
+            # print("out shape", out.shape, "out flags", out.flags, "out dtype", out.dtype)
+            # assert cp.max(cp.abs(out-y1)) == 0.
+            # out = cp.fft.rfft(y,axis=1)
+            self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
+        self.rembuf[antidx, polidx,  self.remptr[antidx, polidx] : self.remptr[antidx, polidx] + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
+        self.remptr[antidx, polidx] += incoming - used
+        # print("remptr @",self.remptr[antidx, polidx], "rembuf", self.rembuf)
+        # print("tsbuf", self.tsbuf)
+        # print("------------------------------------------------------------------")
         # print("PFB OUT SHAPE", out.shape, out.flags)
         return out
 
@@ -359,9 +440,11 @@ def cupy_pfb(timestream, win, out=None,nchan=2049, ntap=4):
     if out is not None:
         assert out.shape == (nblock, nchan)
     win=win.reshape(ntap,lblock)
-    y=timestream*win[:,cp.newaxis]
+    y = timestream * win[:,cp.newaxis,:]
     y=y[0,:nblock,:]+y[1,1:nblock+1,:]+y[2,2:nblock+2,:]+y[3,3:nblock+3,:]
+    # out=y
     out=pycufft.rfft(y,axis=1)
+    # out=cp.fft.rfft(y,axis=1)
     # print(pycufft.pycufft_cache)
     return out
 
