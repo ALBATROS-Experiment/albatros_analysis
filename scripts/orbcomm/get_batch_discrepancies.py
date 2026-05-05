@@ -76,8 +76,6 @@ if __name__ == "__main__":
     master_discrepancies = {}
     for i, pulse in enumerate(pulse_list):
         print(f'\nSTARTING PULSE {i}')
-        if i != 24:
-            continue
         print(pulse)
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
         satID = pulse['sat']
