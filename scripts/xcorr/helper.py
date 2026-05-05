@@ -70,7 +70,7 @@ def get_overflow_files(init_t, end_t, dir_parent):
         obj = bdc.Baseband(file,readlen=1,verbose=False) #read 1 packet
         specnums.append(obj.spec_num[0])
     wrap_loc = np.where(np.diff(specnums)<0)[0]
-    return files[wrap_loc]
+    return np.asarray([butils.get_tstamp_from_filename(f) for f in files[wrap_loc]],dtype='int64')
 
 def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     """_summary_
@@ -105,7 +105,6 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     specnums = len(dir_parents) * [0]
     files = []
     for anum, dir_parent in enumerate(dir_parents):
-        overflow
         f_start, idx = butils.get_file_from_timestamp(init_t, dir_parent, "f")
         idxs[anum] = idx
         f_end, _ = butils.get_file_from_timestamp(end_t, dir_parent, "f")
