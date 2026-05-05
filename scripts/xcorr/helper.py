@@ -105,7 +105,6 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     specnums = len(dir_parents) * [0]
     files = []
     for anum, dir_parent in enumerate(dir_parents):
-        overflow
         f_start, idx = butils.get_file_from_timestamp(init_t, dir_parent, "f")
         idxs[anum] = idx
         f_end, _ = butils.get_file_from_timestamp(end_t, dir_parent, "f")
