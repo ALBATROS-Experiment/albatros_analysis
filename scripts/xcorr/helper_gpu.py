@@ -70,7 +70,7 @@ def xcorr_avg(idxs,files,pfb_size,nchunks,channels):
                 rowidx+=1
     return vis, channels
 
-def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45, orig_t=None, delays=None):
+def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45, downconvert=True, orig_t=None, delays=None):
     """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
 
     Parameters
@@ -97,6 +97,8 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         IPFB algorithm forces circularity, causing the edges of recons. timestream to be bad.
     filt_thresh : float, optional
         IPFB Wiener filter threshold, by default 0.45
+    downconvert: bool, optional
+        Downconvert the passed channels to enable shorter FFT sizes in IPFB and PFB.
     """
     nant = len(idxs)
     npol = 2
@@ -108,27 +110,33 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     new_channels = new_channels.ravel()
     new_nchan = len(new_channels)
     #needs channels that are in the read data
-    ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
-    fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
+    if downconvert:
+        ipfb = pu.StreamingIPFB_IQ(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
+        fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = ipfb.lblock*osamp, dtype='complex64')
+        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, np.arange(new_nchan), bufsize_frac = 10)
+    else:
+        ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
+        fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
+        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 10)
     #needs channels you want to cross-correlate in re-PFB'd data
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 2)
+    
     nbl = nant * (nant-1) // 2 + nant #number of baselines including auto
     nblt = nbl * nrows_total #total number of baselines times time samples
-    print(nrows_total)
     #on HOST
     
     # vis_file = np.memmap(outfile,mode="w+",shape=(nant*npol, nant*npol, new_nchan, nrows_total), dtype="complex64",order="F")
     # vis_file = np.memmap(outfile,mode="w+",shape=(nblt, new_nchan, npol*npol), dtype="complex64",order="F")
-    file_size_limit = 500*1024**2 # 500 MB
+    file_size_limit = 400*1024**2 # 500 MB
     vis_chunk_size = int(file_size_limit/(nbl*new_nchan*npol*npol*8))
     vis_file = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
 
     # vis_file = np.empty(shape=(nant*npol, nant*npol,new_nchan,nrows_total), dtype="complex64",order="F") #this is for direct dumping
     # vis_file = np.memmap(outfile, mode="w+", shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
-    print("OUTFILE SHAPE", vis_file.shape)
-    print("EXPECTED OUTFILE SIZE", np.prod(vis_file.shape)*8/1024**3, "GB")
-    print("EXPECTED NUM OF FILE CHUNKS", nrows_total//vis_chunk_size + 1)
+    print("VIS CHUNK SHAPE\t\t\t", vis_file.shape)
+    print(f"VIS CHUNK SIZE\t\t\t{vis_file.nbytes/1024**3 : .2f} GB")
+    print("EXPECTED NUM OF FILE CHUNKS\t", nrows_total//vis_chunk_size + 1)
+    print(f"TOTAL SIZE ON DISK\t\t{vis_file.nbytes * nrows_total/vis_chunk_size /1024**3 : .2f} GB")
     vis_chunk_id = 0
     # vis = np.zeros((nant*npol, nant*npol, new_nchan, vis_chunk_size), dtype="complex64", order="F")
     ai_gpu, aj_gpu = cp.triu_indices(nant) # ai_gpu, aj_gpu are 1-D cupy arrays of length nbl
@@ -156,18 +164,18 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         )
         antenna_objs.append(aa)
     #print("channels present", aa.obj.channels)
-    print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
+    print("Channel indices loaded", aa.obj.channel_idxs[0], "to", aa.obj.channel_idxs[-1], "corresponding to channels", aa.obj.channels[aa.obj.channel_idxs[0]], "to", aa.obj.channels[aa.obj.channel_idxs[-1]])
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
     ant_specnums = [ant.spec_num_start for ant in antenna_objs]
     ant_ptr = np.zeros(nant, dtype=np.int32)
-    T_SPECTRA = lblock * osamp / 250e6
-    freqs = cp.asarray(outils.chan2freq(new_channels,alias=True,fftlen=4096*osamp),dtype='float64')
+    
     if delays is not None:
+        T_SPECTRA = lblock * osamp / 250e6
         delays = cp.asarray(delays,dtype='float64')
         orig_t = cp.asarray(orig_t,dtype='float64')
-    print("Freqs for beamforming:", freqs/1e6)
-    print("T_SPECTRA", T_SPECTRA)
-    if delays is not None:
+        freqs = cp.asarray(outils.chan2freq(new_channels,alias=True,fftlen=4096*osamp),dtype='float64')
+        print("Freqs for beamforming:", freqs/1e6)
+        print("T_SPECTRA", T_SPECTRA)
         print("delays", delays.shape, delays)
         print("orig_t", orig_t)
     # sys.exit()
@@ -202,7 +210,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             # print("PFB returned shape", pol0_new.shape, pol1_new.shape)
             # start_event.record()
             if pol0_new is not None and pol1_new is not None:
-                print("new pfb shape", pol0_new.shape)
+                # print("new pfb shape", pol0_new.shape)
                 if delays is not None:
                     interp_t = cp.arange(ant_ptr[ant_idx], ant_ptr[ant_idx]+pol0_new.shape[0])*T_SPECTRA
                     interp_delay = cp.interp(interp_t, orig_t, delays[ant_idx])
@@ -218,7 +226,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         if xcorr.loaded_num==nant*npol:
             rows = xcorr.xcorr()
             n = len(rows)
-            print("all loaded",n)
+            # print("all loaded",n)
             # end_event.record()
             # end_event.synchronize()
             # print("xcorr time", cp.cuda.get_elapsed_time(start_event, end_event)/1000)
@@ -256,10 +264,10 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
                 # assert cp.all(row_ut[8,10:20,1] == row_orig[2,5,10:20] ) #passing (remember pols are also in F ordering post-flattening: 00,01,10,11)
                 # print("row_ut shape", row_ut.shape, row_ut.flags)
                 # ====================================================
-                t1=time.time()
+                # t1=time.time()
                 vis_file[ : , rowidx , : , : ] = cp.asnumpy(row_ut,order='F') #dev to host, ensuring same ordering for transfer speed (marginal gain for O(10) baselines.)
-                t2=time.time()
-                print("dev to host time", t2-t1) #2 OOM faster than time spent doing IPFB+PFB+XCORR
+                # t2=time.time()
+                # print("dev to host time", t2-t1) #2 OOM faster than time spent doing IPFB+PFB+XCORR
                 # print("row_ut",row_ut[10:12,10:15,2])
                 # print("vis_file",vis_file[10:12,rowidx,10:15,2])
                 rowidx+=1

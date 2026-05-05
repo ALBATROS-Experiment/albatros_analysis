@@ -53,17 +53,30 @@ def pfb(timestream,  window, nchan=2049, ntap=4):
 
 def test_pfb_manual():
     # mysize = 500 + 0 #1000 extra
-    mysize = 9 + 0 #2 extra
-    lblock = 8
-    pfbobj = pu.StreamingPFB(8,2,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
-    # myts = cp.random.randn(mysize)
-    # myts = myts.astype("float32")
-    # myts = cp.ones(mysize,dtype='float32')
-    myts = cp.arange(8*10,dtype='float32')
-    print("MYTS",myts)
-    for i in range(20):
-        print("iteration", i)
-        spec=pfbobj.pfb(myts[i*mysize:(i+1)*mysize])
+    mult = 3
+    lblock = 10
+    mysize = 3
+    pfbobj = pu.StreamingPFB(1,1,timestream_size = mysize, lblock = lblock)
+    win = cp.asarray(sinc_hamming(4,lblock),dtype='float32')
+    # myts = cp.arange(lblock*mysize*mult,dtype='float32')
+    myts = cp.random.randn(lblock*mysize*mult).astype("float32")
+    # myts = cp.tile(cp.arange(lblock,dtype='float32'), mysize*mult)
+    # myts = cp.tile(cp.ones(lblock,dtype='float32'), mysize*mult)
+    gpu_pfb = cp.zeros((len(myts)//lblock, lblock//2+1), dtype='complex64')
+    print(gpu_pfb.shape)
+    cpu_pfb = pfb(cp.asnumpy(myts),sinc_hamming,nchan=lblock//2+1)
+    gpu_full_pfb = pu.cupy_pfb(myts, win, nchan=lblock//2+1)
+    # myts = cp.arange(8*10,dtype='float32')
+    # print("MYTS",myts)
+    niter = len(myts)//mysize
+    jj=0
+    for i in range(niter):
+        # print("iteration", i)
+        ret=pfbobj.pfb(0,0,myts[i*mysize:(i+1)*mysize])
+        if ret is not None:
+            gpu_pfb[jj:jj+ret.shape[0],:] = ret
+            jj+=ret.shape[0]
+            # print(jj)
         # if spec:
         #     print("mean spec", cp.abs(cp.mean(spec,axis=0)))
         #     plt.plot(cp.asnumpy(cp.abs(cp.mean(spec,axis=0))),marker='o')
@@ -71,49 +84,74 @@ def test_pfb_manual():
         #     plt.ylim(0,20)
         #     plt.savefig(f"./test_pfb_{i}.jpg")
         # print(spec)
+    print(gpu_pfb.shape, cpu_pfb.shape, jj)
+    print("gpu stream pfb\n", gpu_pfb[3:,])
+    print("gpu full pfb\n", gpu_full_pfb)
+    print("cpu full pfb\n", cpu_pfb)
+    print("diff2\n", gpu_full_pfb-gpu_pfb[3:,])
+    err1 = gpu_full_pfb-gpu_pfb[3:,:]
+    err2 = cp.asnumpy(gpu_pfb[3:,:])-cpu_pfb[:,:]
+    print("gpu full pfb vs streaming pfb error1 max:", np.max(np.abs(err1)), "stddev:", np.std(err1))
+    print("Max error cpu vs gpu max:", np.max(np.abs(err2)), "stddev:", np.std(err2)) #discard top 3 rows
 
-def test_pfb_gpu_vs_cpu(mysize):
+def test_pfb_gpu_vs_cpu(mysize, lblock = 4096):
     # mysize simulates how many timestream samples we'll get each time we ipfb a small chunk
     # PFB of ENTIRE timestream SHOULD BE THE SAME
     # whole timestream at once  ==  lots of small timesteram chunks
 
     ts_specnum = 5000
-    lblock = 4096
-    assert mysize < ts_specnum * lblock
+    pfbobj = pu.StreamingPFB(8,2,timestream_size = mysize, lblock = lblock)
+    win = pfbobj.win.ravel()
+    print("win shape", win.shape, "win dtype", win.dtype)
+    win_np = cp.asnumpy(win)
+    
     ts = np.random.randn(ts_specnum*lblock).astype('float32')
-    cpu_pfb1 = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
-    # ts = np.arange(ts_specnum*lblock).astype('float32')/10000
     ts_d1 = cp.asarray(ts)
-    ts = np.random.randn(ts_specnum*lblock).astype('float32')
-    cpu_pfb2 = pfb(ts,sinc_hamming,nchan=lblock//2+1) #pfb of whole timestream
-    ts_d2 = cp.asarray(ts)
-    assert ts_d1.dtype == 'float32'
+    cpu_pfb1 = pfb(ts, lambda n, l: win_np, nchan=lblock//2+1) # Use exact same window bits
+    gpu_full_pfb1 = pu.cupy_pfb(ts_d1, win, nchan=lblock//2+1)
+    
+    ts2 = np.random.randn(ts_specnum*lblock).astype('float32')
+    ts_d2 = cp.asarray(ts2)
+    cpu_pfb2 = pfb(ts2, lambda n, l: win_np, nchan=lblock//2+1) # Use exact same window bits
+    gpu_full_pfb2 = pu.cupy_pfb(ts_d2, win, nchan=lblock//2+1)
     
     print("cpu pfb shape", cpu_pfb1.shape)
     print("mysize", mysize)
     niter = len(ts)//mysize+1
-    gpu_pfb_d1 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
-    gpu_pfb_d2 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
-    # gpu_pfb_d = cp.zeros((ts_specnum,lblock),dtype='float32')
+    # gpu_pfb_d1 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    # gpu_pfb_d2 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    gpu_pfb_d1 = cp.zeros((ts_specnum,lblock),dtype='float32')
+    gpu_pfb_d2 = cp.zeros((ts_specnum,lblock),dtype='float32')
     print("gpu_pfb shape", gpu_pfb_d1.shape)
-    pfbobj = pu.StreamingPFB(8,2,chans=cp.arange(200),timestream_size = mysize, lblock = lblock)
+    
     jj=0
     kk=0
     for i in range(niter):
-        # print(f"---------------------------iteration {i}------------------------")
         spec1=pfbobj.pfb(0,0,ts_d1[i*mysize:(i+1)*mysize])
-        spec2=pfbobj.pfb(5,1,ts_d2[i*mysize:(i+1)*mysize])
-        # print("spectra shape",spec.shape)
+        spec2=pfbobj.pfb(0,1,ts_d2[i*mysize:(i+1)*mysize])
         if spec1 is not None:
             gpu_pfb_d1[jj:jj+spec1.shape[0],:]=spec1
             jj+=spec1.shape[0]
-        if spec1 is not None:
+        if spec2 is not None:
             gpu_pfb_d2[kk:kk+spec2.shape[0],:]=spec2
             kk+=spec2.shape[0]
-    gpu_pfb1 = cp.asnumpy(gpu_pfb_d1)
-    gpu_pfb2 = cp.asnumpy(gpu_pfb_d2)
-    print("Max error1\n", np.max(np.abs(gpu_pfb1[3:,:]-cpu_pfb1[:,:]))) #discard top 3 rows
-    print("Max error2\n", np.max(np.abs(gpu_pfb2[3:,:]-cpu_pfb2[:,:]))) #discard top 3 rows
+
+    err1_full_vs_stream = gpu_full_pfb1-gpu_pfb_d1[3:,:]
+    err2_full_vs_stream = gpu_full_pfb2-gpu_pfb_d2[3:,:]
+    print("gpu full pfb vs streaming pfb error1 max:", np.max(np.abs(err1_full_vs_stream)), "stddev:", np.std(err1_full_vs_stream))
+    print("gpu full pfb vs streaming pfb error2 max:", np.max(np.abs(err2_full_vs_stream)), "stddev:", np.std(err2_full_vs_stream))
+    
+    # err1_cpu_vs_full = cpu_pfb1 - cp.asnumpy(gpu_full_pfb1)
+    # err2_cpu_vs_full = cpu_pfb2 - cp.asnumpy(gpu_full_pfb2)
+    # print("CPU vs GPU full error1 max:", np.max(np.abs(err1_cpu_vs_full)), "stddev:", np.std(err1_cpu_vs_full))
+    # print("CPU vs GPU full error2 max:", np.max(np.abs(err2_cpu_vs_full)), "stddev:", np.std(err2_cpu_vs_full))
+
+    # gpu_pfb1 = cp.asnumpy(gpu_pfb_d1)
+    # gpu_pfb2 = cp.asnumpy(gpu_pfb_d2)
+    # err1_cpu_vs_gpu = gpu_pfb1[3:,:]-cpu_pfb1[:,:]
+    # err2_cpu_vs_gpu = gpu_pfb2[3:,:]-cpu_pfb2[:,:]
+    # print("Max error1 cpu vs gpu max:", np.max(np.abs(err1_cpu_vs_gpu)), "stddev:", np.std(err1_cpu_vs_gpu)) #discard top 3 rows
+    # print("Max error2 cpu vs gpu max:", np.max(np.abs(err2_cpu_vs_gpu)), "stddev:", np.std(err2_cpu_vs_gpu)) #discard top 3 rows
     # print("Max error3\n", np.max(np.abs(gpu_pfb1[3:,:]-gpu_pfb2[3:,:]))) #discard top 3 rows
     # arg = np.argmax(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))
     # argrow = arg//lblock
@@ -124,13 +162,6 @@ def test_pfb_gpu_vs_cpu(mysize):
     # gpu_win = cp.asnumpy(pfbobj.win.ravel())
     # cpu_win = sinc_hamming(4,lblock).astype("float32")
     # print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
-<<<<<<< HEAD
-if __name__=="__main__":
-
-    test_pfb_gpu_vs_cpu(4096) #some timestream value > lblock
-    test_pfb_gpu_vs_cpu(4095) #some timestream value < lblock
-    # reproduce_bug()
-=======
 
 def speed_test():
     ts = cp.random.randn(65536*4096).astype('float32')
@@ -152,9 +183,10 @@ def speed_test():
     print("Gsamp/s (ADC):", ts.size/np.median(times)/1e9)
 
 if __name__=="__main__":
-
-    # test_pfb_gpu_vs_cpu(4096) #some timestream value > lblock
-    # test_pfb_gpu_vs_cpu(4095) #some timestream value < lblock
+    # test_pfb_manual()
+    test_pfb_gpu_vs_cpu(11000, lblock=4096) #some timestream value > lblock
+    test_pfb_gpu_vs_cpu(4096, lblock=4096) #some timestream value = lblock
+    test_pfb_gpu_vs_cpu(356, lblock=4096) #some timestream value < lblock
     # reproduce_bug()
-    speed_test()
->>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b
+    # speed_test()
+

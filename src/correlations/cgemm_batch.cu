@@ -24,14 +24,17 @@ void cgemm_strided_batched(
     const cuComplex β = make_cuComplex(0.0f, 0.0f);
 
     // cuBLAS handle
-    // int vnum;
     cublasHandle_t h;
     if (cublasCreate(&h) != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "cublasCreate failed\n");
         return;
     }
+    int vnum;
     // cublasGetVersion(h, &vnum);
     // printf("CuBLAS version number %d\n", vnum);
+    // Enable Tensor Cores via TF32 for H100/A100/L40S
+    cublasSetMathMode(h, CUBLAS_TF32_TENSOR_OP_MATH);
+
     // Perform: C = α·A·Bᴴ + β·C  (batched)
     cublasStatus_t stat = cublasCgemmStridedBatched(
         h,

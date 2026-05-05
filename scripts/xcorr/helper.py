@@ -55,6 +55,22 @@ def get_init_info_2ant(init_t, end_t, spec_offset, dir_parent0, dir_parent1):
     print("after correction", idx0, idx1)
     return files0, idx0, files1, idx1
 
+def get_overflow_files(init_t, end_t, dir_parent):
+    files = butils.time2fnames(
+                init_t,
+                end_t,
+                dir_parent,
+                "f",
+                mind_gap=True,
+            )
+    files.sort()
+    files = np.asarray(files,dtype=object)
+    specnums = []
+    for file in files:
+        obj = bdc.Baseband(file,readlen=1,verbose=False) #read 1 packet
+        specnums.append(obj.spec_num[0])
+    wrap_loc = np.where(np.diff(specnums)<0)[0]
+    return files[wrap_loc]
 
 def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     """_summary_
@@ -89,6 +105,7 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     specnums = len(dir_parents) * [0]
     files = []
     for anum, dir_parent in enumerate(dir_parents):
+        overflow
         f_start, idx = butils.get_file_from_timestamp(init_t, dir_parent, "f")
         idxs[anum] = idx
         f_end, _ = butils.get_file_from_timestamp(end_t, dir_parent, "f")
@@ -127,6 +144,9 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
         # not handling the edge case for now
         print("after correction", idxs[0], idxs[jj])
     return idxs, files
+
+
+
 
 
 def get_avg_fast(

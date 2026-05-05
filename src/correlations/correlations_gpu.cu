@@ -63,6 +63,8 @@ void Cxc(cuComplex * dev_c, cuComplex * dev_a, cuComplex * dev_b, int m, int n, 
         fprintf(stderr, "CUDA Runtime API Error reported Pre GEMM: %s\n", cudaGetErrorString(cudaError));
         exit(EXIT_FAILURE);
     }
+    // Enable Tensor Cores via TF32 for H100/A100/L40S
+    // cublasSetMathMode(h, CUBLAS_TF32_TENSOR_OP_MATH);
     cuComplex alpha = make_cuComplex(1,0);
     cuComplex beta = make_cuComplex(0,0);
     cuComplex test = make_cuComplex(0,0);
@@ -139,7 +141,7 @@ void cgemm_strided_batched(
     long long strideA = (long long)M * K;
     long long strideB = (long long)N * K;
     long long strideC = (long long)M * N;
-
+    
     // Scalars
     const cuComplex α = make_cuComplex(1.0f, 0.0f);
     const cuComplex β = make_cuComplex(0.0f, 0.0f);
@@ -147,12 +149,14 @@ void cgemm_strided_batched(
     // cuBLAS handle
     // int vnum;
     cublasHandle_t h;
+    
     if (cublasCreate(&h) != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "cublasCreate failed\n");
         return;
     }
     // cublasGetVersion(h, &vnum);
     // printf("CuBLAS version number %d\n", vnum);
+    // cublasSetMathMode(h, CUBLAS_TF32_TENSOR_OP_MATH);
     // Perform: C = α·A·Bᴴ + β·C  (batched)
     cublasStatus_t stat = cublasCgemmStridedBatched(
         h,

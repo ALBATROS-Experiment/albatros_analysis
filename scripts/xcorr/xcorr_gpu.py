@@ -57,32 +57,33 @@ if __name__=="__main__":
     print("nchunks", nchunks)
     # print("loaded files", files)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    filt_thresh = 0.2
+    filt_thresh = 0.4
     # t_acclen = acclen*4096/250e6
     # sys.exit()
     nant = len(dir_parents)
     npol = 2
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    tag = 'csa_summer2025'
+    tag = 'test_nochange_IQ'
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     # uid = str(uuid.uuid4())[:4]  # short unique suffix
     bit_mode = 1
+    downconvert=True
     fname = (
         f"vis_{init_t}:{end_t}_bit={bit_mode}_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_tim={nrows_total}_"
         f"upx={osamp}_acc={new_acclen}_ipfb={filt_thresh}_"
         f"{'complex64'}_{tag}_{timestamp}"
     )
-    print(fname)
-    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}') 
+    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{tag}_{timestamp}') 
     os.makedirs(data_dir, exist_ok=True)
     outfile = os.path.join(data_dir, fname)
+    print(outfile)
     if osamp > 1:
         t1=time.time()
-        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh)
+        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh,downconvert=downconvert)
         t2=time.time()
     else:
         t1=time.time()
-        pols,new_channels=helper.xcorr_avg(idxs,files,pfb_size,nchunks,channels)
+        pols,new_channels=helper.xcorr_avg(idxs,files,pfb_size,nchunks,channels, outfile)
         t2=time.time()
     print("Total time taken", t2-t1)
 

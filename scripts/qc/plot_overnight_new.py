@@ -574,7 +574,9 @@ if __name__=="__main__":
 
     timezone = args.timezone
     vmin = args.vmin
+    vmin2 = args.vmin
     vmax = args.vmax
+    vmax2 = args.vmax
     logplot = args.logplot
     blocksize = args.blocksize
     outdir = args.outdir
