@@ -86,7 +86,7 @@ def add_constant(arr,const):
     elif xp.__name__=='cupy': add_constant_gpu(arr,const)
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1, verbose=True):
+    def __init__(self, file_name, readlen=-1, num_overflows=0, verbose=True):
         """Create instance of Baseband object.
         Headers and spec_num always stored on host memory.
         Raw_data can be stored on either host/device depending on whether GPU is in use.
@@ -214,6 +214,8 @@ class Baseband:
                     raise ValueError(
                         "Why are there two -ve diffs in specnum? Investigate this file"
                     )
+                if num_overflows > 0:
+                    self.spec_num[:] += num_overflows * 2**32 #correct for all previous overflows
         return
 
     @property
