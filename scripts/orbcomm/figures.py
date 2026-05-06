@@ -126,20 +126,6 @@ def make_snr_plot(data, temp_satmap):
     snrax.legend()
     return snrfig
 
-def make_risen_sats_plot(arr, global_start_t, num_sats_risen, satlist, T_SCAN = 5):
-    fig, ax = plt.subplots(1, 2)
-    fig.set_size_inches(10,4)
-    fig.suptitle(f"Risen sats for starting time {global_start_t}")
-    ax[0].plot(num_sats_risen)
-    ax[0].set_xlabel(f"Time ({T_SCAN} s)")
-    ax[1].set_ylabel(f"Time ({T_SCAN} s)")
-    ax[1].set_xlabel("Sat ID") #Satellite ID
-    ax[1].imshow(arr,aspect='auto',interpolation="none")
-    ax[1].set_xticks(range(len(satlist)))
-    ax[1].set_xticklabels(satlist)
-    plt.tight_layout()
-    return fig
-
 def makeplot_fringes_phase(coords, 
                            times,
                            chan_big_idx, 

@@ -8,6 +8,7 @@ from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
+from albatros_analysis.scripts.xcorr import helper as hxc
 import numpy as np
 import cupy as cp
 import argparse
@@ -23,9 +24,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "config_file", type=str, help="Config file containing all required data.",
     )
-    parser.add_argument(
-        "-o", "--output_path", type=str, default="/scratch/thomasb", help="Output directory for plots and pulses"
-    )
     args = parser.parse_args()
 
     #GET HARD-CODED PARAMS---------------------------------------------------------------------
@@ -33,7 +31,6 @@ if __name__ == "__main__":
     T_SCAN = 5 #seconds between each satellite risen scan -- look for sat rise/set every 5 sec.
     altitude_cutoff = 5  #cutoff when looking for satellites
     satlist = [28654,25338,33591,57166,59051,44387]
-    out_path = args.output_path
     characteristic_time = int(time.time())
 
     #OPEN CONFIG-------------------------------------------------------------------------------
@@ -58,14 +55,19 @@ if __name__ == "__main__":
     array_time =  batch_end_ts - batch_start_ts
     coords_ref, path_ref = coords[0], dir_parents[0]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    plot_output = os.path.join(out_path, f'satdet_plots_{batch_start_ts}_{int(c_acclen/1e6)}M_len_{array_time}_{characteristic_time}')
-    os.makedirs(plot_output, exist_ok=True)
+    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}')
+    os.makedirs(path_batch, exist_ok=True)
+    path_satdet = os.path.join(path_batch, 'satdet')
+    os.makedirs(path_satdet, exist_ok = True)
+    path_debugplots = os.path.join(path_satdet, 'debugplots')
+    os.makedirs(path_debugplots, exist_ok=True)
 
     satmap = {} #maps sat IDs (e.g. 33591) to its index in satlist (e.g. 2), without collisions
     assert min(satlist) > len(satlist)
     for i, sat_ID in enumerate(satlist):
         satmap[i] = sat_ID
         satmap[sat_ID] = i
+    print('Satmap', satmap)
 
     #GET RISEN SATS------------------------------------------------------------------------------------
     nrows = int((array_time)/T_SCAN)
@@ -76,40 +78,51 @@ if __name__ == "__main__":
         for sat_ID, satele, sataz in row:
             arr[i,satmap[sat_ID]] = 1
 
-    fig = fgs.make_risen_sats_plot(arr, batch_start_ts, num_sats_risen, satlist, T_SCAN=T_SCAN)
-    fig.savefig(path.join(out_path,f"risen_sats_{batch_start_ts}_{characteristic_time}.jpg"), dpi=300)
-    fig.clf()
-    plt.close(fig)
-    del fig
-    print(arr)
+    #plot risen sats
+    fig_risen_sats, ax = plt.subplots(1, 2)
+    fig_risen_sats.set_size_inches(10,4)
+    fig_risen_sats.suptitle(f"Risen sats batch {batch_start_ts}")
+    ax[0].plot(num_sats_risen)
+    ax[0].set_xlabel(f"Time ({T_SCAN} s)")
+    ax[1].set_ylabel(f"Time ({T_SCAN} s)")
+    ax[1].set_xlabel("Sat ID")
+    ax[1].imshow(arr,aspect='auto',interpolation="none")
+    ax[1].set_xticks(range(len(satlist)))
+    ax[1].set_xticklabels(satlist)
+    plt.tight_layout()
+    fig_risen_sats.savefig(path.join(path_debugplots,'risen_sats.png'))
+    plt.close(fig_risen_sats)
 
     #PASSES----------------------------------------------------------------------------------------------
     passes = outils.get_simul_pulses(arr) #beware the function is named pulses
-    print(passes)
-    print(type(passes))
     npasses = len(passes)
-    print("PASSES DETECTED:",'\n', passes, '\n')
+    #print("PASSES DETECTED:",'\n', passes, '\n')
     print("Number of Passes:", npasses, '\n')
 
     mempool = cp.get_default_memory_pool()
     pinned_mempool = cp.get_default_pinned_memory_pool()
-    
+
     #ITERATE OVER ANTENNA----------------------------------------------------------------------------------
     sat_data = {}    #when saving everything to one json
-    sat_data[batch_start_ts] = {}  
+    sat_data['summary'] = {}
     temp_files = []  #paths of temporary per-antenna json files
+    #get the files where the ref antenna has specnum overflows
+    overflow_files_ref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
+
     for antnum in range(1,len(dir_parents)):
-        print(f"--------------- {ant_names[antnum]}-----------------")
+        print(f"\n--------------- {ant_names[antnum]}-----------------")
 
         baseline_data = []
         path_nref, coords_nref = dir_parents[antnum], coords[antnum]
 
-        ant_plot_path = os.path.join(plot_output, f'{ant_names[antnum]}')
-        os.makedirs(ant_plot_path, exist_ok=True)
+        path_ant = os.path.join(path_debugplots, f'{ant_names[antnum]}')
+        os.makedirs(path_ant, exist_ok=True)
+        #get files where non-ref antenna has specnum overflows
+        overflow_files_nref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antnum])
 
         #ITERATE OVER PASSES----------------------------------------------------------------------------------
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
-            print(f"---------------{ant_names[antnum]}, Pulse {pnum}---------")
+            print(f"\n---------------{ant_names[antnum]}, Pulse {pnum}---------")
             pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
             print('pstart', pstart)
             print('pend', pend)
@@ -180,8 +193,16 @@ if __name__ == "__main__":
             )
 
             print('ref: acclen', ref.acclen, 'nchunks', ref.nchunks)
-            print('nref: acclen', nref.nchunks, 'nchunks', nref.nchunks)
-            specnum_offset = ref.spec_num_start - nref.spec_num_start
+            print('nref: acclen', nref.acclen, 'nchunks', nref.nchunks)
+
+            overflow_ct_ref = np.sum(overflow_files_ref<pass_start_unix)
+            overflow_ct_nref = np.sum(overflow_files_nref<pass_start_unix)
+            print('Overflows ref, nref:', overflow_ct_ref, overflow_ct_nref)
+            start_specnum_ref = ref.spec_num_start + overflow_ct_ref*(2**32)
+            start_specnum_nref = nref.spec_num_start + overflow_ct_nref*(2**32)
+            specnum_offset = start_specnum_ref - start_specnum_nref
+            print('Initial Specnum Offset:', specnum_offset)
+
             pulse_times, pulse_snrs, pulse_specnumoffsets = [], [], []
             detection = False
 
@@ -197,7 +218,6 @@ if __name__ == "__main__":
                 data_nref = cp.zeros((c_acclen, nchans), dtype="complex64")
                 ref_specnum_start = ref.spec_num_start
                 nref_specnum_start = nref.spec_num_start
-                
 
                 print('CHUNK IDX', chunkidx)
                 print('NCHUNKS', nchunks)
@@ -393,6 +413,12 @@ if __name__ == "__main__":
 
         print(baseline_data)
 
+
+        sat_data['summary'][ant_names[antnum]] = {
+            'consensus_offset': 0,
+            'detections': 0
+        }
+
         #UPDATE OFFSETS
         # con_off = su.get_consensus_offset(baseline_pulse_data)
         # for pulse_dict in baseline_pulse_data:
@@ -404,7 +430,7 @@ if __name__ == "__main__":
         # ant_data["consensus_offset"] = con_off
         #ant_data["pulse_data"] = baseline_data
 
-        temp_path = os.path.join(out_path, f"temp_antidx{antnum}_{batch_start_ts}.json")
+        temp_path = os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")
         with open(temp_path, "w") as f:
             json.dump(baseline_data, f, indent=4)
         temp_files.append((ant_names[antnum], temp_path))
@@ -417,7 +443,7 @@ if __name__ == "__main__":
     #SAVING ALL BLINES TO ONE JSON
     for ant_name, temp_path in temp_files:
         with open(temp_path, "r") as f:
-            sat_data[batch_start_ts][ant_name] = json.load(f)
+            sat_data[ant_name] = json.load(f)
 
     final_json = path.join(out_path,f"satdet_data_{batch_start_ts}_{int(c_acclen/1e6)}M_len_{array_time}_{characteristic_time}.json")
     with open(final_json, "w") as f:

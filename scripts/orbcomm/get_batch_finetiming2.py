@@ -112,7 +112,7 @@ def func(tau_t, data, freq, weights):
     - convention is that timing difference is ai-aj
     '''
     # for one time sample
-    nant=6
+    nant=7
     nbl = nant*(nant-1)//2
     nfreq = len(freq)
     n_eval = nfreq * nbl
@@ -150,7 +150,7 @@ def jac(tau_t, data, freq, weights):
     - Antenna 0 is the reference so its delay is zero
     - therefore tau_t has length nant-1
     '''
-    nant=6
+    nant=7
     nbl = nant*(nant-1)//2
     nfreq = len(freq)
     n_eval = nfreq * nbl
@@ -245,7 +245,7 @@ def get_mask(vis, tol=1.5):
 
 def get_thermal_noise(vis, ant_idxs, mask=None):
 
-    fig,ax = plt.subplots(5,3, constrained_layout=True)
+    fig,ax = plt.subplots(7,3, constrained_layout=True)
     fig.set_size_inches(10,15)
     ax=np.ravel(ax)
     plt.suptitle(f"stokes I (phase), int. time {T_SPECTRA*acclen:4.2f}s")
@@ -350,7 +350,8 @@ if __name__ == "__main__":
     acclen = config['correlation']['new_acclen']
 
     T_SPECTRA = 4096/250e6 * osamp
-    ant_idxs = [0, 2, 3, 4, 5, 6]
+    METEOR_ONLY = True
+    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
     antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
     nant_used = len(ant_idxs)
     nblines = len(ant_idxs)*(len(ant_idxs)-1)//2
@@ -385,13 +386,10 @@ if __name__ == "__main__":
     #BATCH 2
     UTC_per_spec = 1.638401491028474e-05
     UTC_offset = 1753200128.4654782
-        
-
+    
     #=========================================================================
     #ITERATION
     #=========================================================================
-    overflow = False
-    spec_pstart1 = 0
     for idx_pulse in range(len(list_pulses)):
         #extract from json
         pulse = list_pulses[idx_pulse]
@@ -413,6 +411,8 @@ if __name__ == "__main__":
             masking = False
         if satID in {28654,25338,33591}:
             masking=True
+            if METEOR_ONLY:
+                continue
         print('masking:', masking)
         #get old channels for fname
         if chan_det%2 == 0:
@@ -440,12 +440,7 @@ if __name__ == "__main__":
         print(nant)
 
         #check for overflow
-        new_pulse_start = dict_fits_discrep[fname_data]["start_spectrum"]
-        if new_pulse_start < spec_pstart1 - 2**30: 
-            overflow = True
-        if overflow:
-            new_pulse_start += 2**32
-        spec_pstart1 = new_pulse_start
+        spec_pstart1 = dict_fits_discrep[fname_data]["start_spectrum"]
         print('starting specnum', spec_pstart1)
         #correct for UTC offset
         pstart1 = UTC_per_spec*spec_pstart1 + UTC_offset
@@ -609,7 +604,7 @@ if __name__ == "__main__":
         plt.close(fig_taus_fitted)
 
         # unwrap the fitted taus into actual delay values
-        labels=['M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
+        labels=['M1-2', 'M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
         taus_unwrapped = np.unwrap(np.angle(np.exp(1j*taus_fitted.reshape(-1,nant_used-1)*2*np.pi*freqs_normalized.mean())),axis=0)/(2*np.pi*freqs_normalized.mean())
         # plot the relative delays of the other antenna with respect to the reference antenna
         fig_taus_unwrapped, ax = plt.subplots()
@@ -625,7 +620,7 @@ if __name__ == "__main__":
         #in the meantime also phases the visibilities to align them
 
         antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
-        fig_phases2_aligned,ax = plt.subplots(5,3, constrained_layout=True)
+        fig_phases2_aligned,ax = plt.subplots(7,3, constrained_layout=True)
         fig_phases2_aligned.set_size_inches(10,15)
         ax=np.ravel(ax)
 

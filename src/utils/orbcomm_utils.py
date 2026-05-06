@@ -615,6 +615,7 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
 
 
 def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False):
+    program_start = time.time()
     obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
     obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])

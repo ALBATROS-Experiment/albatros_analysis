@@ -9,6 +9,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.scripts.xcorr.fine_timing  import dump_upchan_baseband
+from albatros_analysis.scripts.xcorr import helper as hxc
 import numba as nb
 import time
 import importlib
@@ -210,8 +211,7 @@ def get_discrepancy(config_path,
     chanstart = config["frequency"]["start_channel"]
     chanend = config["frequency"]["end_channel"]
     osamp = config["correlation"]["osamp"]
-
-    
+    acclen = config["correlation"]["new_acclen"]
 
     print('batch start ts', batch_start_ts)
     print('batch end ts', batch_end_ts)
@@ -232,24 +232,28 @@ def get_discrepancy(config_path,
     #os.makedirs(batch_path, exist_ok=True)
 
     #-----------------------SET GLOBAL VARIABLE STUFF--------------
-    acclen = 1024
     bb_spectrum_T = 4096/250e6
     T_SPECTRA = bb_spectrum_T * osamp
     nchans = data_all.shape[3]
     sat_freqs = 250e6 - ((np.arange(nchans)/osamp + old_chan_start)/(4096/250e6))  #put as chan_start instead of 1834?
-    ant_idxs = [0, 2, 3, 4, 5, 6]
+    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
 
-    #IMPROVE LATER====
+    #get start spectrum from file (INDIRECT! SHOULD BE DONE WHEN COMPUTING DATA RIGHT AWAY)
     #still reliant on the function giving the same starting spectrum for each iteration
-    start_spectrum = hd.get_start_specnum(pulse_start_ts_file, dir_parents[0])
+    overflow_files = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
+    overflow_ct = np.sum(overflow_files<pulse_start_ts_file)
+    files, idx = butils.get_init_info(pulse_start_ts_file, pulse_start_ts_file+100, dir_parents[0]) #ref ant
+    p = bdc.BasebandFileIterator(files,0,idx,1024,None,chanstart=1834,chanend=1852,type="float")
+    start_specnum = p.spec_num_start + 2**32*overflow_ct
+    print('pulse start specnum', start_specnum)
 
     #CUTTING DATA-------------------------------------
 
     cutting_path = os.path.join(out_path, 'data/cutting_discrep.json')
     with open(cutting_path, "r") as f:
         cutter = json.load(f)
-    cut_spectra_start = cutter[fname]["spectra_start"]
-    cut_spectra_end = cutter[fname]["spectra_end"]
+    cut_spectra_start = cutter[fname]["cut_spectra_start"]
+    cut_spectra_end = cutter[fname]["cut_spectra_end"]
     assert cut_spectra_end>0
     chans_new = cutter[fname]["cut_chans"]
     if len(chans_new)==1:
@@ -267,9 +271,6 @@ def get_discrepancy(config_path,
     print('starting data slice')
     data_slice_cut = data_all[:, :, cut_spectra_start:cut_spectra_end, chans_new]
     print('done data slice')
-
-    #is this necessary?
-    #start_spectrum += cut_spectra_start
 
     #========================COMPUTE======================
     #UNFITTED INITIAL CHISQ (with phase plot)------------
@@ -376,7 +377,7 @@ def get_discrepancy(config_path,
         "chisq_fitted": int(chisq_fitted*1000),
         #"chisq_unfitted": chisq_unfitted,
         #"offset_guess": offset_guess,
-        "start_spectrum": int(start_spectrum),
+        "start_spectrum": int(start_specnum),
         "pulse_start_ts": int(pulse_start_ts_file)
     }
 

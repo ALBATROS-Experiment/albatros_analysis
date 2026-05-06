@@ -63,6 +63,7 @@ if __name__ == "__main__":
     npol = 2
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
+    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
 
     # set up some paths
     path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
@@ -73,7 +74,6 @@ if __name__ == "__main__":
     with open(path_pulses, "r") as f:
         pulse_list = json.load(f)
 
-    master_discrepancies = {}
     for i, pulse in enumerate(pulse_list):
         print(f'\nSTARTING PULSE {i}')
         print(pulse)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             V = hd.efield_to_vis(data_all,
                                 pulse_start_ts,
                                 pulse_end_ts,
-                                [0, 2, 3, 4, 5, 6],        
+                                ant_idxs,        
                                 ant_coords,
                                 satID,
                                 freqs,
@@ -117,10 +117,10 @@ if __name__ == "__main__":
                                 osamp = osamp,
                                 bb_spectrum_T = 4096/250e6)
             print('Cutting')
-            start_spectrum, end_spectrum, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
-                            'spectra_start': start_spectrum,
-                            'spectra_end': end_spectrum,
+                            'cut_spectra_start': cut_spectra_start,
+                            'cut_spectra_end': cut_spectra_end,
                             'cut_chans': cut_chans}
 
         else:
@@ -128,7 +128,14 @@ if __name__ == "__main__":
             print(pulse_end_ts-pulse_start_ts)
             nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
             print('nchunks:', nchunks)
-            idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
+
+            overflow_ctr = np.zeros(nant, dtype=int)
+            for i in range(nant):
+                overflow_files = xchelper.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[i])
+                overflow_ctr[i] = np.sum(overflow_files<pulse_start_ts)
+            print(overflow_ctr)
+
+            idxs, files = xchelper.get_init_info_all_ant2(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents, overflow_ctr)
             nrows_total = nchunks * pfb_size // (osamp * new_acclen)
             print('nrows total:', nrows_total)
             t1=time.time()
@@ -141,7 +148,7 @@ if __name__ == "__main__":
             V = hd.efield_to_vis(baseband,
                                 pulse_start_ts,
                                 pulse_end_ts,
-                                [0, 2, 3, 4, 5, 6],        
+                                ant_idxs,        
                                 ant_coords,
                                 satID,
                                 freqs,
@@ -149,10 +156,10 @@ if __name__ == "__main__":
                                 osamp = osamp,
                                 bb_spectrum_T = 4096/250e6)
 
-            spec_cut_start, spec_cut_end, chans_cut = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, chans_cut = hd.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
-                            'spec_cut_start': start_spectrum,
-                            'spec_cut_end': end_spectrum,
+                            'cut_spectra_start': cut_spectra_start,
+                            'cut_spectra_end': cut_spectra_end,
                             'chans_cut': chans_cut}
             del baseband
             gc.collect()
@@ -169,7 +176,13 @@ if __name__ == "__main__":
                                     plot=True,
                                     coherent=args.coherent)
         print(results)
-        master_discrepancies[fname] = results
-    #save all results to file
-    with open(os.path.join(path_discrepancies, 'times_all_incoherent.json'), 'w') as f:
-        json.dump(master_discrepancies, f, indent=4)
+
+        path_results = os.path.join(path_discrepancies, 'times_all.json')
+        if os.path.exists(path_results):
+            with open(path_results, "r") as f:
+                master = json.load(f)
+        else:
+            master = {}
+        master[fname] = results
+        with open(path_results, "w") as f:
+            json.dump(master, f, indent=4)
