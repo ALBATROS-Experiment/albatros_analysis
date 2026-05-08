@@ -362,16 +362,16 @@ if __name__ == "__main__":
 
 
             #SAVE DEBUG FIGURES
-            pulse_plot_path = os.path.join(ant_plot_path, f'pulse_{pnum}_start_{pstart}')
-            os.makedirs(pulse_plot_path, exist_ok=True)
+            path_pulse = os.path.join(path_ant, f'pulse_{pnum}_start_{pstart}')
+            os.makedirs(path_pulse, exist_ok=True)
             for idx, sat in enumerate(temp_satmap):
                 cxfig = fgs.make_cxcorr_plot(cx[idx])
-                cxfig.savefig(os.path.join(pulse_plot_path, f'cxcorr_{sat}.jpg'))
+                cxfig.savefig(os.path.join(path_pulse, f'cxcorr_{sat}.jpg'))
                 cxfig.clf()
                 plt.close(cxfig)
                 del cxfig
             snrfig = fgs.make_snr_plot(snr_arr, temp_satmap)
-            snrfig.savefig(os.path.join(pulse_plot_path, f'SNRs_{pnum}_{pstart}.jpg'))
+            snrfig.savefig(os.path.join(path_pulse, f'SNRs_{pnum}_{pstart}.jpg'))
             snrfig.clf()
             plt.close(snrfig)
             del snrfig
@@ -410,20 +410,48 @@ if __name__ == "__main__":
             mempool.free_all_blocks()
             pinned_mempool.free_all_blocks()
             su.print_memory_usage(note = 'after memory freeing')
-
         print(baseline_data)
 
+        offsets, weights = [], []
+
+        for pulse in baseline_data:
+            for off, (snr, chan, sat) in zip(pulse["specnumoffsets"], pulse["SNR, Chan, Sat"]):
+                if off == 0:
+                    continue
+                offsets.append(off)
+                weights.append(snr)
+
+        offsets = np.array(offsets)
+        weights = np.array(weights)
+        print('offsets', offsets)
+        print('weights', weights)
+
+        med = np.median(offsets)
+        mad = np.median(np.abs(offsets - med))
+        print('median offset', med)
+        print('MAD of offsets', mad)
+
+        mask = np.abs(offsets - med) <= 3 * mad
+        offsets = offsets[mask]
+        weights = weights[mask]
+
+        idx = np.argsort(offsets)
+        offsets_sorted = offsets[idx]
+        weights_sorted = weights[idx]
+        cdf = np.cumsum(weights_sorted)
+        cutoff = 0.5 * np.sum(weights_sorted)
+        consensus = offsets[np.searchsorted(cdf, cutoff)]
+        print('consensus offset', consensus)
+
+        spread = np.std(offsets)
+        n = len(offsets)
 
         sat_data['summary'][ant_names[antnum]] = {
-            'consensus_offset': 0,
-            'detections': 0
+            'consensus_offset': consensus,
+            'spread' : spread,
+            'chunks detected': n
         }
-
-        #UPDATE OFFSETS
-        # con_off = su.get_consensus_offset(baseline_pulse_data)
-        # for pulse_dict in baseline_pulse_data:
-        #     ind_off = pulse_dict["individual_offset"]
-        #     pulse_dict["diff_to_consensus"] = con_off - ind_off
+        print(sat_data['summary'][ant_names[antnum]])
 
         #SAVE TO SAT DATA
         # ant_data = {}
@@ -445,11 +473,11 @@ if __name__ == "__main__":
         with open(temp_path, "r") as f:
             sat_data[ant_name] = json.load(f)
 
-    final_json = path.join(out_path,f"satdet_data_{batch_start_ts}_{int(c_acclen/1e6)}M_len_{array_time}_{characteristic_time}.json")
+    final_json = path.join(path_satdet,f"satdet_{int(c_acclen/1e6)}M_{characteristic_time}.json")
     with open(final_json, "w") as f:
         json.dump(sat_data, f, indent=4)
     
-    print(f'saved final json to {out_path}')
+    print(f'saved final json to {path_satdet}')
 
     for _, temp_path in temp_files:
         os.remove(temp_path)

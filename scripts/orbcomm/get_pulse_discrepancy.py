@@ -240,11 +240,13 @@ def get_discrepancy(config_path,
 
     #get start spectrum from file (INDIRECT! SHOULD BE DONE WHEN COMPUTING DATA RIGHT AWAY)
     #still reliant on the function giving the same starting spectrum for each iteration
-    overflow_files = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
-    overflow_ct = np.sum(overflow_files<pulse_start_ts_file)
-    files, idx = butils.get_init_info(pulse_start_ts_file, pulse_start_ts_file+100, dir_parents[0]) #ref ant
-    p = bdc.BasebandFileIterator(files,0,idx,1024,None,chanstart=1834,chanend=1852,type="float")
-    start_specnum = p.spec_num_start + 2**32*overflow_ct
+
+    #overflow_files = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
+    #overflow_ct = np.sum(overflow_files<pulse_start_ts_file)
+    #files, idx = butils.get_init_info(pulse_start_ts_file, pulse_start_ts_file+100, dir_parents[0]) #ref ant
+    #p = bdc.BasebandFileIterator(files,0,idx,1024,None,chanstart=1834,chanend=1852,type="float")
+    #start_specnum = p.spec_num_start + 2**32*overflow_ct
+    
     print('pulse start specnum', start_specnum)
 
     #CUTTING DATA-------------------------------------
@@ -334,22 +336,22 @@ def get_discrepancy(config_path,
     #============================MAKE AND SAVE PLOTS==========================
     if plot:
     #ZOOMED COST CURVE------------------------
-        print('starting zoomed cost curve')
-        offset_rounded = np.round(offset_fitted, decimals = 2)
-        print(offset_rounded)
-        _, _, cost_fig_zoomed = cost_curve(offset_rounded-0.2, 
-                                            offset_rounded+0.2, 
-                                            101, 
-                                            pulse_start_ts, pulse_end_ts, 
-                                            data_slice_cut, ant_idxs, 
-                                            ant_coords, freqs, 
-                                            satID,
-                                            coherent=coherent,
-                                            include_fig=True,
-                                            bb_spectrum_T=bb_spectrum_T, 
-                                            osamp=osamp,
-                                            vline=offset_fitted
-                                            )
+        # print('starting zoomed cost curve')
+        # offset_rounded = np.round(offset_fitted, decimals = 2)
+        # print(offset_rounded)
+        # _, _, cost_fig_zoomed = cost_curve(offset_rounded-0.2, 
+        #                                     offset_rounded+0.2, 
+        #                                     101, 
+        #                                     pulse_start_ts, pulse_end_ts, 
+        #                                     data_slice_cut, ant_idxs, 
+        #                                     ant_coords, freqs, 
+        #                                     satID,
+        #                                     coherent=coherent,
+        #                                     include_fig=True,
+        #                                     bb_spectrum_T=bb_spectrum_T, 
+        #                                     osamp=osamp,
+        #                                     vline=offset_fitted
+        #                                     )
 
         #MAKE DIR AND SAVE---------------------
         figpath = os.path.join(out_path, "timing_discrepancies/debugplots", f"pulse_{pulse_start_ts_file}_{satID}_c={coherent}")
@@ -367,8 +369,8 @@ def get_discrepancy(config_path,
         plt.close(phases_fig_unfitted)
         cost_fig.savefig(os.path.join(figpath, 'cost_curve_initial.png'))
         plt.close(cost_fig)
-        cost_fig_zoomed.savefig(os.path.join(figpath, 'cost_curve_zoomed.png'))
-        plt.close(cost_fig_zoomed)
+        #cost_fig_zoomed.savefig(os.path.join(figpath, 'cost_curve_zoomed.png'))
+        #plt.close(cost_fig_zoomed)
         phases_fig_fitted.savefig(os.path.join(figpath, 'fitted_phases_unzoomed.png'))
         plt.close(phases_fig_fitted)
         
@@ -377,7 +379,7 @@ def get_discrepancy(config_path,
         "chisq_fitted": int(chisq_fitted*1000),
         #"chisq_unfitted": chisq_unfitted,
         #"offset_guess": offset_guess,
-        "start_spectrum": int(start_specnum),
+        #"start_spectrum": int(start_specnum),
         "pulse_start_ts": int(pulse_start_ts_file)
     }
 

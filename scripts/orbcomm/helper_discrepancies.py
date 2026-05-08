@@ -34,23 +34,6 @@ def get_start_specnum(t_start, dir_parent):
     print('start specnum', start_specnum)
     return start_specnum
 
-def get_prediction_error(res, spectra):
-    '''Get the error on the predicted UTC discrepancy given residual matrix'''
-    A = np.column_stack((spectra, np.ones(len(spectra))))
-
-    N = np.cov(res)
-    print(N)
-    #N2 = np.var(res)
-    #print(N2)
-
-    if res.ndim >1:
-        v1 = np.linalg.inv(A.T@np.linalg.inv(N)@A)
-
-    else:
-        v1 = N*np.linalg.inv(A.T@A)
-
-    return A@v1@A.T
-
 
 def correct_overflow(spectra_uncorr):
     '''Corrects a spectrum number overflow to allow for UTC map fitting over whole batch'''

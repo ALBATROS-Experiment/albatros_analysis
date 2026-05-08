@@ -366,7 +366,7 @@ if __name__ == "__main__":
     with open(os.path.join(path_batch, "data/pulses.json"), "r") as f:
         list_pulses = json.load(f)
     #discrepancy results
-    with open(os.path.join(path_batch, 'timing_discrepancies/times_all_incoherent.json'), "r") as f:
+    with open(os.path.join(path_batch, 'timing_discrepancies/times_all.json'), "r") as f:
         dict_fits_discrep = json.load(f)
     #discrepancy cutting
     with open(os.path.join(path_batch, "data/cutting_discrep.json"), "r") as f:
@@ -379,13 +379,13 @@ if __name__ == "__main__":
     else:
         dict_cutting_finetiming = {}
         
-    #BATCH 1
-    # spec_per_UTC = 
-    # UTC_offset = 
+    #load in the discrepancy mapping
+    UTC_per_spec = dict_fits_discrep['fit']['UTC_per_spec']
+    UTC_offset = dict_fits_discrep['fit']['UTC_offset']
 
     #BATCH 2
-    UTC_per_spec = 1.638401491028474e-05
-    UTC_offset = 1753200128.4654782
+    #UTC_per_spec = 1.638401491028474e-05
+    #UTC_offset = 1753200128.4654782
     
     #=========================================================================
     #ITERATION

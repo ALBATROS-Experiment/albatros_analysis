@@ -216,7 +216,7 @@ def get_init_info_all_ant2(init_t, end_t, spec_offsets, dir_parents, overflow):
             )
         # not handling the edge case for now
         print("after correction", idxs[0], idxs[jj])
-    return idxs, files
+    return idxs, files, specnums[0]
 
 
 def get_avg_fast(
