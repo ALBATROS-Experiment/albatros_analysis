@@ -30,7 +30,7 @@ def cupy_pfb_dumb(timestream, win, out=None, lblock=4096, ntap=4):
     mywin = win.reshape(ntap,lblock)
     for i in range(nblock):
         out[i] = cp.sum(timestream[i:i+ntap, :] * mywin,axis=0)
-    # out=pycufft.rfft(y,axis=1)
+    out=pycufft.rfft(y,axis=1)
     # out=cp.fft.rfft(y,axis=1)
     # print(pycufft.pycufft_cache)
     return out
@@ -43,7 +43,7 @@ def kernel_pfb(timestream, win, lblock=4096, ntap=4, threads_per_block=256):
     pfb_kernel((blocks_per_grid,), (threads_per_block,), (timestream, win, y, lblock, nblock))
     # out=y
     # out=cp.fft.rfft(y,axis=1)
-    out=pycufft.rfft(y,axis=1)
+    out=pycufft.rfft(y[3:,],axis=1)
     return out
 
 
@@ -89,30 +89,65 @@ void streaming_pfb_kernel(const float* __restrict__ timestream,
 
 }""", 'streaming_pfb_kernel')
 
+def run_test(ts, win, lblock, ntap):
+    x1 = cupy_pfb(ts, win, lblock=lblock, ntap=ntap)
+    x2 = kernel_pfb(ts, win, lblock=lblock, ntap=ntap)
+    
+    # The kernel implementation in this file has a 3-block offset 
+    # compared to the cupy_pfb implementation based on the original code's x2[3:,:]
+    # actual = x2[3:, :]
+    actual = x2[:, :]
+    expected = x1
+    
+    print(f"\n--- Testing Timestream (size {ts.size}) ---")
+    print(f"Allclose (1e-5, 1e-8): {cp.allclose(actual, expected, atol=1e-5, rtol=1e-8)}")
+    
+    nblock, nchan = expected.shape
+    
+    for part in ['real', 'imag']:
+        a_p = getattr(actual, part)
+        e_p = getattr(expected, part)
+        abs_err = cp.abs(a_p - e_p)
+        
+        # Max Absolute Error
+        idx_abs = cp.argmax(abs_err)
+        b_abs, c_abs = idx_abs // nchan, idx_abs % nchan
+        
+        # Max Relative Error
+        mask = cp.abs(e_p) > 1e-10
+        if cp.any(mask):
+            rel_err_vals = abs_err[mask] / cp.abs(e_p[mask])
+            idx_rel_masked = cp.argmax(rel_err_vals)
+            # Map back to original indices to get block/channel
+            flat_indices = cp.where(mask.ravel())[0]
+            idx_rel = flat_indices[idx_rel_masked]
+            b_rel, c_rel = idx_rel // nchan, idx_rel % nchan
+            max_rel = rel_err_vals[idx_rel_masked]
+        else:
+            b_rel, c_rel, max_rel = -1, -1, 0
+            
+        print(f"  [{part:4}] Max Abs Error: {cp.max(abs_err):.2e} at block {b_abs:2}, chan {c_abs}", a_p[b_abs, c_abs], e_p[b_abs, c_abs], expected[b_abs, c_abs])
+        if b_rel != -1:
+            print(f"  [{part:4}] Max Rel Error: {float(max_rel):.2e} at block {b_rel:2}, chan {c_rel}", a_p[b_rel, c_rel], e_p[b_rel, c_rel], expected[b_rel, c_rel])
+        else:
+            print(f"  [{part:4}] Max Rel Error: N/A (all zeros)")
+
 ntap=4
 lblock=4096*64
 win = cp.asarray(pu.sinc_hamming(ntap,lblock),dtype='float32')
 
-# ts = cp.random.randn(20*lblock).astype('float32')
-# ts = cp.ones(20*lblock).astype('float32')
-ts = cp.zeros(20*lblock).astype('float32')
-ts[0]=1.
+# Define test cases
+ts_ones = cp.ones(20*lblock).astype('float32')
+ts_delta = cp.zeros(20*lblock).astype('float32')
+ts_delta[0] = 1.
+ts_random = cp.random.randn(20*lblock).astype('float32')
 
-blocks_per_grid = lblock//256 + 1
-x1 = cupy_pfb(ts, win, lblock=lblock, ntap=ntap)
-x2 = kernel_pfb(ts, win, lblock=lblock, ntap=ntap)
-x3 = cupy_pfb_dumb(ts, win, lblock=lblock, ntap=ntap)
+# Run modular tests
+run_test(ts_ones, win, lblock, ntap)
+run_test(ts_delta, win, lblock, ntap)
+run_test(ts_random, win, lblock, ntap)
 
-err = (x2[3:,:] - x1)
-rel_err = (x2[3:,:].real - x1.real)/x1.real
-argmax = cp.argmax(cp.abs(rel_err.real))
-print("argmax", argmax//lblock, argmax%lblock)
-print("high error locs", x1.ravel()[argmax], x2[3:,:].ravel()[argmax], x3.ravel()[argmax])
-print("Max error:", cp.max(cp.abs(err.real)), cp.max(cp.abs(err.imag)), "Stddev error:", cp.std(err))
-print("Max rel error:", cp.max(cp.abs(rel_err.real)), cp.max(cp.abs(rel_err.imag)), "Stddev error:", cp.std(rel_err))
-# sys.exit()
 # Speed test
-
 ts_large = cp.random.randn(32768*4096).astype('float32')
 niter = 100
 start_event = cp.cuda.Event()
