@@ -192,7 +192,7 @@ def get_init_info_all_ant2(init_t, end_t, spec_offsets, dir_parents, overflow):
                 mind_gap=True,
             )
         )
-        f_obj = bdc.BasebandFileIterator([f_start], 0, idx, 1024, num_overflow=overflow[anum]) #arbitrary acclen, here it's 1024
+        f_obj = bdc.BasebandFileIterator(files[anum], 0, idx, 1024, num_overflow=overflow[anum]) #arbitrary acclen, here it's 1024
         specnums[anum] = f_obj.spec_num_start
     print('specnums', specnums)
     

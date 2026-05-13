@@ -63,7 +63,7 @@ if __name__ == "__main__":
     npol = 2
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    ant_idxs = [0, 2, 3, 4, 5, 6]
+    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
 
     # set up some paths
     path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
@@ -78,11 +78,6 @@ if __name__ == "__main__":
 
     for pidx, pulse in enumerate(pulse_list):
         print(f'\nSTARTING PULSE {pidx}')
-
-        if pidx != 2:
-            continue
-
-
         print(pulse)
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
         satID = pulse['sat']
@@ -147,14 +142,14 @@ if __name__ == "__main__":
             nchunks = int(np.floor((pulse_end_ts-pulse_start_ts)*250e6/4096/pfb_size))
             print('nchunks:', nchunks)
 
-            # overflow_ctr = np.zeros(nant, dtype=int)
-            # for antidx in range(nant):
-            #     overflow_files = xchelper.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antidx])
-            #     overflow_ctr[antidx] = np.sum(overflow_files<pulse_start_ts)
-            # print(overflow_ctr)
-            #idxs, files, start_specnum = xchelper.get_init_info_all_ant2(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents, overflow_ctr)
+            overflow_ctr = np.zeros(nant, dtype=int)
+            for antidx in range(nant):
+                overflow_files = xchelper.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antidx])
+                overflow_ctr[antidx] = np.sum(overflow_files<pulse_start_ts)
+            print(overflow_ctr)
+            idxs, files, start_specnum = xchelper.get_init_info_all_ant2(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents, overflow_ctr)
 
-            idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
+            #idxs, files = xchelper.get_init_info_all_ant(pulse_start_ts, pulse_end_ts, spec_offsets, dir_parents)
             
             nrows_total = nchunks * pfb_size // (osamp * new_acclen)
             print('nrows total:', nrows_total)
@@ -178,28 +173,27 @@ if __name__ == "__main__":
 
             #START TEMP FIGURE
             #======================================================
-            fig,ax = plt.subplots(5,3, constrained_layout=True)
-            fig.set_size_inches(10,20)
-            ax=np.ravel(ax)
-            nblines, ntimes, nchans = V.shape
-            blnum = 0
-            for i in range(len(ant_idxs)):
-                for j in range(i+1, len(ant_idxs)):
-                    ai = ant_idxs[i]
-                    aj = ant_idxs[j]
-                    ax[blnum].set_title(f"{ai}-{aj} (id {blnum})")
-                    img=ax[blnum].imshow(np.angle(V[blnum,:,:]),aspect='auto',interpolation='none',cmap='RdBu')
-                    cbar=plt.colorbar(img,ax=ax[blnum])
-                    blnum+=1
-            fig.savefig(os.path.join(path_discrepancies, 'error_vis.png'))
-            sys.exit()
+            # fig,ax = plt.subplots(5,3, constrained_layout=True)
+            # fig.set_size_inches(10,20)
+            # ax=np.ravel(ax)
+            # nblines, ntimes, nchans = V.shape
+            # blnum = 0
+            # for i in range(len(ant_idxs)):
+            #     for j in range(i+1, len(ant_idxs)):
+            #         ai = ant_idxs[i]
+            #         aj = ant_idxs[j]
+            #         ax[blnum].set_title(f"{ai}-{aj} (id {blnum})")
+            #         img=ax[blnum].imshow(np.angle(V[blnum,:,:]),aspect='auto',interpolation='none',cmap='RdBu')
+            #         cbar=plt.colorbar(img,ax=ax[blnum])
+            #         blnum+=1
+            # fig.savefig(os.path.join(path_discrepancies, 'error_vis.png'))
             #======================================================
             #END TEMP FIGURE
 
-            # print('starting spectrum number', start_specnum)
-            # pulse_list[pidx]['start_specnum'] = int(start_specnum)
-            # with open(path_pulses, 'w') as f:
-            #     json.dump(pulse_list, f, indent=4)
+            print('starting spectrum number', start_specnum)
+            pulse_list[pidx]['start_specnum'] = int(start_specnum)
+            with open(path_pulses, 'w') as f:
+                json.dump(pulse_list, f, indent=4)
 
             cut_spectra_start, cut_spectra_end, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,

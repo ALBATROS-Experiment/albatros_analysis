@@ -104,7 +104,7 @@ def objective_times(time_offset,
                 Vyy = hd.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
-                    ax.plot(np.unwrap(np.angle(V[:,0]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
+                    ax.plot(np.unwrap(np.angle(V[:,8]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
                     plt.legend()
                 Vnew  =  np.exp(1j*np.angle(V))
                 if coherent:
@@ -241,13 +241,13 @@ def get_discrepancy(config_path,
     #get start spectrum from file (INDIRECT! SHOULD BE DONE WHEN COMPUTING DATA RIGHT AWAY)
     #still reliant on the function giving the same starting spectrum for each iteration
 
-    #overflow_files = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
-    #overflow_ct = np.sum(overflow_files<pulse_start_ts_file)
-    #files, idx = butils.get_init_info(pulse_start_ts_file, pulse_start_ts_file+100, dir_parents[0]) #ref ant
-    #p = bdc.BasebandFileIterator(files,0,idx,1024,None,chanstart=1834,chanend=1852,type="float")
-    #start_specnum = p.spec_num_start + 2**32*overflow_ct
+    # overflow_files = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
+    # overflow_ct = np.sum(overflow_files<pulse_start_ts_file)
+    # files, idx = butils.get_init_info(pulse_start_ts_file, pulse_start_ts_file+100, dir_parents[0]) #ref ant
+    # p = bdc.BasebandFileIterator(files,0,idx,1024,None,chanstart=1834,chanend=1852,type="float")
+    # start_specnum = p.spec_num_start + 2**32*overflow_ct
     
-    print('pulse start specnum', start_specnum)
+    #print('pulse start specnum', start_specnum)
 
     #CUTTING DATA-------------------------------------
 
@@ -263,8 +263,14 @@ def get_discrepancy(config_path,
     else:
         chans_new = np.arange(chans_new[0], chans_new[1])
 
+    #check this works to get starting spectrum of data
+    path_pulse = os.path.join(out_path, 'data/pulses.json')
+    with open(path_pulse, 'r') as f:
+        list_pulses = json.load(f)
+    pulse = next((p for p in list_pulses if p["t_start"] == pulse_start_ts_file), None)
+    start_specnum = pulse["start_specnum"]
+
     print(chans_new)
-    #sys.exit()
 
     freqs = sat_freqs[chans_new]
     pulse_start_ts = pulse_start_ts_file + T_SPECTRA*cut_spectra_start
@@ -379,7 +385,7 @@ def get_discrepancy(config_path,
         "chisq_fitted": int(chisq_fitted*1000),
         #"chisq_unfitted": chisq_unfitted,
         #"offset_guess": offset_guess,
-        #"start_spectrum": int(start_specnum),
+        "start_specnum": int(start_specnum),
         "pulse_start_ts": int(pulse_start_ts_file)
     }
 

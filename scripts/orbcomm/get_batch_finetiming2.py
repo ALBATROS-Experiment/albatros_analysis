@@ -440,7 +440,7 @@ if __name__ == "__main__":
         print(nant)
 
         #check for overflow
-        spec_pstart1 = dict_fits_discrep[fname_data]["start_spectrum"]
+        spec_pstart1 = dict_fits_discrep[fname_data]["start_specnum"]
         print('starting specnum', spec_pstart1)
         #correct for UTC offset
         pstart1 = UTC_per_spec*spec_pstart1 + UTC_offset
