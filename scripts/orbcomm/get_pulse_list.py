@@ -5,9 +5,6 @@ import matplotlib.pyplot as plt
 import json
 import argparse
 
-
-
-
 def get_windows_oneant(json_path, 
                        batch_start, 
                        ant,
@@ -18,7 +15,9 @@ def get_windows_oneant(json_path,
                        ):
 
     windows = []
-    data = su.load_json(json_path)[f'{batch_start}']
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    data = data[f'{batch_start}']
     ant_data = data[ant]
 
     for pulse in ant_data:
@@ -123,16 +122,6 @@ def get_windows_oneant(json_path,
         })
     return windows
 
-
-    w_all = get_windows_oneant(bpath1, 
-                            bstart1, 
-                            "Antenna 2",
-                            300, #min SNR
-                            4,  #min number of chunks
-                            max_nchunks=None,
-        #                 interval=[6e4, 9e4]  #seconds in batch time you can look at
-                            )
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("batch_start_ts", type=int)
@@ -144,17 +133,21 @@ if __name__ == '__main__':
     min_chunks = args.min_chunks
     min_snr = args.min_snr
 
-    path_satdet = f'/scratch/thomasb/batch_{batch_start_ts}/satdet'
-    path_data = os.path.join(path_satdet, 'satdet_data_1753132820_3M_len_67200_1769207603.json') #hard-coded for the time being
+    path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+    path_satdet = os.path.join(path_batch, 'satdet')
+    path_data = os.path.join(path_satdet, 'satdet_data_1753200150_3M_len_86260_1769307199.json') #hard-coded for the time being
+    path_out = os.path.join(path_batch, f'data/pulses1.json')
 
-    w_all = get_windows_oneant(bpath1, 
-                            bstart1, 
+    w_all = get_windows_oneant(path_data, 
+                            batch_start_ts, 
                             "Antenna 2",
                             min_snr,
                             min_chunks,
                             max_nchunks=None,
-        #                 interval=[6e4, 9e4]  #seconds in batch time you can look at
+        #                   interval=[6e4, 9e4]  #seconds in batch time you can look at
                             )
-    print(len(w_all)) 
-    for p in w_all:
-        print(p)
+    print('Number of good pulses', len(w_all)) 
+    
+    with open(path_out, 'w') as f:
+        json.dump(w_all, f, indent=4)
+    print('Saved to', path_out)
