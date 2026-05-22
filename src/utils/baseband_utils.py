@@ -3,7 +3,7 @@ import os, warnings
 from matplotlib import pyplot as plt
 import subprocess
 import pytz
-import datetime
+from datetime import datetime, timezone
 import glob
 import re
 
@@ -563,3 +563,131 @@ def load_antenna_power(init_t, end_t, dir_parent, chans=None, tags=['pol00', 'po
             )  # acclen 393216 = 6.44s. Each row of direct data is 6.44s long.
             curidx += ss
     return large_arr,ctime_arr
+
+def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 70):
+    ''' 
+    Given a path to several antenna, will tell you when data is present for each antenna
+
+    Args:
+        t_start (int): starting time of when we're scanning
+        t_end (int): ending time of when we're scanning
+        ant_path_list (list of strings): just the directory location for all antenna data
+        T_SCAN (int): the time interval between scans, basically just the dt
+        tolerance (int): maximum time that we tolerate between a point in time and the last present file
+
+    Returns:
+        arr (array): array of binary entries, of shape (ntimes, nants).
+                     1 means data is present, 0 means it is absent
+                     ntimes is in units of T_SCAN
+
+        fig (figure): just visualizes arr, with time on y axis, in human time 
+    '''
+
+    t_start_human = datetime.fromtimestamp(t_start, tz=timezone.utc).strftime('%H:%M:%S, %d/%m')
+    t_end_human = datetime.fromtimestamp(t_end, tz=timezone.utc).strftime('%H:%M:%S, %d/%m')
+    ant_name_list = []
+    ant2files = {}
+    for ant_path in ant_path_list:
+        path_name = os.path.basename(ant_path)
+        ant_name = os.path.splitext(path_name)[0]
+        print(ant_name)
+        ant_name_list.append(ant_name)
+
+    for ant_idx, ant_path in enumerate(ant_path_list):
+        ant_name = ant_name_list[ant_idx]
+        files_raw = []
+        tstamps = []
+        try:
+            files_raw = time2fnames(t_start-tolerance, t_end, ant_path, 'f') #want to look backwards a bit from t_start also
+        except FileNotFoundError:
+            files_raw = []
+        print(f'raw file ant {ant_name}', files_raw)
+
+        for file in files_raw:
+            filename = os.path.basename(file)
+            tstamp_str = os.path.splitext(filename)[0]
+            tstamp = int(tstamp_str)
+            tstamps.append(tstamp)
+        
+        tstamps = np.array(tstamps)
+        print(f'tstamps ant {ant_name}', tstamps)
+        ant2files[ant_name] = tstamps
+
+    rounded = int(np.ceil((t_end-t_start)/T_SCAN))*T_SCAN + t_start +1 #round UP to the nearest dt.
+    times = np.arange(t_start, rounded, T_SCAN)
+    times_human = [datetime.fromtimestamp(t, tz=timezone.utc).strftime('%d/%m, %H:%M:%S') for t in times]
+    arr = np.zeros((len(times), len(ant_name_list)))
+    for t_idx, time in enumerate(times):
+        for ant_idx, ant_name in enumerate(ant_name_list):
+            data = ant2files[ant_name]
+            if np.any((data >= time - tolerance) & (data <= time)):
+                arr[t_idx][ant_idx] = 1
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    fig.suptitle(f"File Presence ({t_start_human}) to ({t_end_human})")
+
+    im = ax.imshow(arr, aspect='auto', interpolation='none', cmap='Oranges')
+
+    ax.set_xticks(range(len(ant_name_list)))
+    ax.set_xticklabels(ant_name_list)
+
+    step = len(times) // 10
+    ax.set_yticks(range(0, len(times), step))
+    ax.set_yticklabels([times_human[i] for i in range(0, len(times), step)])
+
+    for x in range(1, arr.shape[1]):
+        ax.axvline(x - 0.5, color='black', linewidth=0.5)
+
+    return arr, fig
+
+def get_simul_files(arr, time_start, dt, desired_ant_indices):
+    ''' 
+    Returns a list of [t_start, t_end] for times during which data is present for all antenna in desired_ant_indices
+
+    Parameters
+    ----------
+    arr : array 
+        array shape (ntimes, nants) of binary entries, with 1 meaning data is present and 0 meaning data is not present
+    time_start: int 
+        starting unix time of array, point at which we start counting
+    dt : int 
+        difference in time (seconds) between entries in array
+    desired_ant_indices : list 
+        the antenna (index on arr) for which we want data to be present. 
+        If it's -1, it considers ALL antenna in arr.
+
+    Returns
+    -------
+    runs : list
+        list of two-element lists [t_start, t_end] which indicate the times of simultaneous continuous data in all desired antenna. 
+    '''
+    in_run = False
+    runs = []
+    current_time = time_start
+    for row in arr:
+        all_present = all(row[x] == 1 for x in desired_ant_indices)
+        #all four cases:
+        if (all_present) and (in_run):
+            pass
+
+        elif (not all_present) and (not in_run):
+            pass
+
+        elif (all_present) and (not in_run):
+            in_run = True
+            start_run = current_time
+            
+        elif (not all_present) and (in_run):
+            in_run = False
+            end_run = current_time - 20
+            runs.append([start_run, end_run])
+
+        else:
+            raise ValueError('something broke!')
+        
+        current_time += dt
+
+    if in_run:
+        runs.append([start_run, current_time])
+
+    return runs

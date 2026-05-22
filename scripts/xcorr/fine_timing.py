@@ -9,8 +9,9 @@ import time
 import os
 import datetime, uuid
 import argparse
-import helper
 import json
+import albatros_analysis.scripts.xcorr.helper as helper
+
 def dump_upchan_baseband(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45):
     """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
 

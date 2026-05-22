@@ -5,6 +5,7 @@ import time
 from matplotlib import pyplot as plt
 import numba as nb
 from scipy.interpolate import CubicSpline
+from skyfield.api import wgs84, load
 import skyfield.api as sf
 from scipy import fft
 import datetime
@@ -614,6 +615,7 @@ def find_sat_transits(spectra, acctime=None, snr_thresh=5):
 
 
 def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False):
+    program_start = time.time()
     obs1 = sf.wgs84.latlon(pos1[0], pos1[1], pos1[2])
     # obs1=sf.wgs84.latlon(51.4641932, -68.2348603,336.499)
     obs2 = sf.wgs84.latlon(pos2[0], pos2[1], pos2[2])
@@ -654,7 +656,103 @@ def get_sat_delay(pos1, pos2, tle_path, time_start, niter, satnorad, altaz=False
         tt += 1
     if altaz:
         return sim_delay, altaz1, altaz2
+
+    print('one delay prediction:', time.time() - program_start)
     return sim_delay
+
+
+def get_sat_delay_new(pos1, pos2, tle_path, time_start, duration_seconds, satnorad, altaz=False):
+
+    program_start = time.time()
+
+    c = 299792458 
+
+    sats_objects = sf.load.tle_file(tle_path)
+    
+    obs1 = wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    obs2 = wgs84.latlon(pos2[0], pos2[1], pos2[2])
+
+    target_sat = None
+    for sat in sats_objects:
+        if sat.model.satnum == satnorad:
+            target_sat = sat
+            break
+
+    if target_sat is None:
+        raise ValueError(f"sat not in TLE list")
+
+    ts = load.timescale()
+
+    jd_start = ctime2mjd(time_start, type="JD")
+    jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
+    t = ts.ut1_jd(jd_times)
+
+    diff1 = target_sat - obs1
+    diff2 = target_sat - obs2
+
+    topo1 = diff1.at(t)
+    topo2 = diff2.at(t)
+
+    alt1, az1, dist1 = topo1.altaz()
+    alt2, az2, dist2 = topo2.altaz()
+
+    sim_delay = (dist2.m - dist1.m) / c
+
+    if altaz:
+        altaz1 = np.stack([alt1.degrees, az1.degrees], axis=1)
+        altaz2 = np.stack([alt2.degrees, az2.degrees], axis=1)
+        return sim_delay, altaz1, altaz2
+
+    print("time for one delay pred:", time.time() - program_start)
+    return sim_delay
+
+
+
+
+def get_sat_delay2(pos1, pos2, sats_objects, time_start, duration_seconds, satnorad, altaz=False):
+
+    c = 299792458 
+    
+    obs1 = wgs84.latlon(pos1[0], pos1[1], pos1[2])
+    obs2 = wgs84.latlon(pos2[0], pos2[1], pos2[2])
+
+    target_sat = None
+    for sat in sats_objects:
+        if sat.model.satnum == satnorad:
+            target_sat = sat
+            break
+
+    if target_sat is None:
+        raise ValueError(f"sat not in TLE list")
+
+    ts = load.timescale()
+
+    jd_start = ctime2mjd(time_start, type="JD")
+    jd_times = jd_start + np.arange(0, duration_seconds) / 86400  # secs to days
+    #print(jd_times)
+    #print(len(jd_times))
+    t = ts.ut1_jd(jd_times)
+
+   
+    diff1 = target_sat - obs1
+    diff2 = target_sat - obs2
+
+    topo1 = diff1.at(t)
+    topo2 = diff2.at(t)
+
+    alt1, az1, dist1 = topo1.altaz()
+    alt2, az2, dist2 = topo2.altaz()
+
+    sim_delay = (dist2.m - dist1.m) / c
+
+    if altaz:
+        altaz1 = np.stack([alt1.degrees, az1.degrees], axis=1)
+        altaz2 = np.stack([alt2.degrees, az2.degrees], axis=1)
+        return sim_delay, altaz1, altaz2
+
+    return sim_delay
+
+
 
 def get_per_ant_sat_delay(antpos, tle_path, time_start, niter, satnorad, dt=1):
     """Generate a delay timestream for each antenna for a given satellite.
@@ -721,3 +819,27 @@ def chan2freq(chan,alias=False,samp=250e6,fftlen=4096):
         return samp*(1-chan/fftlen)
     else:
         return samp*chan/fftlen
+    
+
+def pred(coord1, coord2, start_t, end_t, channel, satID, T_SPECTRA=4096/250e6, v_acclen=30000):
+    '''
+    predicted phase given satellite
+    '''
+    bench_time = time.time()
+    chunk_len = v_acclen * (T_SPECTRA)
+    tle_path = get_tle_file(start_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
+    pulse_len_s = end_t - start_t
+    d = get_sat_delay(coord1, coord2, tle_path, start_t, pulse_len_s + 1, satID)
+
+    pulse_len_chunks = np.ceil(pulse_len_s / chunk_len)
+    pulse_freq = chan2freq(channel, alias=True)
+
+    interp_chunk_times = (np.arange(pulse_len_chunks) * chunk_len)
+
+    #get the delay values for each of these chunks
+    delay = np.interp(interp_chunk_times, np.arange(len(d)), d)
+
+    #get the predicted phase at each chunk
+    pred = (-delay + delay[0]) * 2 * np.pi * pulse_freq
+    print("time taken pred", time.time() - bench_time)
+    return pred 

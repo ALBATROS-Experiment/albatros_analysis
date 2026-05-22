@@ -285,3 +285,199 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     # th2=time.time()
     # print("time to write to disk", th2-th1)
     return vis_file, new_channels
+
+
+def repfb_xcorr_avg_tb(idxs,
+                       files,
+                       pfb_size,
+                       nchunks_ant,
+                       vchk_shape,
+                       channels,
+                       osamp,
+                       new_acclen,
+                       outfile,
+                       uv,
+                       lblock=4096,
+                       ntap=4, 
+                       cutsize=16,
+                       filt_thresh=0.45):
+
+    #INITIALIZE UVH5 FILE
+    if os.path.exists(outfile):
+        os.remove(outfile)
+    uv.initialize_uvh5_file(outfile,
+                            clobber=True,
+                            chunks= vchk_shape)
+    
+    #set up required variables
+    nant, npol = len(idxs), 2
+    old_nchan = len(channels)
+    new_channels = (np.arange(osamp) + channels[:, None] * osamp).ravel()
+    new_nchan = len(new_channels)
+    read_size = pfb_size - 2*cutsize
+    timestream_size = read_size * lblock
+    nrows_total = nchunks_ant * pfb_size // (osamp * new_acclen)
+
+    row_new_shape = (uv.Nbls, uv.Nfreqs, uv.Npols)
+    vchk_nrows = int(vchk_shape[0]/uv.Nbls)
+    vchk = np.zeros(vchk_shape, dtype="complex64", order="F")
+
+    assert uv.Nants_data == nant
+    assert new_nchan == uv.Nfreqs
+
+    print('----correlator dump---')
+    print('vis chunk shape', vchk_shape)
+    print('nblts from uv', uv.Nblts)
+    print('nrows total from file', nrows_total)
+    print('nrows times nbls:', uv.Nbls*nrows_total)
+    print('READSIZE', read_size)
+    print('CUTSIZE', cutsize)
+    print('TOTAL ROWS', nrows_total)
+    print('---------end---------')
+    
+    
+    ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
+    fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
+    xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 64)
+    # print(ipfb)
+    # print(fpfb)
+    # print(xcorr)
+    
+    header = bdc.get_header(files[0][0])
+    print(header)
+    channel_indices = np.where(np.isin(header['channels'],channels))[0] #channels that are in requested channels
+    assert channel_indices[0]%2==0
+    assert len(channel_indices)%2 ==0
+    antenna_objs = []
+    for i in range(nant):
+        aa = bdc.BasebandFileIterator(
+            files[i],
+            0, #fileidx is 0 = start idx is inside the first file
+            idxs[i],
+            read_size,
+            nchunks=nchunks_ant,
+            channels=channel_indices,
+            type='float')
+        antenna_objs.append(aa)
+    print("channels present", aa.obj.channels)
+    print("Channel indices loaded", aa.obj.channel_idxs, "corresponding to", aa.obj.channels[aa.obj.channel_idxs])
+    
+    start_specnums = [ant.spec_num_start for ant in antenna_objs]
+
+    flags_chunk = np.zeros(vchk_shape, dtype = bool)
+    nsamples_chunk = np.zeros(vchk_shape, dtype = float)
+    #bl_idx_map, pol_idx_map = ph.get_bl_pol_maps(nant, npol)
+    #bl_idx_map, pol_idx_map = cp.array(bl_idx_map), cp.array(pol_idx_map)
+    ai_gpu, aj_gpu = cp.triu_indices(nant)
+
+    tot_ptr = 0  #total pointer: counts how many total rows we've saved overall
+    rowidx = 0  #row index: counts how many rows we've added to one vis chunk
+    total_rows_seen = 0 #debug to check all rows are seen
+
+    ai_gpu, aj_gpu = cp.triu_indices(nant)
+
+    #ITERATE THROUGH CHUNKS
+    for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
+        print(f'----------------CHUNK {chunk_idx+1}-------------') #chunk number vs chunk idx
+        ts1=time.time()
+        #GET DATA FOR EACH ANT
+        for ant_idx in range(nant):
+            chunk,start_specnum =chunks[ant_idx], start_specnums[ant_idx]
+            pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-start_specnum,cp.arange(0,old_nchan),read_size, old_nchan)
+            pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-start_specnum,cp.arange(0,old_nchan),read_size, old_nchan)
+            #print("continuous pol0 shape", pol0.shape)
+            spec0=ipfb.ipfb(ant_idx,0,pol0,thresh=filt_thresh)
+            spec1=ipfb.ipfb(ant_idx,1,pol1,thresh=filt_thresh)
+            #print("IPFB returned shape", spec0.shape, spec1.shape)
+            pol0_new = fpfb.pfb(ant_idx,0, spec0)
+            pol1_new = fpfb.pfb(ant_idx,1, spec1)
+            #print("PFB returned shape", pol0_new.shape, pol1_new.shape)
+            xcorr.load(ant_idx, 0, pol0_new)
+            xcorr.load(ant_idx, 1, pol1_new)
+        rows = xcorr.xcorr()
+        n = len(rows)
+        print('NUMBER OF ROWS', n)
+        if n > 0:
+            print(f"chunk {chunk_idx+1}/{nchunks_ant}, rcv {n}") #chunk index vs chunk number
+            #ITERATE THROUGH EACH ROW
+            for row in rows:
+                print(f'--------starting row number {rowidx+1}------')
+                total_rows_seen +=1
+                print('current row idx', rowidx)
+                print('shape of row', row.shape)
+                #IF VIS CHUNK FULL, DUMP TO UVH5
+                if rowidx == vchk_nrows:
+                    print(f'vis chunk is full! row {rowidx} will be saved to a new chunk')
+                    print('------------SAVING VIS CHUNK TO DISK------------------------------------')
+                    twrt=time.time()
+                    blt_inds = np.arange(tot_ptr*uv.Nbls, (tot_ptr+vchk_nrows)*uv.Nbls)
+                    print('blt_inds', blt_inds)
+
+                    #============================
+                    # uv_disk = UVData()
+                    # uv_disk.read_uvh5(outfile, read_data=False)
+                    # ph.compare_metadata(uv, uv_disk)
+                    #============================
+
+                    uv.write_uvh5_part(filename=outfile,
+                                       data_array=vchk,
+                                       flag_array=flags_chunk,
+                                       nsample_array=nsamples_chunk,
+                                       blt_inds=blt_inds,
+                                       #bls = bl_tup,
+                                       check_header = False
+                                       )
+                    print("host to disk time", time.time()-twrt)
+                    print('done saving data. resuming row.')
+                    vchk[:] = 0
+                    rowidx = 0
+                    tot_ptr += vchk_nrows
+                #REFORM EACH ROW ANTPOL -> NBLT
+                print('START REFORMING:')
+                row_nantpol, _, row_nchans = row.shape
+                treform = time.time()
+                assert row_nchans == uv.Nfreqs
+                assert row_nantpol == nant*npol
+                row_reshaped = cp.reshape(row, (npol, nant, npol, nant, -1), order='F')
+                row_ut = row_reshaped[:, ai_gpu, :, aj_gpu, : ] #shape (nbl, npol, npol, nchan)
+                row_ut = row_ut.transpose(0, 3, 1, 2).reshape(uv.Nbls,-1, 4) #shape (nbl, nchan, npol*npol)
+                assert row_ut.shape == row_new_shape
+                print(row_ut)
+                print('DONE REFORMING, time:', time.time() - treform)
+                
+                #WRITE EACH ROW INTO VIS CHUNK
+                t1=time.time()
+                vchk[rowidx*uv.Nbls:(rowidx+1)*uv.Nbls,:,:] = cp.asnumpy(row_ut) #into memory
+                t2=time.time()
+                print("dev to host time", t2-t1)
+                print(f'done with row {rowidx}')
+                rowidx+=1
+        ts2=time.time()
+        print(f"chunk {chunk_idx}/{nchunks_ant}, chunk time {ts2-ts1:5.3f}")
+    
+    #WRITE THE REST OF VIS CHUNK INTO UVH5
+    if rowidx>0:
+        print('total pointer', tot_ptr)
+        print('rowidx', rowidx)
+        print('total rows seen', total_rows_seen)
+        print('total pointer + rowidx', tot_ptr+rowidx)
+        print('nrows total', nrows_total)
+        #assert (tot_ptr+rowidx) == nrows_total
+        blt_inds = np.arange(tot_ptr*uv.Nbls, (tot_ptr+rowidx)*uv.Nbls)
+        print(blt_inds)
+        cut_vchk = vchk[:rowidx*uv.Nbls, :, :]
+        print('cut chunk shape', cut_vchk.shape)
+        print('final blt index',blt_inds[-1])
+        print('nblts', uv.Nblts)
+        cut_flags_chunk = np.zeros(cut_vchk.shape, dtype = bool)
+        cut_nsamples_chunk = np.zeros(cut_vchk.shape, dtype = float)
+        uv.write_uvh5_part(filename=outfile,
+                           data_array=cut_vchk,
+                           flag_array=cut_flags_chunk,
+                           nsample_array=cut_nsamples_chunk,
+                           blt_inds=blt_inds,
+                           #bls = bl_tup,
+                           check_header = False
+                           )
+    return vchk, new_channels
+
