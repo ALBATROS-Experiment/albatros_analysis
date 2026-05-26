@@ -148,8 +148,8 @@ class StreamingPFB():
             #onwards to pfb
             y = x * self.win[:,cp.newaxis,:]
             y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
-            # out = self.fft(y,axis=1)
-            out = y
+            out = self.fft(y,axis=1)
+            # out = y
             # print("out shape", out.shape, "out flags", out.flags, "out dtype", out.dtype)
             # assert cp.max(cp.abs(out-y1)) == 0.
             # out = cp.fft.rfft(y,axis=1)
