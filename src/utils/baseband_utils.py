@@ -587,9 +587,10 @@ def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 70
     t_end_human = datetime.fromtimestamp(t_end, tz=timezone.utc).strftime('%H:%M:%S, %d/%m')
     ant_name_list = []
     ant2files = {}
-    for ant_path in ant_path_list:
+    for i, ant_path in enumerate(ant_path_list):
         path_name = os.path.basename(ant_path)
-        ant_name = os.path.splitext(path_name)[0]
+        ant_name = i
+        #ant_name = os.path.splitext(path_name)[0]
         print(ant_name)
         ant_name_list.append(ant_name)
 

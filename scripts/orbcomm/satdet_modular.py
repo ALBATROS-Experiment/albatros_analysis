@@ -111,7 +111,8 @@ if __name__ == "__main__":
 
     for antnum in range(1,len(dir_parents)):
         print(f"\n--------------- {ant_names[antnum]}-----------------")
-
+        temp_path = os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")
+        temp_files.append((ant_names[antnum], temp_path))
         baseline_data = []
         path_nref, coords_nref = dir_parents[antnum], coords[antnum]
 
@@ -122,6 +123,7 @@ if __name__ == "__main__":
 
         #ITERATE OVER PASSES----------------------------------------------------------------------------------
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
+            break
             print(f"\n---------------{ant_names[antnum]}, Pulse {pnum}---------")
             pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
             print('pstart', pstart)
@@ -414,6 +416,10 @@ if __name__ == "__main__":
 
         offsets, weights = [], []
 
+        with open(temp_path, "r") as f:
+            baseline_data = json.load(f)
+        
+
         for pulse in baseline_data:
             for off, (snr, chan, sat) in zip(pulse["specnumoffsets"], pulse["SNR, Chan, Sat"]):
                 if off == 0:
@@ -447,9 +453,9 @@ if __name__ == "__main__":
         n = len(offsets)
 
         sat_data['summary'][ant_names[antnum]] = {
-            'consensus_offset': consensus,
-            'spread' : spread,
-            'chunks detected': n
+            'consensus_offset': int(consensus),
+            'spread' : float(spread),
+            'chunks detected': int(n)
         }
         print(sat_data['summary'][ant_names[antnum]])
 
@@ -458,10 +464,9 @@ if __name__ == "__main__":
         # ant_data["consensus_offset"] = con_off
         #ant_data["pulse_data"] = baseline_data
 
-        temp_path = os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")
         with open(temp_path, "w") as f:
             json.dump(baseline_data, f, indent=4)
-        temp_files.append((ant_names[antnum], temp_path))
+        
         print('saved ant_data to temporary json')
 
         #free up memory
@@ -473,12 +478,13 @@ if __name__ == "__main__":
         with open(temp_path, "r") as f:
             sat_data[ant_name] = json.load(f)
 
-    final_json = path.join(path_satdet,f"satdet_{int(c_acclen/1e6)}M_{characteristic_time}.json")
+    final_json = path.join(path_satdet,f"satdet_{int(c_acclen/1e6)}M.json")
     with open(final_json, "w") as f:
         json.dump(sat_data, f, indent=4)
     
     print(f'saved final json to {path_satdet}')
 
+    sys.exit()
     for _, temp_path in temp_files:
         os.remove(temp_path)
     print('deleted temporary jsons')

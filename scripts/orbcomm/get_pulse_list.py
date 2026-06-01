@@ -16,8 +16,7 @@ def get_windows_oneant(json_path,
 
     windows = []
     with open(json_path, 'r') as f:
-        data = json.load(f)
-    data = data[f'{batch_start}']
+        data = json.load(f) 
     ant_data = data[ant]
 
     for pulse in ant_data:
@@ -135,8 +134,9 @@ if __name__ == '__main__':
 
     path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
     path_satdet = os.path.join(path_batch, 'satdet')
-    path_data = os.path.join(path_satdet, 'satdet_data_1753200150_3M_len_86260_1769307199.json') #hard-coded for the time being
-    path_out = os.path.join(path_batch, f'data/pulses1.json')
+    path_data = os.path.join(path_satdet, 'satdet_3M.json') #hard-coded for the time being
+    os.makedirs(os.path.join(path_batch, 'data'), exist_ok=True)
+    path_out = os.path.join(path_batch, f'data/pulses.json')
 
     w_all = get_windows_oneant(path_data, 
                             batch_start_ts, 
