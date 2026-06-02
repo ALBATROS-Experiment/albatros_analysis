@@ -43,7 +43,7 @@ cfg["code_repeat_num"] = 10
 
 def get_code_template(code_type="0"):
     per_code_len = int(6 * 16)  # 6x 16 symbols
-    total_len = np.round(np.ceil(cfg["ipp"] * cfg["code_baudrate"])).astyype(int) #1100
+    total_len = np.round(np.ceil(cfg["ipp"] * cfg["code_baudrate"])).astype(int) #1100
     print("total len is", total_len)
     code_template = np.ones(per_code_len)
 
