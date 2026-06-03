@@ -22,8 +22,9 @@ import figures as fgs
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "config_file", type=str, help="Config file containing all required data.",
-    )
+        "config_file", type=str, help="Config file containing all required data.")
+    parser.add_argument(
+        "-a",'--antenna',type=int,nargs='+',default=-1,help='all antenna indices you want to include, measured from config file')
     args = parser.parse_args()
 
     #GET HARD-CODED PARAMS---------------------------------------------------------------------
@@ -40,6 +41,9 @@ if __name__ == "__main__":
 
         print("\nAntenna Details:")
         for i, (ant, details) in enumerate(config["antennas"].items()):
+            if args.antenna not in (-1, [-1]):
+                if i not in args.antenna:
+                    continue
             print(ant, details)
             coords.append(details['coordinates'])
             dir_parents.append(details["path"])
@@ -48,6 +52,7 @@ if __name__ == "__main__":
         batch_end_ts = config["correlation"]["end_timestamp"]
         c_acclen = config["correlation"]["coarse_acclen"]
 
+    print("\nAntenna Names:", ant_names)
     print("\nAntenna Coordinates:", coords)
     print("Coarse acclen", c_acclen)
 
@@ -123,14 +128,14 @@ if __name__ == "__main__":
 
         #ITERATE OVER PASSES----------------------------------------------------------------------------------
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):
-            break
+
             print(f"\n---------------{ant_names[antnum]}, Pulse {pnum}---------")
             pstart, pend = pstart*T_SCAN, pend*T_SCAN  #go from T_SCAN indices to times in s
             print('pstart', pstart)
             print('pend', pend)
             print("pass length:", pend-pstart)
             su.print_memory_usage(note = "start of pulse")
-        
+
             chunk_length_secs = c_acclen * T_SPECTRA
             chunk_times = np.arange(pstart, pend, chunk_length_secs)
             print('chunk times', chunk_times)
@@ -207,9 +212,8 @@ if __name__ == "__main__":
 
             pulse_times, pulse_snrs, pulse_specnumoffsets = [], [], []
             detection = False
-
+            chunk_data = {}
             for chunkidx, (chunk_ref, chunk_nref) in enumerate(zip(ref, nref)):
-
                 print(f'\n----- Chunk {chunkidx}/{nchunks-1} ------')
                 chunk_start_unix = chunk_times[chunkidx] + batch_start_ts
                 chunk_end_unix = chunk_times[chunkidx+1] + batch_start_ts
@@ -326,7 +330,12 @@ if __name__ == "__main__":
                         pulse_specnumoffsets.append(int(specnum_offset + (best_guess_offset-dN)))
                     else:
                         pulse_specnumoffsets.append(int(specnum_offset -  np.abs(best_guess_offset - dN)))
-        
+
+                    chunk_data[chunkidx] = {}
+                    for idx, sat in enumerate(temp_satmap):
+                        chunk_data[chunkidx][sat] = cp.asnumpy(cx[idx][det_idx])
+                    chunk_data[chunkidx]['snrs'] = snr_arr
+
             if not detection:
                 #case 3: no detections at all, so don't write anything
                 print('NO DETECTIONS FOR WHOLE PULSE. SKIPPING')
@@ -347,6 +356,27 @@ if __name__ == "__main__":
             print('merged times', pulse_times_merged)
             print('pulse snrs', pulse_snrs)
             print('specnumoffsets', pulse_specnumoffsets)
+                
+            #MAKE SINGLE DEBUGPLOT
+            figt1 = time.time()
+            ndetchunks = len(chunk_data)
+            fig, ax = plt.subplots(ndetchunks,4,figsize=(20, ndetchunks * 4),squeeze=False)
+
+            for chk, (_, d) in enumerate(chunk_data.items()):
+                snr_ax = ax[chk, 3]
+                for s, satid in enumerate(temp_satmap):
+                    d2 = np.abs(d[satid])
+                    corr_ax = ax[chk, s]
+                    corr_ax.plot(d2)
+                    corr_ax.set_title(f"satID={satid} off={np.argmax(d2)} chk={chk}")
+                    snr_ax.plot(d['snrs'][s, :],label=str(satid))
+                snr_ax.set_xlabel("Channels")
+                snr_ax.set_ylabel("SNR")
+                snr_ax.legend()
+            fig.tight_layout()
+            fig.savefig(os.path.join(path_ant, f"pulse_{pnum}_start_{pstart}.png"))
+            plt.close(fig)
+            print("time for plot generation", time.time() - figt1)
 
             #SPECNUMOFFSET FROM CXCORR MAX
             # if len(np.where(detected_peaks>0)[0]) > 0: #if we have channels with detections
@@ -362,21 +392,7 @@ if __name__ == "__main__":
             # else:
             #     print("No detected peaks for this pulse")
 
-
-            #SAVE DEBUG FIGURES
-            path_pulse = os.path.join(path_ant, f'pulse_{pnum}_start_{pstart}')
-            os.makedirs(path_pulse, exist_ok=True)
-            for idx, sat in enumerate(temp_satmap):
-                cxfig = fgs.make_cxcorr_plot(cx[idx])
-                cxfig.savefig(os.path.join(path_pulse, f'cxcorr_{sat}.jpg'))
-                cxfig.clf()
-                plt.close(cxfig)
-                del cxfig
-            snrfig = fgs.make_snr_plot(snr_arr, temp_satmap)
-            snrfig.savefig(os.path.join(path_pulse, f'SNRs_{pnum}_{pstart}.jpg'))
-            snrfig.clf()
-            plt.close(snrfig)
-            del snrfig
+            
             
             #STORE PULSE DATA
             pulse_data = {}
@@ -413,51 +429,6 @@ if __name__ == "__main__":
             pinned_mempool.free_all_blocks()
             su.print_memory_usage(note = 'after memory freeing')
         print(baseline_data)
-
-        offsets, weights = [], []
-
-        with open(temp_path, "r") as f:
-            baseline_data = json.load(f)
-        
-
-        for pulse in baseline_data:
-            for off, (snr, chan, sat) in zip(pulse["specnumoffsets"], pulse["SNR, Chan, Sat"]):
-                if off == 0:
-                    continue
-                offsets.append(off)
-                weights.append(snr)
-
-        offsets = np.array(offsets)
-        weights = np.array(weights)
-        print('offsets', offsets)
-        print('weights', weights)
-
-        med = np.median(offsets)
-        mad = np.median(np.abs(offsets - med))
-        print('median offset', med)
-        print('MAD of offsets', mad)
-
-        mask = np.abs(offsets - med) <= 3 * mad
-        offsets = offsets[mask]
-        weights = weights[mask]
-
-        idx = np.argsort(offsets)
-        offsets_sorted = offsets[idx]
-        weights_sorted = weights[idx]
-        cdf = np.cumsum(weights_sorted)
-        cutoff = 0.5 * np.sum(weights_sorted)
-        consensus = offsets[np.searchsorted(cdf, cutoff)]
-        print('consensus offset', consensus)
-
-        spread = np.std(offsets)
-        n = len(offsets)
-
-        sat_data['summary'][ant_names[antnum]] = {
-            'consensus_offset': int(consensus),
-            'spread' : float(spread),
-            'chunks detected': int(n)
-        }
-        print(sat_data['summary'][ant_names[antnum]])
 
         #SAVE TO SAT DATA
         # ant_data = {}

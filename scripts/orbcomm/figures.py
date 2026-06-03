@@ -42,7 +42,7 @@ def make_cxcorr_plot(data):
         peak_idx=np.argmax(data_chan)
         ax[chan].set_title(f"{peak_idx}")
         ax[chan].plot(data_chan)
-        plt.tight_layout()
+    plt.tight_layout()
     return fig
 
 def zoomed_cxcorr_plot(data, chan_small_idx, N2 = 200, x = 'spectra', T_SPECTRA = 4096/250e6):
