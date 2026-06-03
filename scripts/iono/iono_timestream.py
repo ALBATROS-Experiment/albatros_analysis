@@ -4,6 +4,7 @@ from scipy.signal import firwin
 from scipy.fft import next_fast_len
 import datetime,time
 import sys
+import os
 from os import path
 
 sys.path.insert(0, path.expanduser("~"))
@@ -355,6 +356,8 @@ if __name__ == "__main__":
         cutsize=16,
         filt_thresh=0.2,
     )
-    outidr = "/scratch/mohanagr/ionosphere/output"
+    outdir = f"/scratch/{os.environ.get('USER')}/ionosphere/output"
     fname = "iono_corr_2pols_"+tstart_str+"Z_to_"+tend_str+"Z"
-    np.savez(path.join(outidr, fname), corr = corr, freqs = iono_freqs)
+    os.makedirs(outdir, exist_ok = True)
+    print(f"Saving to {path.join(outdir, fname)}")
+    np.savez(path.join(outdir, fname), corr = corr, freqs = iono_freqs)
