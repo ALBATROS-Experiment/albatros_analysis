@@ -24,15 +24,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "config_file", type=str, help="Config file containing all required data.")
     parser.add_argument(
-        "-a",'--antenna',type=int,nargs='+',default=-1,help='all antenna indices you want to include, measured from config file')
+        '-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna'
+    )
+    #parser.add_argument(
+    #    "-a",'--antenna',type=int,nargs='+',default=-1,help='all antenna indices you want to include, measured from config file')
+    parser.add_argument(
+        '-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
     args = parser.parse_args()
 
     #GET HARD-CODED PARAMS---------------------------------------------------------------------
     T_SPECTRA = 4096/250e6
     T_SCAN = 5 #seconds between each satellite risen scan -- look for sat rise/set every 5 sec.
     altitude_cutoff = 5  #cutoff when looking for satellites
-    satlist = [28654,25338,33591,57166,59051,44387]
-    characteristic_time = int(time.time())
+    if args.meteors_only:
+        satlist = [57166,59051]
+    else:
+        satlist = [28654,25338,33591,57166,59051,44387]
 
     #OPEN CONFIG-------------------------------------------------------------------------------
     with open(args.config_file, "r") as f:
@@ -41,9 +48,9 @@ if __name__ == "__main__":
 
         print("\nAntenna Details:")
         for i, (ant, details) in enumerate(config["antennas"].items()):
-            if args.antenna not in (-1, [-1]):
-                if i not in args.antenna:
-                    continue
+            #if args.antenna not in (-1, [-1]):
+            #    if i not in args.antenna:
+            #        continue
             print(ant, details)
             coords.append(details['coordinates'])
             dir_parents.append(details["path"])
@@ -58,9 +65,11 @@ if __name__ == "__main__":
 
     #SETUP---------------------------------------------------------------------------------------
     array_time =  batch_end_ts - batch_start_ts
-    coords_ref, path_ref = coords[0], dir_parents[0]  #(ref = Reference Ant, nref = Non-Reference Ant)
+    #reference setup
+    ref_antnum = ant_names.index(args.ref_antenna)
+    coords_ref, path_ref = coords[ref_antnum], dir_parents[ref_antnum]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}')
+    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}_testing')
     os.makedirs(path_batch, exist_ok=True)
     path_satdet = os.path.join(path_batch, 'satdet')
     os.makedirs(path_satdet, exist_ok = True)
@@ -112,18 +121,35 @@ if __name__ == "__main__":
     sat_data['summary'] = {}
     temp_files = []  #paths of temporary per-antenna json files
     #get the files where the ref antenna has specnum overflows
-    overflow_files_ref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[0])
+    overflow_files_ref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[ref_antnum])
 
-    for antnum in range(1,len(dir_parents)):
+    for antnum in range(len(dir_parents)):
         print(f"\n--------------- {ant_names[antnum]}-----------------")
+        #skip the reference antenna
+        if antnum == ref_antnum:
+            print("You don't play on the pres")
+            continue
+
+        #skip ant 1 for now while I figure out overflow counter.
+        if antnum==0:
+            continue
+            
+        
+        #make paths for the debug plots. add antenna to temp_files even if already computed so it's saved later
         temp_path = os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")
         temp_files.append((ant_names[antnum], temp_path))
+        #if this data has already been computed, and there is a temp file in the satdet directory, skip this ant
+        if os.path.isfile(os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")):
+            print("Already have this data computed, continue!")
+            continue
+        
         baseline_data = []
         path_nref, coords_nref = dir_parents[antnum], coords[antnum]
 
         path_ant = os.path.join(path_debugplots, f'{ant_names[antnum]}')
         os.makedirs(path_ant, exist_ok=True)
         #get files where non-ref antenna has specnum overflows
+        #check how to solve for spotty ant 1
         overflow_files_nref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antnum])
 
         #ITERATE OVER PASSES----------------------------------------------------------------------------------
@@ -134,6 +160,15 @@ if __name__ == "__main__":
             print('pstart', pstart)
             print('pend', pend)
             print("pass length:", pend-pstart)
+            #get things in unix time
+            pass_start_unix, pass_end_unix = batch_start_ts + pstart, batch_start_ts + pend
+            tle_path = outils.get_tle_file(pass_start_unix, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
+            print('unix pstart:', pass_start_unix)
+            #check data presence. assume ref ant always has impeccable data coverage.
+            missing = butils.check_data_holes(pass_start_unix, pass_end_unix, dir_parents[antnum])
+            if missing:
+                print('missing data for pulse, we skip')
+                continue
             su.print_memory_usage(note = "start of pulse")
 
             chunk_length_secs = c_acclen * T_SPECTRA
@@ -149,11 +184,6 @@ if __name__ == "__main__":
             temp_satmap.append("Uncorrected")
             for i, satidx in enumerate(sats_present):
                 temp_satmap.append(satmap[satidx])
-
-            #get things in unix time
-            pass_start_unix, pass_end_unix = batch_start_ts + pstart, batch_start_ts + pend
-            tle_path = outils.get_tle_file(pass_start_unix, "/project/rrg-sievers/mohanagr/OCOMM_TLES") #use most up-to-date tle file
-            print('unix pstart:', pass_start_unix)
 
 
             #ANTENNA OBJECT STUFF----------------------------------------------------------------------------
@@ -213,6 +243,8 @@ if __name__ == "__main__":
             pulse_times, pulse_snrs, pulse_specnumoffsets = [], [], []
             detection = False
             chunk_data = {}
+            ref_specnum_start = ref.spec_num_start
+            nref_specnum_start = nref.spec_num_start
             for chunkidx, (chunk_ref, chunk_nref) in enumerate(zip(ref, nref)):
                 print(f'\n----- Chunk {chunkidx}/{nchunks-1} ------')
                 chunk_start_unix = chunk_times[chunkidx] + batch_start_ts
@@ -222,8 +254,6 @@ if __name__ == "__main__":
 
                 data_ref = cp.zeros((c_acclen, nchans), dtype="complex64") #remember that BDC returns complex64. wanna do phase-centering in 128.
                 data_nref = cp.zeros((c_acclen, nchans), dtype="complex64")
-                ref_specnum_start = ref.spec_num_start
-                nref_specnum_start = nref.spec_num_start
 
                 print('CHUNK IDX', chunkidx)
                 print('NCHUNKS', nchunks)
@@ -235,17 +265,24 @@ if __name__ == "__main__":
                 perc_missing_nref = (1 - len(chunk_nref["specnums"]) / c_acclen) * 100
                 if perc_missing_ref > 10 or perc_missing_nref > 10:
                     print(f'big problem! plenty of data missing {perc_missing_ref} and {perc_missing_nref}. abort!')
-                    sys.exit()
+                    if chunkidx == 0: #logic here is that maybe after a reboot the data is corrupted or something: will let chunk 1 free
+                        continue
+                    sys.exit()  #otherwise we will need to check what's going on. may be a sign of something ystemically wrong in data
+
+                ref_spec_idxs = chunk_ref['specnums']-(ref_specnum_start+c_acclen*chunkidx)
+                nref_spec_idxs = chunk_nref['specnums']-(nref_specnum_start+c_acclen*chunkidx)
+                print('ref start idx', chunk_ref['specnums'][0])
+                print('nref start spec', chunk_nref['specnums'][0])
 
                 bdc.make_continuous_gpu(chunk_ref['pol0'],
-                                        chunk_ref['specnums']-ref_specnum_start,
+                                        ref_spec_idxs,
                                         np.arange(nchans),
                                         c_acclen,
                                         nchans=nchans, 
                                         out=data_ref)
                 
                 bdc.make_continuous_gpu(chunk_nref['pol0'],
-                                        chunk_nref['specnums']-nref_specnum_start,
+                                        nref_spec_idxs,
                                         np.arange(nchans),
                                         c_acclen,
                                         nchans=nchans, 
@@ -276,17 +313,6 @@ if __name__ == "__main__":
                     print("getting cxcorr of:", satmap[satidx])
                     outils_g.apply_delay(data_nref, delays[:,i], freqs, out=data_nref_delayed)
                     cx.append(outils_g.coarse_xcorr(data_ref, data_nref_delayed, dN))
-
-                # cx_gpu = sug.get_cxcorr_many_sats(data_ref,
-                #                                 data_nref, 
-                #                                 tle_path, 
-                #                                 [chunk_start_unix, chunk_end_unix], 
-                #                                 sats_present, #maybe change so I can just throw in temp_satmap?
-                #                                 satmap,
-                #                                 [coords_ref, coords_nref],
-                #                                 dN,
-                #                                 c_acclen = c_acclen)
-
 
                 #GET SNR
                 snr_arr = np.zeros((len(sats_present) + 1, nchans), dtype="float64")  #for each chan for each sat (plus uncorrected)
@@ -449,7 +475,7 @@ if __name__ == "__main__":
         with open(temp_path, "r") as f:
             sat_data[ant_name] = json.load(f)
 
-    final_json = path.join(path_satdet,f"satdet_{int(c_acclen/1e6)}M.json")
+    final_json = path.join(path_satdet,f"satdet_{int(c_acclen/1e6)}M_ref{ant_names[ref_antnum]}.json")
     with open(final_json, "w") as f:
         json.dump(sat_data, f, indent=4)
     
