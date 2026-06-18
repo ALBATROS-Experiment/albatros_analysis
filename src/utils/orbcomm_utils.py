@@ -152,7 +152,8 @@ def apply_delay(arr, newarr, delay, freqs):
     nchan = arr.shape[1]
     for i in nb.prange(nspec):
         for j in range(nchan):
-            newarr[i, j] = arr[i, j] * np.exp(2j * np.pi * freqs[j] * delay[i])
+            #in outils_g it's -2j, since when we run this we want to REMOVE the delay from ant2 timestream.
+            newarr[i, j] = arr[i, j] * np.exp(-2j * np.pi * freqs[j] * delay[i])  
 
 @nb.njit(parallel=True)
 def apply_sat_delay(arr, newarr, col2sat, delays, freqs):

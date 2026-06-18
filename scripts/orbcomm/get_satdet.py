@@ -69,7 +69,7 @@ if __name__ == "__main__":
     ref_antnum = ant_names.index(args.ref_antenna)
     coords_ref, path_ref = coords[ref_antnum], dir_parents[ref_antnum]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}_testing')
+    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}')
     os.makedirs(path_batch, exist_ok=True)
     path_satdet = os.path.join(path_batch, 'satdet')
     os.makedirs(path_satdet, exist_ok = True)
@@ -130,10 +130,6 @@ if __name__ == "__main__":
             print("You don't play on the pres")
             continue
 
-        #skip ant 1 for now while I figure out overflow counter.
-        if antnum==0:
-            continue
-            
         
         #make paths for the debug plots. add antenna to temp_files even if already computed so it's saved later
         temp_path = os.path.join(path_satdet, f"temp_antidx{antnum}_{batch_start_ts}.json")
@@ -150,7 +146,10 @@ if __name__ == "__main__":
         os.makedirs(path_ant, exist_ok=True)
         #get files where non-ref antenna has specnum overflows
         #check how to solve for spotty ant 1
-        overflow_files_nref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antnum])
+        if antnum == 0:
+            overflow_files_nref = np.array([])
+        else:
+            overflow_files_nref = hxc.get_overflow_files(batch_start_ts, batch_end_ts, dir_parents[antnum])
 
         #ITERATE OVER PASSES----------------------------------------------------------------------------------
         for pnum, [(pstart, pend), sats_present] in enumerate(passes):

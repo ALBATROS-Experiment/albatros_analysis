@@ -401,7 +401,7 @@ def snr_times_many(json_paths,
 
     secs, lsts, snrs = [], [], []
     for i in range(nbatches):
-        data = load_json(json_paths[i])[f'{batch_starts[i]}'][f'{antname}']
+        data = load_json(json_paths[i])[f'{antname}']
         secs.append(np.arange(0, batch_ends[i]-batch_starts[i] + 1, dt))
         lsts.append(unix_to_lst_with_fix(batch_starts[i], batch_ends[i], coords))
         snr  = np.zeros_like(secs[i], dtype=float)

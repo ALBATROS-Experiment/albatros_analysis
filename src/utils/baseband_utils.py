@@ -6,6 +6,7 @@ import pytz
 from datetime import datetime, timezone
 import glob
 import re
+import json
 
 def _find(dir_parent, search_type, search_tag, min_depth):
     return subprocess.run(
@@ -205,7 +206,7 @@ def get_localtime_from_ctime(tstamp, tz="US/Eastern"):
     return datetime.datetime.fromtimestamp(tstamp, tz=pytz.utc).astimezone(tz)
 
 
-def get_init_info(init_t, end_t, dir_parent):
+def get_init_info(init_t, end_t, dir_parent, force_ts = False):
     """Get relevant indices from timestamps.
 
     Returns the index of file in a folder and
@@ -230,8 +231,8 @@ def get_init_info(init_t, end_t, dir_parent):
     files: list of str
         Sorted list of path strings to all files in 'parent_dir'.
     """
-    f1,idx=get_file_from_timestamp(init_t,dir_parent,'f')
-    f2,_=get_file_from_timestamp(end_t,dir_parent,'f')
+    f1,idx=get_file_from_timestamp(init_t,dir_parent,'f', force_ts=force_ts)
+    f2,_=get_file_from_timestamp(end_t,dir_parent,'f', force_ts=force_ts)
     files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent,'f')
     return files,idx
 
@@ -692,3 +693,175 @@ def get_simul_files(arr, time_start, dt, desired_ant_indices):
         runs.append([start_run, current_time])
 
     return runs
+
+
+def check_data_holes(t_start, t_end, dir, filesize=500001224, tol = 60, verbose=False, force_ts = False):
+    '''
+    This is a measure for abundance of caution when opening up files.
+    Returns True if there is data missing, or any holes between the data.
+    Returns False if there are no problems (i.e. no data holes)
+    '''
+    #start by trying to open up the files
+    try:
+        files, _ = get_init_info(t_start, t_end, dir, force_ts=force_ts)
+    except Exception as e:
+        print(e)
+        print(f"literally zero files here")
+        return True
+    
+    tstamps = []
+    #now iterate through the present files
+    for f in files:
+        #check that the file is full
+        size = os.path.getsize(f)
+        if size != filesize:
+            print('ERROR: Something wrong near file:', f)
+            if not verbose:
+                return True
+        #add timestamp to list
+        num = int(os.path.splitext(os.path.basename(f))[0])
+        tstamps.append(num)
+    #make into actual array
+    tstamps = np.array(tstamps)
+    #check enough space at front
+    diff_to_start = tstamps[0]-t_start
+    print('diff to start', diff_to_start)
+    if diff_to_start>tol:
+        print('ERROR: Something wrong at start')
+        if not verbose:
+            return True
+    #check enough space at back
+    diff_to_end = t_end -tstamps[-1]
+    print('diff to end', diff_to_end)
+    if diff_to_end>tol:
+        print('ERROR: Something wrong at end')
+        if not verbose:
+            return True
+    #check enough space between files
+    diff_between = np.diff(tstamps)
+    print('diff between', diff_between)
+    if np.any(diff_between>tol):
+        print('ERROR: Something wrong bewteen files')
+        if not verbose:
+            return True
+    #otherwise all good
+    print('No holes in data')
+    return False
+
+
+
+def get_windows_oneant(json_path, 
+                       batch_start, 
+                       ant,
+                       min_SNR,
+                       min_nchunks,
+                       max_nchunks=None,
+                       interval=None
+                       ):
+
+    windows = []
+    with open(json_path, 'r') as f:
+        data = json.load(f) 
+    ant_data = data[ant]
+
+    for pulse in ant_data:
+        t0, t1 = pulse["times"]
+        if interval is not None:
+            int_start = batch_start + interval[0]
+            int_end   = batch_start + interval[1]
+            if t1<int_start or t0>int_end:
+                continue
+
+        chunks = pulse["SNR, Chan, Sat"]
+        if not chunks:
+            continue
+
+        snrs  = np.array([c[0] for c in chunks])
+        chans = np.array([c[1] for c in chunks])
+        sats  = np.array([c[2] for c in chunks])
+
+        nchunks = len(snrs)
+        chunk_dt = (t1 - t0) / nchunks
+
+        above = snrs > min_SNR
+
+        # ---------------------------------------------
+        # Find contiguous True segments
+        # ---------------------------------------------
+        segments = []
+        start = None
+
+        for i, flag in enumerate(above):
+            if flag:
+                if start is None:
+                    start = i
+            else:
+                if start is not None:
+                    segments.append((start, i))
+                    start = None
+
+        if start is not None:
+            segments.append((start, len(above)))
+
+        if not segments:
+            continue
+
+        best_global_mean = -np.inf
+        best_start = None
+        best_len = 0
+
+        # ---------------------------------------------
+        # Evaluate each segment
+        # ---------------------------------------------
+        for s, e in segments:
+            seg_len = e - s
+
+            if seg_len < min_nchunks:
+                continue
+
+            segment_snrs = snrs[s:e]
+
+            # Case 1: no max limit → take whole segment
+            if max_nchunks is None or seg_len <= max_nchunks:
+                seg_mean = segment_snrs.mean()
+
+                if seg_mean > best_global_mean:
+                    best_global_mean = seg_mean
+                    best_start = s
+                    best_len = seg_len
+
+            else:
+                # Case 2: need best subwindow of length max_nchunks
+                k = max_nchunks
+
+                # cumulative sum for fast sliding mean
+                csum = np.cumsum(segment_snrs)
+                csum = np.insert(csum, 0, 0)
+
+                # compute window sums
+                window_sums = csum[k:] - csum[:-k]
+                idx = np.argmax(window_sums)
+
+                seg_mean = window_sums[idx] / k
+
+                if seg_mean > best_global_mean:
+                    best_global_mean = seg_mean
+                    best_start = s + idx
+                    best_len = k
+
+        if best_start is None:
+            continue
+        end_idx = best_start + best_len
+
+        t_start = int(t0 + best_start * chunk_dt)
+        t_end = int(t0 + end_idx * chunk_dt)
+
+        windows.append({
+            "antenna": ant,
+            "sat": int(sats[best_start]),
+            "channel": int(chans[best_start]),
+            "t_start": t_start,
+            "t_end": t_end,
+            "len": t_end - t_start
+        })
+    return windows

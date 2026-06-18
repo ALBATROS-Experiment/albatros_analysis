@@ -32,7 +32,7 @@ def make_ampfig(vis, v_acclen=10000, T_SPECTRA=4096/250e6):
 
 
 
-def make_cxcorr_plot(data):
+def make_cxcorr_plot(data, title=None):
     data_cpu = cp.asnumpy(data)
     fig,ax=plt.subplots(6,3)
     fig.set_size_inches(10,12)
@@ -42,6 +42,8 @@ def make_cxcorr_plot(data):
         peak_idx=np.argmax(data_chan)
         ax[chan].set_title(f"{peak_idx}")
         ax[chan].plot(data_chan)
+    if title is not None:
+        fig.suptitle(title)
     plt.tight_layout()
     return fig
 

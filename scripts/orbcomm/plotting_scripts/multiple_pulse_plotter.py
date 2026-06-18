@@ -1,7 +1,7 @@
 import os
 import sys
 from sys import path
-sys.path.append(os.path.expanduser('~/albatros_analysis'))
+sys.path.append(os.path.expanduser('/home/thomasb'))
 import numpy as np 
 import numba as nb
 import time
@@ -9,23 +9,23 @@ from scipy import linalg
 from scipy import stats
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-from src.correlations import baseband_data_classes as bdc
-from src.utils import baseband_utils as butils
-from src.utils import orbcomm_utils as outils
-import sat_utils_gpu as sug
-import sat_utils as su
-import figures as fgs
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
+from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.src.utils import orbcomm_utils as outils
+import albatros_analysis.scripts.orbcomm.sat_utils_gpu as sug
+import albatros_analysis.scripts.orbcomm.sat_utils as su
+import albatros_analysis.scripts.orbcomm.figures as fgs
 from scipy.optimize import least_squares
 import json
 import random
-from scripts.xcorr import helper as hp
+from albatros_analysis.scripts.xcorr import helper as hp
 import importlib
 from scipy.interpolate import interp1d
 
-config_path = '/home/thomasb/albatros_analysis/scripts/orbcomm'
-config_name = 'config2_corr.json'
-satdet_path = '/scratch/thomasb/'
-satdet_name = "satdet_data_1753132820_cxlen_0.3_seclen_12180_1762288490.json"
+config_path = '/home/thomasb/albatros_analysis/scripts/orbcomm/config'
+config_name = 'config_batch2.json'
+satdet_path = '/scratch/thomasb/batch_1753200150/satdet'
+satdet_name = "satdet_3M.json"
 #satdet_name = "/pulsedata_1753133403/pulsedata_1753133403_1757540615.4208999.json"
 T_SPECTRA = 4096/250e6
 chanlist = np.arange(1834, 1852)
@@ -39,7 +39,7 @@ for i, sat_ID in enumerate(satlist):
     satmap[i] = sat_ID
     satmap[sat_ID] = i
 
-bline_ants = set({'Antenna 1', 'Antenna 2'})
+bline_ants = set({'Antenna 2', 'Antenna 4'})
 
 
 names, paths, offsets, coords, pulsedata = [], [], [], [], []
@@ -70,7 +70,7 @@ chunk_length = T_SPECTRA * v_acclen
 #pulsedata
 with open(f'{satdet_path}/{satdet_name}') as f:
     data = json.load(f)
-    ants = data[f'{global_start_time}']
+    ants = data
     for i, antname_bline in enumerate(names):
         for j, (antname_satdet, details) in enumerate(ants.items()):
             if antname_bline == antname_satdet:

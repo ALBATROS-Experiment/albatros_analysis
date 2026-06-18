@@ -28,13 +28,13 @@ import importlib
 
 #batch_start_ts = 1753200150
 batch_start_ts = 1762037710
-batch_end_ts = 1762037710 + 30000
+batch_end_ts = batch_start_ts + 30000
 dN = 100000
 v_acclen = 10000
 c_acclen = 3000000
 antnum_ref = 1
-antnum = 4
-pnum = 0
+antnum = 6
+pnum = 4
 indent = 0 #49.152*2
 DO_CX = True
 DO_VIS = False
@@ -78,6 +78,17 @@ ant_paths = np.array([
     '/project/rrg-sievers/albatros/mars/202507/mars7/baseband',
     '/project/rrg-sievers/albatros/mars/202507/mars8/baseband'
 ])
+
+# ant_paths = np.array([
+#     "/scratch/mohanagr/summer_2025/baseband/mars1",
+#     "/scratch/mohanagr/summer_2025/baseband/mars2",
+#     "/scratch/mohanagr/summer_2025/baseband/mars3",
+#     "/scratch/mohanagr/summer_2025/baseband/mars4",
+#     "/scratch/mohanagr/summer_2025/baseband/mars5",
+#     "/scratch/mohanagr/summer_2025/baseband/mars6",
+#     "/scratch/mohanagr/summer_2025/baseband/mars7",
+#     "/scratch/mohanagr/summer_2025/baseband/mars8"
+# ])
 
 ant_coords = [
             [79.41716147,	-90.76723869,	187.9577],	#MARS1
@@ -278,12 +289,17 @@ if DO_CX:
 
         #ref_spec_to_use = chunk_ref['specnums'] - (ref_specnum_start+c_acclen*chunkidx)
         #nref_spec_to_use = chunk_nref['specnums'] - (nref_specnum_start+c_acclen*chunkidx)
-        print(chunk_ref['specnums'][0])
-        print(chunk_ref['specnums'][0] - ref_specnum_start)
-        print(chunk_ref['specnums'] - (ref_specnum_start+c_acclen*chunkidx))
+        print('specnum ref start', chunk_ref['specnums'][0])
+        print('specnum nref start', chunk_nref['specnums'][0])
+
+        print('specnum ref end', chunk_ref['specnums'][-1])
+        print('specnum nref end', chunk_nref['specnums'][-1])
+
+        #print(chunk_ref['specnums'][0] - ref_specnum_start)
+        #print(chunk_ref['specnums'] - (ref_specnum_start+c_acclen*chunkidx))
         bdc.make_continuous_gpu(chunk_ref['pol0'],
                                 #ref_spec_to_use,
-                                chunk_ref['specnums'] - (ref_specnum_start),
+                                chunk_ref['specnums'] - (ref_specnum_start+(c_acclen*chunkidx)),
                                 np.arange(nchans),
                                 c_acclen,
                                 nchans=nchans, 
@@ -291,7 +307,7 @@ if DO_CX:
 
         bdc.make_continuous_gpu(chunk_nref['pol0'],
                                 #nref_spec_to_use,
-                                chunk_nref['specnums'] - (nref_specnum_start),
+                                chunk_nref['specnums'] - (nref_specnum_start+(c_acclen*chunkidx)),
                                 np.arange(nchans),
                                 c_acclen,
                                 nchans=nchans, 
