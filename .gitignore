@@ -6,6 +6,16 @@
 *.png
 *.swp
 *.raw
+
+*.pdf
+*.out
+*.log
+*.synctex.gz
+*.toc
+*.aux
+*.fls
+*.fdb_latexmk
+
 plots/
 usage.txt
 plot_one_file_scaled.py
