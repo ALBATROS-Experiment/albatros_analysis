@@ -86,6 +86,27 @@ if __name__ == "__main__":
     plt.tight_layout()
     fig_res.savefig(os.path.join(path_discrepancies, 'fit_residuals.png'))
     plt.close(fig_res)
+
+
+
+    #====================================
+    # figure with both together (from chat)
+    # fig, (ax_fit, ax_res) = plt.subplots(2, 1,figsize=(8, 6),sharex=True,gridspec_kw={'height_ratios': [3, 1]})
+    # ax_fit.scatter(spectra, utc_plotting, c='r', label='Pulse Results')
+    # ax_fit.plot(spectra,(UTC_per_spec * spectra + UTC_offset) - batch_start_ts,c='b',label='Linear Fit')
+    # ax_fit.set_ylabel('UTC Time (s)')
+    # ax_fit.legend()
+
+    # ax_res.scatter(spectra, res)
+    # ax_res.axhline(0, color='black', linestyle='--')
+    # ax_res.set_xlabel('Spectrum Number')
+    # ax_res.set_ylabel('Res. (s)')
+
+    # plt.tight_layout()
+    # fig.savefig(os.path.join(path_discrepancies, 'fit_and_residuals.png'))
+    # plt.close(fig)
+    #====================================
+
     
     #save some stuff
     map['fit'] = {
