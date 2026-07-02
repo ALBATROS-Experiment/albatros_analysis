@@ -6,6 +6,80 @@ from ..correlations import correlations_gpu
 from scipy.fft import next_fast_len
 correlation_func = correlations_gpu.avg_xcorr_all_ant_gpu
 
+ipfb_wiener_deconv = cp.RawKernel(r"""
+#include <cupy/complex.cuh>
+extern "C" __global__
+void ipfb_wiener_deconv(complex<float>* __restrict__ ddft,          // Input spectra to be filtered (shape: lblock x num_spectra)
+                        complex<float>* __restrict__ matft,   // FFT of the PFB matrix (shape: lblock x num_spectra)
+                        const float thresh_sq,                        // Threshold parameter for Wiener filter
+                        long long lblock, long long num_spectra) {
+                        
+    long long s = blockIdx.x * blockDim.x + threadIdx.x; //spectra number
+    long long n = blockIdx.y * blockDim.y + threadIdx.y; //sub-filter (lblock) number
+    if (s >= num_spectra || n >= lblock) return;
+
+    complex<float> h = matft[n * num_spectra + s];
+    float abs_h = abs(h);
+    float denom = thresh_sq + abs_h * abs_h;
+    float num = abs_h * abs_h * ( 1 + thresh_sq);
+    ddft[n * num_spectra + s] = ddft[n * num_spectra + s] * num / denom;
+    ddft[n * num_spectra + s] = ddft[n * num_spectra + s] / conj(h); //deconvolve
+    }
+# """, "ipfb_wiener_deconv")
+
+pfb_kernel = cp.RawKernel(r"""
+extern "C" __global__
+void streaming_pfb_kernel(const float* __restrict__ timestream,     // the latest timestream samples.
+                          const float* __restrict__ rembuf,         // rem from last input timestream.
+                          float* __restrict__ obuf,                 // Overlap buffer holding prev ntap-1 blocks of samples
+                          const float* __restrict__ window_coeffs,  // ntap * lblock window
+                          float* __restrict__ output,               // num_spectra * lblock output timestream
+                          int lblock, int num_spectra, int remptr) {
+
+    int n = blockIdx.x * blockDim.x + threadIdx.x; 
+    if (n >= lblock) return;
+
+    // 1. Fetch Window Coefficients
+    float h0 = window_coeffs[0 * lblock + n];
+    float h1 = window_coeffs[1 * lblock + n];
+    float h2 = window_coeffs[2 * lblock + n];
+    float h3 = window_coeffs[3 * lblock + n];
+
+    float x0 = obuf[0 * lblock + n]; // 3*LBLOCK into the past
+    float x1 = obuf[1 * lblock + n];
+    float x2 = obuf[2 * lblock + n];
+    float x3 = 0;
+
+    for (int t = 0; t < num_spectra; ++t) {
+        
+        int idx = t * lblock + n;
+        
+        // Only the warp at the boundary of the two will diverge (for one spectrum)
+        if (idx < remptr) {
+            x3 = rembuf[idx]; // first few come from rembuf if remptr > 0
+        }
+        else {
+            x3 = timestream[idx - remptr]; //remaining come from timestream
+        }
+
+        // Compute the 4-tap sum
+        float y = (x0 * h0) + (x1 * h1) + (x2 * h2) + (x3 * h3);
+
+        // Write output (1-to-1 input to output)
+        output[idx] = y;
+
+        // Shift the registers
+        
+        x0 = x1;
+        x1 = x2;
+        x2 = x3;
+    }
+    obuf[0 * lblock + n] = x0; //automatically shifts the overlap buffer for next pfb
+    obuf[1 * lblock + n] = x1;
+    obuf[2 * lblock + n] = x2;
+
+}""", 'streaming_pfb_kernel')
+
 def _print_class_mem_usage(arr_dict, header):
     lines = [header, f"{'Name':<10}{'Shape':<25}{'Dtype':<12}{'Size':>12}{'Memory':>12}"]
     total_mem = 0
@@ -27,12 +101,13 @@ def as_slice_if_contiguous(idx):
         if cp.all(d == 1):
             return slice(idx[0], idx[-1] + 1)
     return idx
-class StreamingPFB_CUDA():
+
+class StreamingPFB():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
     def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming', dtype='float'):
-        if dtype=='float':
+        if dtype in ['float', 'float32']:
             self.dtype = 'float32'
             self.fft = pycufft.rfft
         else:
@@ -50,35 +125,59 @@ class StreamingPFB_CUDA():
         self.nblock = timestream_size // lblock
         self.rem = timestream_size % lblock
         self.overlap = (self.ntap - 1)*self.lblock
-        # print(f"tssize: {timestream_size}\noverlap: {self.overlap}\nrem: {self.rem}\nnblock: {self.nblock}\nlblock: {self.lblock}\n")
-        self.tsbuf = cp.zeros((self.nant, self.npol, self.nblock*self.lblock + self.overlap + self.lblock), dtype=self.dtype, order='C') #will be used to pfb, one extra lblock to accomodate spillover spectra
         self.rembuf = -1*cp.ones((self.nant, self.npol, self.lblock + self.rem), dtype=self.dtype, order='C') #little bit extra to accomodate rem spillover
-        # print("rembuf size", self.rembuf.shape)
         self.remptr = cp.zeros((self.nant, self.npol), dtype='int32')
-    
+        self.obuf = cp.zeros((self.nant, self.npol, self.overlap), dtype=self.dtype, order='C') #overlap buffer to hold the last ntap-1 blocks for each ant, pol
+        self.threads_per_block = 256
+        self.blocks_per_grid = (self.lblock + self.threads_per_block - 1) // self.threads_per_block
+        self.tsbuf = None
+        self.out = None
+
     def pfb(self, antidx, polidx, timestream):
         timestream = cp.asarray(timestream)
-        remptr = self.remptr[antidx, polidx]
-        out=None
+        remptr = int(self.remptr[antidx, polidx])
+        spectra=None
         incoming = len(timestream)
         used = 0
         total_available = remptr + incoming
         spec_possible = total_available // self.lblock
         spec_size = spec_possible * self.lblock
+        # print("spec size", spec_size, type(spec_size))
+        # mem creation is cheap.
+
         if spec_possible > 0:
-            self.tsbuf[antidx, polidx, self.overlap : self.overlap + remptr] = self.rembuf[antidx, polidx,  : remptr]
-            self.tsbuf[antidx, polidx, self.overlap + remptr : self.overlap + spec_size] = timestream[ : spec_size - remptr]
+            t1=time.perf_counter()
+            # if self.tsbuf is None or self.tsbuf.shape[0] != spec_size:
+            #     self.tsbuf = cp.empty(spec_size, dtype=self.dtype, order='C')
+            #     self.out = cp.empty((spec_possible, self.lblock), dtype=self.dtype, order='C') #create 2-D bc pycufft doesnt like views
+            if self.out is None or self.out.shape[0] != spec_possible:
+                self.out = cp.empty((spec_possible, self.lblock), dtype=self.dtype, order='C')
+            # start_event.record()
+            # First we fill what's remaining from last timestream
+            # self.tsbuf[ : remptr] = self.rembuf[antidx, polidx,  : remptr]
+            # Remaining we fill from the new timestream
+            # self.tsbuf[remptr : spec_size] = timestream[ : spec_size - remptr]
+ 
+            pfb_kernel((self.blocks_per_grid,), (self.threads_per_block,), 
+            (
+                timestream, self.rembuf[antidx, polidx, :],  self.obuf[antidx, polidx, :],
+                self.win, self.out, 
+                self.lblock, spec_possible, int(self.remptr[antidx, polidx]))
+            )
             used = (spec_size - remptr)
-            x = self.tsbuf[antidx, polidx,  : spec_size + self.overlap].reshape(-1, self.lblock)
-            #onwards to pfb
-            y = x * self.win[:,cp.newaxis,:]
-            y = y[0,:spec_possible,:]+y[1,1:spec_possible+1,:]+y[2,2:spec_possible+2,:]+y[3,3:spec_possible+3,:]
-            out = self.fft(y,axis=1)
-            self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
-        self.rembuf[antidx, polidx,  : incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
-        self.remptr[antidx, polidx] = incoming - used
+            self.remptr[antidx, polidx] = 0 
+            
+            # print("obuf before kernel", self.obuf[antidx, polidx, :])
+            # pfb_kernel((self.blocks_per_grid,), (self.threads_per_block,), (self.tsbuf, self.obuf[antidx, polidx, :], self.win, self.out, self.lblock, spec_possible))
+            spectra = self.fft(self.out, axis=1)
+        
+        # if we didn't use everthing, save the remaining in the rembuf for next time
+        # if spec_size 0, just loads the last rem of timestream, i.e. the entire timestream
+        self.rembuf[antidx, polidx,  self.remptr[antidx, polidx] : self.remptr[antidx, polidx] + incoming - used] = timestream[used :] 
+        self.remptr[antidx, polidx] += incoming - used
+        # print("remptr @",self.remptr[antidx, polidx], "rembuf", self.rembuf)
         # print("PFB OUT SHAPE", out.shape, out.flags)
-        return out
+        return spectra
 
     def __repr__(self):
         arrays = {
@@ -92,12 +191,12 @@ class StreamingPFB_CUDA():
         )
         return _print_class_mem_usage(arrays, header)
 
-class StreamingPFB():
+class StreamingPFB_():
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
     def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming', dtype='float'):
-        if dtype=='float':
+        if dtype in ['float', 'float32']:
             self.dtype = 'float32'
             self.fft = pycufft.rfft
         else:
@@ -153,7 +252,7 @@ class StreamingPFB():
             # print("out shape", out.shape, "out flags", out.flags, "out dtype", out.dtype)
             # assert cp.max(cp.abs(out-y1)) == 0.
             # out = cp.fft.rfft(y,axis=1)
-            self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy()
+            self.tsbuf[antidx, polidx, :self.overlap] = self.tsbuf[antidx, polidx, spec_size:spec_size+self.overlap].copy() #this tsbuf is [overlsap, spec_+size], so we're taking last 3*lblock
         self.rembuf[antidx, polidx,  self.remptr[antidx, polidx] : self.remptr[antidx, polidx] + incoming - used] = timestream[used :].copy() #if spec_size 0, just loads the last rem of timestream = entire timestream
         self.remptr[antidx, polidx] += incoming - used
         # print("remptr @",self.remptr[antidx, polidx], "rembuf", self.rembuf)
@@ -200,8 +299,11 @@ class StreamingIPFB():
         # print("matft shape", self.matft.shape)
         # print("IPFB CHANNELS", self.channels)
         # print("Specbuf shape", self.specbuf.shape)
+        self.cuda_threads = (32, 32) # Total threads = 1024, within limit
+        self.cuda_blocks = ( int(np.ceil(self.nblock / self.cuda_threads[0])), int(np.ceil(self.lblock / self.cuda_threads[1])) )
     
     def ipfb(self, antidx, polidx, spectra, thresh=0.):
+        # thresh_sq = thresh**2
         #input spectra, fill timestream
         # print("incoming spectra shape", spectra.shape)
         assert spectra.shape[0]==self.read_size #incoming spectra is pfbsize - 2*cut
@@ -215,12 +317,15 @@ class StreamingIPFB():
         ddft=pycufft.rfft(dd2,axis=1)
         #print("DDFT", ddft)
         if thresh>0.:
-            # print("filtering...")
+            print("filtering...")
             filt=cp.abs(self.matft)**2/(thresh**2+cp.abs(self.matft)**2)*(1+thresh**2)
             ddft=ddft*filt
-        # print("ddft c conti", ddft.flags.c_contiguous)
-        # res = pycufft.irfft(ddft/cp.conj(self.matft),axis=0)
+
         out = pycufft.irfft(ddft/cp.conj(self.matft),axis=1)
+
+        # ipfb_wiener_deconv(self.cuda_blocks, self.cuda_threads, (ddft, self.matft, thresh_sq, self.lblock, ddft.shape[1]))
+        # out = pycufft.irfft(ddft, axis=1)
+
         #print("out.shape", out.shape, out.flags)
         #print(out)
         # a=out[0,self.cut].copy()

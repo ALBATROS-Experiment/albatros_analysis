@@ -43,7 +43,7 @@ cfg["code_repeat_num"] = 10
 
 def get_code_template(code_type="0"):
     per_code_len = int(6 * 16)  # 6x 16 symbols
-    total_len = np.round(np.ceil(cfg["ipp"] * cfg["code_baudrate"])).astyype(int) #1100
+    total_len = np.round(np.ceil(cfg["ipp"] * cfg["code_baudrate"])).astype(int) #1100
     print("total len is", total_len)
     code_template = np.ones(per_code_len)
 
@@ -61,10 +61,13 @@ def get_code_template(code_type="0"):
         code1[i, :] *= sign
     template = np.zeros(2 * total_len)  # two ipps
     if code_type == "0":
+        print("code type requested 0")
         template[:per_code_len] = np.ravel(code0)
     elif code_type == "1":
+        print("code type requested 1")
         template[:per_code_len] = np.ravel(code1)
-    else:
+    elif code_type == 'both':
+        print("code type requested both")
         template[:per_code_len] = np.ravel(code1)
         template[total_len : total_len + per_code_len] = np.ravel(code0)
 
@@ -80,7 +83,7 @@ def fir_filter(x, hf, filter_state_1d, buf_len = 4096):
 
     inp = cp.zeros((nrows, buf_len), dtype="complex64") #buf_len is a fast FFT len, since we'll FFT input
     # print("inp shape is", inp.shape)
-    inp[0, :Nfilt] = filter_state_1d
+    inp[0, :Nfilt] = filter_state_1d 
     inp[:, Nfilt:] = x[:, :]
     inp[1:, :Nfilt] = x[:-1, -Nfilt:]
     filter_state_1d[:] = x[-1, -Nfilt:]
@@ -104,6 +107,7 @@ def filter_timestream(
     ntap=4,
     cutsize=16,
     filt_thresh=0.45,
+    code_type='both'
 ):
     """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
 
@@ -230,10 +234,9 @@ def filter_timestream(
     # we'll have to store the last filter state for all frequencies and polarizations to filter continuously
     filter_state = cp.zeros((len(iono_freqs), npol, filter_len), dtype="complex64")
 
-    code_type = "both"
     # code_template0 = get_code_template(code_type="0")
     # code_template1 = get_code_template(code_type="1")
-    code_template = get_code_template(code_type="both")
+    code_template = get_code_template(code_type=code_type)
     code_templates_gpu = cp.zeros((1, Nts_dc), dtype="complex64")
     code_templates_gpu[0, : len(code_template)] = cp.asarray(code_template, dtype="complex64")
     # code_templates_gpu[1, : len(code_template1)] = cp.asarray(code_template1, dtype="complex64")
@@ -323,9 +326,13 @@ def filter_timestream(
 if __name__ == "__main__":
     # I'm not using downconverted IPFB right now, it's under testing.
     # sampling rate is the original 250 MSPS, bw is 200 kHz
+    code_type='1'
+    #fpath = "/scratch/mohanagr/summer_2025/baseband/mars1"
+    #tstart = 1753215895
     fpath = "/scratch/mohanagr/drive3_mars_spring2025/baseband/"
     # tstart = 1746782095 #original
-    tstart = 1746818097
+    # tstart = 1746818097
+    tstart = 1746784195 # 9 50 Z
     tend = tstart + 15  # seconds of data. Total sweep is like 10 s + some buffer
     tstart_str = datetime.datetime.utcfromtimestamp(tstart).strftime(
         "%Y-%m-%dT%H:%M:%S"
@@ -337,6 +344,7 @@ if __name__ == "__main__":
     print("Bit mode of files", header["bit_mode"], "num chans", len(header["channels"]))
     print("Freqs present", header["channels"]*0.061)
     iono_freqs = [3.96632e+06,4.07491e+06,4.187e+06,4.30109e+06,4.41885e+06,4.53983e+06,4.66412e+06,4.79182e+06,4.933e+06,5.0578e+06,5.201e+06,5.33854e+06,5.4847e+06,5.63486e+06,5.78914e+06,5.94763e+06,6.11047e+06,6.278e+06,6.44964e+06,6.62622e+06,6.813e+06,6.99402e+06,7.18551e+06,7.38223e+06,7.58435e+06,7.792e+06,8.00533e+06,8.2245e+06,8.44968e+06,8.68101e+06,8.91869e+06,9.16287e+06,9.41373e+06,9.67146e+06,9.93626e+06,1.02083e+07]
+    #iono_freqs = [3.75774e+06,3.86062e+06,3.96632e+06,4.07491e+06,4.187e+06,4.30109e+06,4.41885e+06,4.53983e+06,4.66412e+06,4.79182e+06,4.933e+06,5.0578e+06,5.201e+06,5.33854e+06,5.4847e+06,5.63486e+06,5.78914e+06,5.94763e+06,6.11047e+06,6.278e+06,6.44964e+06,6.62622e+06,6.813e+06,6.99402e+06,7.18551e+06,7.38223e+06,7.58435e+06,7.792e+06,8.00533e+06,8.2245e+06,8.44968e+06,8.68101e+06,8.91869e+06,9.16287e+06,9.41373e+06,9.67146e+06,9.93626e+06,1.02083e+07]
     print("No. of ionosonde freqs to try", len(iono_freqs))
     # sys.exit()
 
@@ -348,13 +356,14 @@ if __name__ == "__main__":
         [files,],
         pfb_size,
         nchunks,
-        np.arange(64,168),
+        np.arange(60,168),
         iono_freqs,
         lblock=4096,
         ntap=4,
         cutsize=16,
         filt_thresh=0.2,
+        code_type=code_type
     )
     outidr = "/scratch/mohanagr/ionosphere/output"
-    fname = "iono_corr_2pols_"+tstart_str+"Z_to_"+tend_str+"Z"
+    fname = "iono_corr_2pols_"+code_type+"_"+tstart_str+"Z_to_"+tend_str+"Z_bitmode_"+str(header['bit_mode'])
     np.savez(path.join(outidr, fname), corr = corr, freqs = iono_freqs)
