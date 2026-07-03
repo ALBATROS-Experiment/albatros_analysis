@@ -27,28 +27,30 @@ void ipfb_wiener_deconv(complex<float>* __restrict__ ddft,          // Input spe
     }
 # """, "ipfb_wiener_deconv")
 
-pfb_kernel = cp.RawKernel(r"""
-extern "C" __global__
-void streaming_pfb_kernel(const float* __restrict__ timestream,     // the latest timestream samples.
-                          const float* __restrict__ rembuf,         // rem from last input timestream.
-                          float* __restrict__ obuf,                 // Overlap buffer holding prev ntap-1 blocks of samples
-                          const float* __restrict__ window_coeffs,  // ntap * lblock window
-                          float* __restrict__ output,               // num_spectra * lblock output timestream
-                          int lblock, int num_spectra, int remptr) {
+pfb_kernel_code = r"""
+#include <cupy/complex.cuh>
+
+template <typename T>
+__device__ void streaming_pfb_kernel_impl(const T* __restrict__ timestream,     // the latest timestream samples.
+                                          const T* __restrict__ rembuf,         // rem from last input timestream.
+                                          T* __restrict__ obuf,                 // Overlap buffer holding prev ntap-1 blocks of samples
+                                          const T* __restrict__ window_coeffs,  // ntap * lblock window
+                                          T* __restrict__ output,               // num_spectra * lblock output timestream
+                                          int lblock, int num_spectra, int remptr) {
 
     int n = blockIdx.x * blockDim.x + threadIdx.x; 
     if (n >= lblock) return;
 
     // 1. Fetch Window Coefficients
-    float h0 = window_coeffs[0 * lblock + n];
-    float h1 = window_coeffs[1 * lblock + n];
-    float h2 = window_coeffs[2 * lblock + n];
-    float h3 = window_coeffs[3 * lblock + n];
+    T h0 = window_coeffs[0 * lblock + n];
+    T h1 = window_coeffs[1 * lblock + n];
+    T h2 = window_coeffs[2 * lblock + n];
+    T h3 = window_coeffs[3 * lblock + n];
 
-    float x0 = obuf[0 * lblock + n]; // 3*LBLOCK into the past
-    float x1 = obuf[1 * lblock + n];
-    float x2 = obuf[2 * lblock + n];
-    float x3 = 0;
+    T x0 = obuf[0 * lblock + n]; // 3*LBLOCK into the past
+    T x1 = obuf[1 * lblock + n];
+    T x2 = obuf[2 * lblock + n];
+    T x3 = T();
 
     for (int t = 0; t < num_spectra; ++t) {
         
@@ -63,7 +65,7 @@ void streaming_pfb_kernel(const float* __restrict__ timestream,     // the lates
         }
 
         // Compute the 4-tap sum
-        float y = (x0 * h0) + (x1 * h1) + (x2 * h2) + (x3 * h3);
+        T y = (x0 * h0) + (x1 * h1) + (x2 * h2) + (x3 * h3);
 
         // Write output (1-to-1 input to output)
         output[idx] = y;
@@ -77,8 +79,31 @@ void streaming_pfb_kernel(const float* __restrict__ timestream,     // the lates
     obuf[0 * lblock + n] = x0; //automatically shifts the overlap buffer for next pfb
     obuf[1 * lblock + n] = x1;
     obuf[2 * lblock + n] = x2;
+}
 
-}""", 'streaming_pfb_kernel')
+extern "C" __global__
+void streaming_pfb_kernel_float(const float* __restrict__ timestream,
+                                const float* __restrict__ rembuf,
+                                float* __restrict__ obuf,
+                                const float* __restrict__ window_coeffs,
+                                float* __restrict__ output,
+                                int lblock, int num_spectra, int remptr) {
+    streaming_pfb_kernel_impl<float>(timestream, rembuf, obuf, window_coeffs, output, lblock, num_spectra, remptr);
+}
+
+extern "C" __global__
+void streaming_pfb_kernel_complex(const complex<float>* __restrict__ timestream,
+                                  const complex<float>* __restrict__ rembuf,
+                                  complex<float>* __restrict__ obuf,
+                                  const complex<float>* __restrict__ window_coeffs,
+                                  complex<float>* __restrict__ output,
+                                  int lblock, int num_spectra, int remptr) {
+    streaming_pfb_kernel_impl<complex<float>>(timestream, rembuf, obuf, window_coeffs, output, lblock, num_spectra, remptr);
+}
+"""
+
+pfb_kernel_float = cp.RawKernel(pfb_kernel_code, 'streaming_pfb_kernel_float')
+pfb_kernel_complex = cp.RawKernel(pfb_kernel_code, 'streaming_pfb_kernel_complex')
 
 def _print_class_mem_usage(arr_dict, header):
     lines = [header, f"{'Name':<10}{'Shape':<25}{'Dtype':<12}{'Size':>12}{'Memory':>12}"]
@@ -107,12 +132,15 @@ class StreamingPFB():
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
     def __init__(self, nant, npol, timestream_size = 50000, lblock=4096, ntap=4, window='hamming', dtype='float'):
+        print("USING NEW CUDA PFB")
         if dtype in ['float', 'float32']:
             self.dtype = 'float32'
             self.fft = pycufft.rfft
+            self.pfb_kernel = pfb_kernel_float
         else:
             self.dtype = 'complex64'
             self.fft = pycufft.fft
+            self.pfb_kernel = pfb_kernel_complex
         self.nant = nant
         self.npol = npol
         self.nchan =lblock//2+1
@@ -150,18 +178,16 @@ class StreamingPFB():
             # if self.tsbuf is None or self.tsbuf.shape[0] != spec_size:
             #     self.tsbuf = cp.empty(spec_size, dtype=self.dtype, order='C')
             #     self.out = cp.empty((spec_possible, self.lblock), dtype=self.dtype, order='C') #create 2-D bc pycufft doesnt like views
-            if self.out is None or self.out.shape[0] != spec_possible:
-                self.out = cp.empty((spec_possible, self.lblock), dtype=self.dtype, order='C')
+            out = cp.empty((spec_possible, self.lblock), dtype=self.dtype, order='C')
             # start_event.record()
             # First we fill what's remaining from last timestream
             # self.tsbuf[ : remptr] = self.rembuf[antidx, polidx,  : remptr]
             # Remaining we fill from the new timestream
             # self.tsbuf[remptr : spec_size] = timestream[ : spec_size - remptr]
- 
-            pfb_kernel((self.blocks_per_grid,), (self.threads_per_block,), 
+            self.pfb_kernel((self.blocks_per_grid,), (self.threads_per_block,), 
             (
                 timestream, self.rembuf[antidx, polidx, :],  self.obuf[antidx, polidx, :],
-                self.win, self.out, 
+                self.win, out, 
                 self.lblock, spec_possible, int(self.remptr[antidx, polidx]))
             )
             used = (spec_size - remptr)
@@ -169,7 +195,7 @@ class StreamingPFB():
             
             # print("obuf before kernel", self.obuf[antidx, polidx, :])
             # pfb_kernel((self.blocks_per_grid,), (self.threads_per_block,), (self.tsbuf, self.obuf[antidx, polidx, :], self.win, self.out, self.lblock, spec_possible))
-            spectra = self.fft(self.out, axis=1)
+            spectra = self.fft(out, axis=1)
         
         # if we didn't use everthing, save the remaining in the rembuf for next time
         # if spec_size 0, just loads the last rem of timestream, i.e. the entire timestream
