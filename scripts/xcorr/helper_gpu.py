@@ -7,9 +7,16 @@ from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
 import time
 import os
+import concurrent.futures
 import datetime, uuid
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_gpu
+
+def async_save(filename, data):
+    th1 = time.time()
+    np.save(filename, data)
+    th2 = time.time()
+    print(f"[{filename}] time to write to disk: {th2-th1:.3f} s")
 
 def xcorr_avg(idxs,files,pfb_size,nchunks,channels):
     nant = len(idxs)
@@ -129,7 +136,16 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     # vis_file = np.memmap(outfile,mode="w+",shape=(nblt, new_nchan, npol*npol), dtype="complex64",order="F")
     file_size_limit = 400*1024**2 # 500 MB
     vis_chunk_size = int(file_size_limit/(nbl*new_nchan*npol*npol*8))
-    vis_file = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
+    
+    # Setup double buffering for async disk writing
+    vis_file_0 = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F")
+    vis_file_1 = np.empty(shape=(nbl, vis_chunk_size, new_nchan, npol*npol), dtype="complex64",order="F")
+    vis_files = [vis_file_0, vis_file_1]
+    active_buf_idx = 0
+    vis_file = vis_files[active_buf_idx]
+    
+    # Thread pool for asynchronous disk I/O
+    disk_writer_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     # vis_file = np.empty(shape=(nant*npol, nant*npol,new_nchan,nrows_total), dtype="complex64",order="F") #this is for direct dumping
     # vis_file = np.memmap(outfile, mode="w+", shape=(nbl, nrows_total, new_nchan, npol*npol), dtype="complex64",order="F") #trying out direct writing
@@ -139,6 +155,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     print(f"TOTAL SIZE ON DISK\t\t{vis_file.nbytes * nrows_total/vis_chunk_size /1024**3 : .2f} GB")
     vis_chunk_id = 0
     # vis = np.zeros((nant*npol, nant*npol, new_nchan, vis_chunk_size), dtype="complex64", order="F")
+    write_futures = [None, None]
     ai_gpu, aj_gpu = cp.triu_indices(nant) # ai_gpu, aj_gpu are 1-D cupy arrays of length nbl
     rowidx=0
     print(ipfb)
@@ -166,7 +183,6 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     #print("channels present", aa.obj.channels)
     print("Channel indices loaded", aa.obj.channel_idxs[0], "to", aa.obj.channel_idxs[-1], "corresponding to channels", aa.obj.channels[aa.obj.channel_idxs[0]], "to", aa.obj.channels[aa.obj.channel_idxs[-1]])
     start_specnums = [ant.spec_num_start for ant in antenna_objs]
-    ant_specnums = [ant.spec_num_start for ant in antenna_objs]
     ant_ptr = np.zeros(nant, dtype=np.int32)
     
     if delays is not None:
@@ -236,15 +252,22 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         if n > 0:
             for row in rows:
                 if rowidx == vis_chunk_size:
-                    #write the part-file to disk
+                    # Submit the current full buffer for saving
                     fname = outfile + f"_part{vis_chunk_id:05d}"
-                    print("writing", fname)
-                    th1=time.time()
-                    np.save(fname, vis_file)
-                    th2=time.time()
-                    print("time to write to disk", th2-th1)
+                    print("submitting async write for", fname)
+                    write_futures[active_buf_idx] = disk_writer_executor.submit(async_save, fname, vis_file)
+                    
+                    # Switch to the other buffer
                     vis_chunk_id +=1
                     rowidx = 0
+                    active_buf_idx = 1 - active_buf_idx
+                    vis_file = vis_files[active_buf_idx]
+                    
+                    # IMPORTANT: If the writer is still working on this buffer, we must wait
+                    if write_futures[active_buf_idx] is not None:
+                        # This blocks ONLY if the disk hasn't finished the previous chunk
+                        print("prev disk write not finished. waiting...")
+                        write_futures[active_buf_idx].result() 
                 # print("row is", row)
                 #reshape row to (nbl, nchan, npol*npol)
                 # print("row flags", row.shape, row.flags)
@@ -276,8 +299,14 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         print(f"chunk {chunk_idx}/{nchunks}, chunk time {ts2-ts1:5.3f}")
     if rowidx>0:
         fname = outfile + f"_part{vis_chunk_id:05d}"
-        print("writing", fname)
-        np.save(fname, vis_file)
+        print("writing final part", fname)
+        # Slicing the final buffer to match the actual data count
+        np.save(fname, vis_file[:, :rowidx, :, :])
+    
+    print("Waiting for all async disk writes to complete...")
+    disk_writer_executor.shutdown(wait=True)
+    print("All disk writes finished.")
+    
     print("final rowidx=", rowidx)
     print("vis file shape", vis_file.shape)
     # th1=time.time()
