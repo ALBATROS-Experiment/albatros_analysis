@@ -140,6 +140,14 @@ To elaborate on the figure above, the first three colors represent well-behaved 
 
 Once $\tau(t)$ is determined for the whole pulse, we save it into a h5 file called '/batchX/fine_timing/timing_solution.py'. Since we have several pulses which we may want to evaluate independently, we save each pulse according to the file name it corresponds to. Each dataset then has shape (ntimes, nant-1) to store the solution. Moreover, we save errors on the fit overall, and for each timestamp also. For a good pulse, we expect net group delay errors of about 4 ns.
 
+IMPORTANT: there are two different types of fit here: fitting on the cost carrier peak and fitting on the averaged phase ramp. One will actually give you a carrier peak (perhaps the wrong one) while the other will give you something close, with a better uncertainty on its value. They signify and represent different stuff. 
+
+
+The final fit, once you do the time average and normal equation fit gives us the red line. The correct carrier peak is right next to it, and the fit uncertainties are right next to it. 
+
+![alt text](./cost_surface.png)
+
+Here is also the full with-time plot.
 
 ## 5. Putting everything together, and various helper scripts along the way
 

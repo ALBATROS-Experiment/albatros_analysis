@@ -17,7 +17,7 @@ import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
 import cupy
-import helper_discrepancies as hd
+import helper_finetiming as hf
 import argparse
 
 def objective_times(time_offset,
@@ -81,7 +81,7 @@ def objective_times(time_offset,
             aj = ant_idxs[j]
             a1_coords=ant_coords[ai]
             a2_coords=ant_coords[aj]
-            dist = hd.haversine(a1_coords,a2_coords)
+            dist = hf.haversine(a1_coords,a2_coords)
             sum_wt += dist**2
 
             dly = outils.get_sat_delay2(
@@ -98,10 +98,10 @@ def objective_times(time_offset,
             )
             if many_chans:
                 spec2_phased = np.empty_like(data_slice[aj,0,:,:])
-                spec2_phased = hd.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
-                Vxx = hd.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
-                spec2_phased = hd.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
-                Vyy = hd.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
+                spec2_phased = hf.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
+                Vxx = hf.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
+                spec2_phased = hf.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
+                Vyy = hf.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V[:,8]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
@@ -115,10 +115,10 @@ def objective_times(time_offset,
 
             else:
                 spec2_phased = np.empty_like(data_slice[aj,0,:])
-                spec2_phased = hd.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
-                Vxx = hd.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
-                spec2_phased = hd.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
-                Vyy = hd.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
+                spec2_phased = hf.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
+                Vxx = hf.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
+                spec2_phased = hf.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
+                Vyy = hf.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')

@@ -262,7 +262,7 @@ def find_signal_channels(data, sat_type):
     cumsum = np.concatenate(([0], np.cumsum(chan_power)))
     window_sums = cumsum[nchan_signal:] - cumsum[:nchan - nchan_signal + 1]
     best_start = int(np.argmax(window_sums))
- 
+
     return slice(best_start, best_start + nchan_signal)
 
 

@@ -34,7 +34,6 @@ def print_memory_usage(note=""):
     print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
 
 
-
 def get_risen_sats2(tle_file, coords, t_start, satlist, dt=5, niter=560, good=None, altitude_cutoff=1):
     """Get all satellites risen at a particular point on earth at a list of epochs.
     Epochs start at t_start and a list of risen satellites is returned for every t_start + i * dt epoch
@@ -391,9 +390,11 @@ def snr_times_many(json_paths,
                     batch_ends, 
                     antname, 
                     dt=1, 
+                    ref_antname='MARS2',
                     coords = [79.41717895, -90.76721818, 188.095],
                     T_SPECTRA = 4096/250e6,
                     c_acclen = 3e6):
+                    
     #using coords of MARS 1 as a reference for LST
     assert len(json_paths) == len(batch_starts)
     assert len(json_paths) == len(batch_ends)
@@ -473,7 +474,7 @@ def snr_times_many(json_paths,
             })
     if nbatches == 1:
         ax = [ax]
-    fig.suptitle(f"Antenna 1 - {antname} (aligned by LST, integration time ~{int(c_acclen * T_SPECTRA)} s)")
+    fig.suptitle(f"{ref_antname} - {antname} (aligned by LST, integration time ~{int(c_acclen * T_SPECTRA)} s)")
     for i in range(nbatches):
         ax[i].step(aligned_secs[i], snr2db(aligned_snrs[i]), where="post")
         ax[i].set_ylabel("SNR (dB)")

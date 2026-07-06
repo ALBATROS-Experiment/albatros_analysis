@@ -18,7 +18,7 @@ import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
 import cupy
-import helper_discrepancies as hd
+import helper_finetiming as hf
 import argparse
 import json
 import gc
@@ -64,6 +64,7 @@ if __name__ == "__main__":
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
     ant_idxs = [0, 1, 2, 3, 4, 5, 6]
+    T_SPECTRA = 4096/250e6*osamp
 
     # set up some paths
     path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
@@ -80,6 +81,7 @@ if __name__ == "__main__":
         print(f'\nSTARTING PULSE {pidx}')
         print(pulse)
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
+        tle_path = outils.get_tle_file(pulse_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
         satID = pulse['sat']
         det_chan = channels[pulse['channel']] #if want to compute with fewer channels
         if det_chan%2 == 0:
@@ -118,18 +120,18 @@ if __name__ == "__main__":
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
             print('Computing V')
-            V = hd.efield_to_vis(data_all,
-                                pulse_start_ts,
-                                pulse_end_ts,
-                                ant_idxs,        
-                                ant_coords,
-                                satID,
-                                freqs,
-                                acclen = new_acclen,
-                                osamp = osamp,
-                                bb_spectrum_T = 4096/250e6)
+            V = hf.get_vis(data_all,  #double check this works still, changed the visibiilty function
+                            satID,
+                            freqs,
+                            pulse_start_ts,
+                            pulse_end_ts,
+                            ant_coords,
+                            ant_idxs,  
+                            tle_path,
+                            T_SPECTRA,
+                            new_acclen)
             print('Cutting')
-            cut_spectra_start, cut_spectra_end, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, cut_chans = hf.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
                             'cut_spectra_start': cut_spectra_start,
                             'cut_spectra_end': cut_spectra_end,
@@ -160,16 +162,17 @@ if __name__ == "__main__":
 
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
-            V = hd.efield_to_vis(baseband,
-                                pulse_start_ts,
-                                pulse_end_ts,
-                                ant_idxs,        
-                                ant_coords,
+            V = hf.efield_to_vis(baseband,
                                 satID,
                                 freqs,
-                                acclen = new_acclen,
-                                osamp = osamp,
-                                bb_spectrum_T = 4096/250e6)
+                                pulse_start_ts,
+                                pulse_end_ts,
+                                ant_coords,
+                                ant_idxs,
+                                tle_path,
+                                T_SPECTRA,
+                                new_acclen
+                                )
 
             #START TEMP FIGURE
             #======================================================
@@ -195,7 +198,7 @@ if __name__ == "__main__":
             with open(path_pulses, 'w') as f:
                 json.dump(pulse_list, f, indent=4)
 
-            cut_spectra_start, cut_spectra_end, cut_chans = hd.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, cut_chans = hf.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
                             'cut_spectra_start': cut_spectra_start,
                             'cut_spectra_end': cut_spectra_end,
@@ -209,12 +212,12 @@ if __name__ == "__main__":
         print('Saved to Cutting Json')
         #fit for discrepancy once data is set up and cut
         results = get_discrepancy(args.config_path, 
-                                    path_disk, 
-                                    satID, 
-                                    out_path=path_batch, 
-                                    osamp=osamp, 
-                                    plot=True,
-                                    coherent=args.coherent)
+                                path_disk, 
+                                satID, 
+                                out_path=path_batch, 
+                                osamp=osamp, 
+                                plot=True,
+                                coherent=args.coherent)
         print(results)
 
         if os.path.exists(path_results):
