@@ -63,7 +63,7 @@ if __name__=="__main__":
     nant = len(dir_parents)
     npol = 2
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    tag = 'test_nochange_IQ'
+    tag = 'jul22_orbcomm_IQ'
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     # uid = str(uuid.uuid4())[:4]  # short unique suffix
     bit_mode = 1

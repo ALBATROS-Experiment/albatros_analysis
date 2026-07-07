@@ -587,13 +587,14 @@ class BasebandFileIterator:
             file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.channel_idxs = self.obj.channel_idxs
-        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong
+        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong and start row is in the next file.
             print(f"idxstart {idxstart} > length of file {len(self.obj.spec_idx)}. move to next file before starting.")
+            prev_len = len(self.obj.spec_idx)
             self.fileidx+=1
             self.obj = self.file_loader(
                 file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
             )
-            idxstart = idxstart - len(self.obj.spec_idx)
+            idxstart = idxstart - prev_len
             print("new idxstart in the next file = ", idxstart)
 
         self.spec_num_start = idxstart + self.obj.spec_idx[0]
@@ -627,9 +628,10 @@ class BasebandFileIterator:
             myclass = BasebandPacked
             self.dtype = 'uint8'
         def file_loader(*args, **kwargs):
+                kwargs['num_overflows'] = self._OVERFLOW_CTR
                 obj = myclass(*args, **kwargs)
-                if self._OVERFLOW_CTR > 0:
-                    add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
+                # if self._OVERFLOW_CTR > 0:
+                #     add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: 
                     self._OVERFLOW_CTR+=1
                     print("overflow counter is ",self._OVERFLOW_CTR)

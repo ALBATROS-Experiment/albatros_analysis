@@ -207,6 +207,12 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
             assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
             assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
+            # print(f"chunk specnums {chunk['specnums'][0:10]}, start_specnums {start_specnums[ant_idx] + (chunk_idx) * read_size}")
+            # print(f"for antenna {ant_idx}, len specnums is {len(chunk['specnums'])}")
+            if len(chunk['specnums']) != read_size:
+                print(f"file in antenna {ant_idx}",antenna_objs[ant_idx].file_paths[antenna_objs[ant_idx].fileidx])
+                print(f"chunk specnums {chunk['specnums'][0:10]}, start_specnums {start_specnums[ant_idx] + (chunk_idx) * read_size}")
+                print(f"for antenna {ant_idx}, len specnums is {len(chunk['specnums'])}")
             pol0=bdc.make_continuous_gpu(chunk['pol0'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
             pol1=bdc.make_continuous_gpu(chunk['pol1'],chunk['specnums']-expected_start_specnum,cp.arange(0,nchan),read_size, nchan)
             # print("continuous pol0 shape", pol0.shape)
