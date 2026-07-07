@@ -1,21 +1,26 @@
+#system stuff
 import os
-import sys
-import time
-import gc
 from os import path
+import sys
 sys.path.insert(0, "/home/thomasb/")
-from albatros_analysis.src.utils import baseband_utils as butils
-from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
-from albatros_analysis.src.utils import orbcomm_utils as outils
-from albatros_analysis.src.correlations import baseband_data_classes as bdc
-from albatros_analysis.scripts.xcorr import helper as hxc
+#general packages
 import numpy as np
 import cupy as cp
+import time
+import gc
 import argparse
 import json
 from matplotlib import pyplot as plt
-import sat_utils as su
-import sat_utils_gpu as sug
+#utils
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
+from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.src.utils import orbcomm_utils_gpu as outils_g
+from albatros_analysis.src.utils import orbcomm_utils as outils
+from albatros_analysis.src.utils import sat_utils as sutils
+from albatros_analysis.src.utils import sat_utils_gpu as sutils_g
+#xcorr
+from albatros_analysis.scripts.xcorr import helper as hxc
+#etc
 import figures as fgs
 
 

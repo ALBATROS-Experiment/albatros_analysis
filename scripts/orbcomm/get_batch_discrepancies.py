@@ -1,27 +1,33 @@
+#system stuff
 import os
 import sys
-sys.path.append(os.path.expanduser('~'))
+import path 
+sys.path.insert(0, "/home/thomasb/")
+#general
 import numpy as np 
+import cupy as cp
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-import figures as fgs
-from albatros_analysis.src.correlations import baseband_data_classes as bdc
-from albatros_analysis.src.utils import baseband_utils as butils
-from albatros_analysis.src.utils import orbcomm_utils as outils
-from albatros_analysis.scripts.xcorr.fine_timing import dump_upchan_baseband
-from albatros_analysis.scripts.orbcomm.get_pulse_discrepancy import get_discrepancy
-from albatros_analysis.scripts.xcorr import helper as xchelper
-import numba as nb
 import time
+import argparse
+import json
+import gc
 import importlib
 import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
-import cupy
-import helper_finetiming as hf
-import argparse
-import json
-import gc
+#utils
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
+from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.src.utils import orbcomm_utils as outils
+from albatros_analysis.src.utils import finetiming_utils as futils
+#helper and big functions
+from albatros_analysis.scripts.xcorr import helper as xchelper
+from albatros_analysis.scripts.xcorr.fine_timing import dump_upchan_baseband
+from albatros_analysis.scripts.orbcomm.get_pulse_discrepancy import get_discrepancy
+#etc
+import figures as fgs
+
 
 
 if __name__ == "__main__":
@@ -120,7 +126,7 @@ if __name__ == "__main__":
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
             print('Computing V')
-            V = hf.get_vis(data_all,  #double check this works still, changed the visibiilty function
+            V = futils.get_vis(data_all,  #double check this works still, changed the visibiilty function
                             satID,
                             freqs,
                             pulse_start_ts,
@@ -131,7 +137,7 @@ if __name__ == "__main__":
                             T_SPECTRA,
                             new_acclen)
             print('Cutting')
-            cut_spectra_start, cut_spectra_end, cut_chans = hf.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, cut_chans = futils.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
                             'cut_spectra_start': cut_spectra_start,
                             'cut_spectra_end': cut_spectra_end,
@@ -162,7 +168,7 @@ if __name__ == "__main__":
 
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
-            V = hf.efield_to_vis(baseband,
+            V = futils.efield_to_vis(baseband,
                                 satID,
                                 freqs,
                                 pulse_start_ts,
@@ -198,7 +204,7 @@ if __name__ == "__main__":
             with open(path_pulses, 'w') as f:
                 json.dump(pulse_list, f, indent=4)
 
-            cut_spectra_start, cut_spectra_end, cut_chans = hf.discrep_cutting(V, satID, acclen=new_acclen)
+            cut_spectra_start, cut_spectra_end, cut_chans = futils.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
                             'cut_spectra_start': cut_spectra_start,
                             'cut_spectra_end': cut_spectra_end,

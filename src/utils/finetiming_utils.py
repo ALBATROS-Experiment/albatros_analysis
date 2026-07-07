@@ -3,6 +3,7 @@ import numba as nb
 from matplotlib import pyplot as plt
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
+from albatros_anslysis.src.utils import sat_utils as sutils
 
 #=========================================================================
 #BASIC STUFF
@@ -190,7 +191,9 @@ def beamformed_xcorr(data, a1, a2, p1, p2, delay, freqs, acclen):
 
 def get_vis(data,satID,freqs, pstart,pend,antpos,ant_idxs, tle_path, T_SPECTRA, acclen): 
     """
-    Computes beamformed visibilities for N antenna over time
+    Computes beamformed visibilities for N antenna over time.
+
+    Different to version in sat_utils because this uses data already present on hard drive after upsampling.
 
     Parameters
     ----------

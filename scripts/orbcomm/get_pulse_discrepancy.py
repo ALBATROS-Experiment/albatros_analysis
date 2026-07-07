@@ -6,8 +6,11 @@ from matplotlib import pyplot as plt
 from datetime import datetime as dt
 import figures as fgs
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
+
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
+from albatros_analysis.src.utils import sat_utils as sutils
+
 from albatros_analysis.scripts.xcorr.fine_timing  import dump_upchan_baseband
 from albatros_analysis.scripts.xcorr import helper as hxc
 import numba as nb
@@ -81,7 +84,7 @@ def objective_times(time_offset,
             aj = ant_idxs[j]
             a1_coords=ant_coords[ai]
             a2_coords=ant_coords[aj]
-            dist = hf.haversine(a1_coords,a2_coords)
+            dist = sutils.get_haversine_dist(a1_coords,a2_coords)
             sum_wt += dist**2
 
             dly = outils.get_sat_delay2(

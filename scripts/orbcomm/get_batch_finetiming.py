@@ -1,6 +1,8 @@
+#system stuff
 import os
 import sys
 sys.path.append(os.path.expanduser('~'))
+#general
 import numpy as np 
 import numba as nb
 import time
@@ -10,17 +12,17 @@ import argparse
 import h5py
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-
+#utils
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
-
+from albatros_analysis.src.utils import finetiming_utils as futils
+#helper and functions
 from scipy.optimize import minimize,check_grad,least_squares
 from scipy.ndimage import median_filter
 from scipy.ndimage import binary_opening, binary_closing, label
 from skyfield.api import load, wgs84
-
-import helper_finetiming as hf
+#etc
 import figures as fgs
 
 sys.path.append(os.path.expanduser('~'))
@@ -295,10 +297,10 @@ if __name__ == "__main__":
         #can now just fit linearly using normal equations
         data_matrix0 = avg_multi_phase0.T.reshape(1,nchans,nblines)
 
-        Ag = hf.get_grammian(nant)
+        Ag = futils.get_grammian(nant)
         print(data_matrix0.shape)
 
-        AtA2,Atd2 = hf.get_AtA_Atd(data_matrix0,Ag,noise_matrix_avg0**2,freqs_normalized,nant,nchans,1,fit_constant=True)
+        AtA2,Atd2 = futils.get_AtA_Atd(data_matrix0,Ag,noise_matrix_avg0**2,freqs_normalized,nant,nchans,1,fit_constant=True)
 
         AtA_inv2 = np.linalg.inv(AtA2)
 
@@ -468,10 +470,10 @@ if __name__ == "__main__":
         data_matrix = np.unwrap(np.angle(avg_multi_vis),axis=0)
         data_matrix = data_matrix.reshape(ntime2,nchans,nblines)
 
-        Ag = hf.get_grammian(nant_used)
+        Ag = futils.get_grammian(nant_used)
         print(data_matrix.shape)
 
-        AtA2,Atd2 = hf.get_AtA_Atd(data_matrix,
+        AtA2,Atd2 = futils.get_AtA_Atd(data_matrix,
                                     Ag,
                                     noise_matrix_avg**2,
                                     freqs_normalized,

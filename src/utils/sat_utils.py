@@ -1,38 +1,116 @@
+#system
 import os
 import sys
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
+#general
 import numpy as np
 import numba as nb
 import time
 import psutil
+import json
 from scipy import linalg
 from scipy import stats
 from scipy import signal as sn 
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-from src.correlations import baseband_data_classes as bdc
-from src.utils import baseband_utils as butils
-from src.utils import orbcomm_utils as outils
-import json
-from scipy.signal import find_peaks
-from scripts.xcorr import helper as hp
-import matplotlib.cm as cm
-from skyfield.api import load, EarthSatellite, Topos, wgs84
 from datetime import datetime, timezone
 from astropy.coordinates import EarthLocation
 import astropy.units as u
 from astropy.time import Time
+#utils
+from src.correlations import baseband_data_classes as bdc
+from src.utils import baseband_utils as butils
+from src.utils import orbcomm_utils as outils
+#helpers and functions
+from scipy.signal import find_peaks
+from scripts.xcorr import helper as hp
+from skyfield.api import load, EarthSatellite, Topos, wgs84
 
-def median_abs_deviation(x):
-    med = np.median(x)
-    mad = np.median(np.abs(x - med))
-    return mad
+
+#=========================================================================
+#BASIC STUFF
+#=========================================================================
+
+def load_json(path):
+    with open(path, "r") as f:
+        return json.load(f)
 
 def print_memory_usage(note=""):
     process = psutil.Process(os.getpid())
     mem = process.memory_info().rss / 1e6  # Resident Set Size in MB
     print(f"[{note}] Memory usage (RSS): {mem:.2f} MB")
 
+def get_MAD(data, axis=None):
+    '''
+    Find real median absolute deviation
+    '''
+    data_median = np.median(data, axis=axis, keepdims=True)
+    abs_deviations = np.abs(data - data_median)
+    mad = np.median(abs_deviations, axis=axis)
+    return mad
+
+
+def get_haversine_dist(p1, p2, radius=6371000):
+    """
+    Vectorized Haversine distance using NumPy.
+
+    Parameters
+    ----------
+    p1 : array-like of shape (..., 2)
+        lat, lon in degrees
+    p2 : array-like of shape (..., 2)
+        lat, lon in degrees
+    radius : float
+        Earth radius (km by default)
+
+    Returns
+    -------
+    distances : ndarray
+        Distance(s) in the same unit as `radius`.
+    """
+    p1 = np.asarray(p1, dtype=float)
+    p2 = np.asarray(p2, dtype=float)
+
+    lat1 = np.radians(p1[..., 0])
+    lon1 = np.radians(p1[..., 1])
+    lat2 = np.radians(p2[..., 0])
+    lon2 = np.radians(p2[..., 1])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    return radius * c
+
+def get_bline_dist(coord1, coord2):
+    ''' 
+    returns the physical distance between two coordinates in meters
+    (i.e. magnitude of baseline vectors)
+    '''
+    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
+    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
+
+    mean_lat = np.radians((lat1 + lat2) / 2)
+
+    meters_per_deg_lat = 111_320 
+    meters_per_deg_lon = 111_320 * np.cos(mean_lat)
+
+    delta_lat_deg = lat2 - lat1
+    delta_lon_deg = lon2 - lon1
+    delta_alt = float(alt2 - alt1)
+
+    delta_lat_m = float(delta_lat_deg * meters_per_deg_lat)
+    delta_lon_m = float(delta_lon_deg * meters_per_deg_lon)
+
+    dist_total = np.sqrt(delta_lat_m**2 + delta_lon_m**2 + delta_alt**2)
+
+    return dist_total
+
+#=========================================================================
+#DETECTION STUFF
+#=========================================================================
 
 def get_risen_sats2(tle_file, coords, t_start, satlist, dt=5, niter=560, good=None, altitude_cutoff=1):
     """Get all satellites risen at a particular point on earth at a list of epochs.
@@ -94,33 +172,6 @@ def get_risen_sats2(tle_file, coords, t_start, satlist, dt=5, niter=560, good=No
         risen_sats.append(visible)
         tt += dt
     return risen_sats
-
-
-
-def get_bline_dist(coord1, coord2):
-    ''' 
-    returns the physical distance between two coordinates in meters
-    (i.e. magnitude of baseline vectors)
-    '''
-    lat1, lon1, alt1 = coord1[0], coord1[1], coord1[2]
-    lat2, lon2, alt2 = coord2[0], coord2[1], coord2[2]
-
-    mean_lat = np.radians((lat1 + lat2) / 2)
-
-    meters_per_deg_lat = 111_320 
-    meters_per_deg_lon = 111_320 * np.cos(mean_lat)
-
-    delta_lat_deg = lat2 - lat1
-    delta_lon_deg = lon2 - lon1
-    delta_alt = float(alt2 - alt1)
-
-    delta_lat_m = float(delta_lat_deg * meters_per_deg_lat)
-    delta_lon_m = float(delta_lon_deg * meters_per_deg_lon)
-
-    dist_total = np.sqrt(delta_lat_m**2 + delta_lon_m**2 + delta_alt**2)
-
-    return dist_total
-
 
 
 def get_rel_ratio(data):
@@ -259,15 +310,27 @@ def get_consensus_offset(data):
 
 
 
-def get_vis_cpu(pulse_start_t,
+def get_vis(pulse_start_t,
                 pulse_end_t,
                 paths,
                 offsets,
                 T_SPECTRA = 4096/250e6,
                 v_acclen = 5000):
     ''' 
-    computes visibilities for one baseline for a set period, given a specnumoffset
+    Computes visibilities for one baseline for a set interval, given a specnumoffset.
 
+    Different to version in helper_finetiming as this must load up the data as BFI object.
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+
+
+    Notes
+    -----
     note that this is just a regular CPU visibility computation, mainly useful for sanity checks
     also note that this should be tested with two non-ref antenna (usually run with one ref one non ref)
 
@@ -299,12 +362,9 @@ def get_fringes_phase(vis, chanlist):
 
 
 
-
-
-
-def load_json(path):
-    with open(path, "r") as f:
-        return json.load(f)
+#=========================================================================
+#UNIX TO LST STUFF
+#=========================================================================
 
 
 def unix_to_lst(unix_t, coords):
@@ -327,6 +387,18 @@ def unix_to_lst_with_fix(start_unix, end_unix, coords):
     else:
         return (start_lst, end_lst)
 
+#=========================================================================
+#SNR STUFF
+#=========================================================================
+
+def snr2db(snrarr):
+    """
+    Sends snr as ratio to dB
+    By convention of snr_times output, sends snr of zero to 0 dB.  
+    """
+    snrarr = np.asarray(snrarr)
+    snr_db = np.where(snrarr > 0, 10 * np.log10(snrarr), 0.0)
+    return snr_db
 
 def snr_times_single(json_path, batch_start_unix, batch_end_unix, antname, dt=1):
     data_all = load_json(json_path)
@@ -374,16 +446,6 @@ def snr_times_single(json_path, batch_start_unix, batch_end_unix, antname, dt=1)
     plt.tight_layout()
     
     return time, snr, fig
-
-def snr2db(snrarr):
-    """
-    Sends snr as ratio to dB
-    By convention of snr_times output, sends snr of zero to 0 dB.  
-    """
-    snrarr = np.asarray(snrarr)
-    snr_db = np.where(snrarr > 0, 10 * np.log10(snrarr), 0.0)
-    return snr_db
-
 
 def snr_times_many(json_paths, 
                     batch_starts, 

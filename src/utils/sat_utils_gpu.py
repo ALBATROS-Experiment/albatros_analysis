@@ -1,6 +1,8 @@
+#system stuff
 import os
 import sys
 sys.path.append(os.path.expanduser('~/albatros_analysis'))
+#general
 import numpy as np
 import cupy as cp
 import numba as nb
@@ -10,15 +12,17 @@ from scipy import stats
 from scipy import signal as sn 
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
+#utils
 from src.correlations import baseband_data_classes as bdc
 from src.utils import baseband_utils as butils
 from src.utils import orbcomm_utils as outils
 from src.utils import orbcomm_utils_gpu as outils_g
+from src.utils import sat_utils as sutils
+#helpers and functions
 from scipy.signal import find_peaks
+from scipy.optimize import minimize
 from scripts.xcorr import helper as hp
 from scripts.xcorr import helper_gpu as hpg
-from scripts.orbcomm import sat_utils as su
-from scipy.optimize import minimize
 
 
 def get_complex_snr(data): 
@@ -31,15 +35,15 @@ def median_abs_deviation(x,axis=1):
 
 
 def get_cxcorr_many_sats(p0_ref,
-                         p0_nref, 
-                         tle_path, 
-                         times, 
-                         sats_present,
-                         satmap,
-                         coords,
-                         dN,
-                         T_SPECTRA = 4096 / 250e6,
-                         c_acclen = 10**6):
+                        p0_nref, 
+                        tle_path, 
+                        times, 
+                        sats_present,
+                        satmap,
+                        coords,
+                        dN,
+                        T_SPECTRA = 4096 / 250e6,
+                        c_acclen = 10**6):
     
     ''' 
     get the coarse cross-correlation for a given chunk of data, for a given set of sats
@@ -300,15 +304,15 @@ def get_snr_from_coords(fit_coords,
     tle_path = outils.get_tle_file(times[0], "/project/rrg-sievers/mohanagr/OCOMM_TLES")
     satidx = satmap[satID]
     cxcorr = get_cxcorr_many_sats(fit_p0,
-                                  nfit_p0, 
-                                  tle_path, 
-                                  times, 
-                                  [satidx],
-                                  satmap,
-                                  [fit_coords, nfit_coords],
-                                  dN,
-                                  T_SPECTRA = T_SPECTRA,
-                                  c_acclen=c_acclen)
+                                nfit_p0, 
+                                tle_path, 
+                                times, 
+                                [satidx],
+                                satmap,
+                                [fit_coords, nfit_coords],
+                                dN,
+                                T_SPECTRA = T_SPECTRA,
+                                c_acclen=c_acclen)
     assert len(cxcorr) == 2
     snr = get_complex_snr(cxcorr[1])
     #print(f'snr {satID}', snr)
@@ -317,16 +321,16 @@ def get_snr_from_coords(fit_coords,
 
 
 def get_snr_from_coords_many(fit_coords,
-                             fit_path,
-                             other_coords,
-                             other_paths,
-                             pulse_times,
-                             pulse_chans,
-                             pulse_sats,
-                             satmap,
-                             dN = 10e5,
-                             T_SPECTRA = 4096/250e6,
-                             c_acclen = 10e6):
+                            fit_path,
+                            other_coords,
+                            other_paths,
+                            pulse_times,
+                            pulse_chans,
+                            pulse_sats,
+                            satmap,
+                            dN = 10e5,
+                            T_SPECTRA = 4096/250e6,
+                            c_acclen = 10e6):
     
     ''' 
     Get the total summed SNR for all desired pulses for all desired blines, 
@@ -360,16 +364,16 @@ def get_snr_from_coords_many(fit_coords,
                                                 chanend, 
                                                 c_acclen = c_acclen)
             total_snr += get_snr_from_coords(fit_coords,
-                                             nfit_coords,
-                                             p0_fit,
-                                             p0_nfit,
-                                             pulse_times,
-                                             satmap,
-                                             pulse_sats[p_idx],
-                                             pulse_chans[p_idx],
-                                             dN = dN,
-                                             T_SPECTRA = T_SPECTRA,
-                                             c_acclen = c_acclen)
+                                            nfit_coords,
+                                            p0_fit,
+                                            p0_nfit,
+                                            pulse_times,
+                                            satmap,
+                                            pulse_sats[p_idx],
+                                            pulse_chans[p_idx],
+                                            dN = dN,
+                                            T_SPECTRA = T_SPECTRA,
+                                            c_acclen = c_acclen)
     return total_snr
 
 
