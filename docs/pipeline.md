@@ -2,44 +2,50 @@
 
 Hello and welcome to Thomas' super amazing timing solution bonanza. This is a quick (non-exhaustive!) outline of what each step does, what the relevant scripts and functions are, and what conventions are used! This could either be added to the github wiki, or added somewhere else so people can understand what we're doing.
 
-## 0. Outline, Conventions, Relevant Theory
+## 0. Outline
 
 To begin, we need to establish some basic knowledge about the project. There are several design choices that require some context to explain and justify, making a bare understanding of the subject matter indispensable.
 
-The objective of the pipeline is to align the antenna timestreams (with respect to each other) to nanosecond level precision. This matters a lot in inteferometry, since information lives in the relative signal delays and phases. ALBATROS antenna have clocks which are not synchronized to each other, so we have order 1 second offsets (huge). All the data is saved to hard-drive (it's the arctic) so all analysis has to be done off-site, off-line, off-the-cuff (okay not really but you see what I mean). The antenna also see the whole sky, meaning that we can't just look at a bright source for calibration (annoying). Moreover, for various reasons Mohan told me but I can't quite remember, we can't use an artificial beacon (also annohing). Therefore, we need to use satellites that pass overhead as our point of reference to get our timing solution.
+The objective of the pipeline is to align the antenna timestreams (with respect to each other) to nanosecond level precision. This matters a lot in inteferometry, since information lives in the relative signal delays and phases. ALBATROS antenna have clocks which are not synchronized to each other, so we have order 1 second offsets (huge). All the data is saved to hard-drive (it's the arctic) so all analysis has to be done off-site and off-line. The antenna also see the whole sky, meaning that we can't just look at a bright source for calibration (annoying). Moreover, for various reasons Mohan told me but I can't quite remember, we can't use an artificial beacon (also annoying). Therefore, we need to use satellites that pass overhead as our point of reference to get our timing solution.
 
-Our ADC samples at 250 MSPS, each antenna PFBs the incoming timestream into 2048 channels (4096-point FT step). Thus our baseband data has spectra of channel width ~61 kHz and period ~16 microsecs. 
+Our antenna ADC samples at 250 MSPS, each antenna channelizes (using a PFB) the incoming timestream into 2048 channels (4096-point FT step). Thus our baseband data has spectra of channel width ~61 kHz and period ~16 microsecs. It is also 1-bit quantized. The natural proxy for time in our system is baseband spectra, i.e. the smallest timestep iteration. 
 
-The way we do this is best outlined in the following flowchart:
+The general flow of the pipeline, with rather self-explanatory script names and data storage files, is best outlined in the following flowchart:
 
-IMAGE!!
+![alt text](./flow.jpeg)
 
-There are a bunch of conventions: 
-- refant stuff (ref-nref ?)
-- pass graduates to pulse if we see it
+Note that the arrows only point towards the right, meaning data that is generated in the script then gets stored in that file. Each script uses almost all previous data (e.g. practically all scripts use antenna coordinates, which are stored in the config files). 
 
-There is also some stuff that will easily trip you up. This problem is actually three different timestreams all mixed into one.
+Now we can go through each of the main steps, numbered accordingly in the flowchart.
 
-EXPLAIN, WITH DIAGRAMS!
+## 1. Data Structure
 
+### a. Batches
 
-## 1. In the beginning, there were batches
+The first basic thing we care about is checking what data we have, and where there are any discontinuities. For that, there is a notebook called 'read_batches', which mainly uses two functions from 'baseband_utils', called 'get_present_files' and 'get_simul_files'. Given some inputs of start and end times, alongside antenna paths, these will give you and plot for you all the contiguous 'batches' of data where each antenna has data present. The notebook also has the nice feature of auto-generating config files for each desired batch, alongside job files for 'satdet', which we will get to later. These are obviously customizable.
 
+Config files serve as the sort of 'home base' for each iteration of data. Each antenna re-starts every 24 hours or so, meaning batches are the natural day-long ish chunk of data to analyze. Moreover, during their re-start, each antenna timestream resets its spectrum number count alignment, which causes the antenna alignments to change. Therefore, it's important we only work within self-consistent 'batches'. If there are any corruptions or accidental restarts during the day, it is natural to simply separate the day into two, which is why we use the term 'batch', as it does not have to coincide with an exact day. Config files contain all the main information that is needed to get started with our analysis, such as antenna coordinates, data paths, names, etc. They also contain the start and end times for each batch, marking the interval where we know data is present and consistent.
 
-The first thing we care about is checking what data we have, and where there are any discontinuities.
-For that, there is a notebook called read_batches, which mainly uses two functions from baseband_utils, called 'get_present_files' and 'get_simul_files'.
-Given some inputs of start and end times, alongside antenna paths, these will give you and plot for you all the contiguous 'batches' of data where each antenna has data present.
-The notebook also has the nice feature of auto-generating config files for each desired batch. These are obviously customizable.
+### b. Baseband
 
-IMPORTANT: Config files serve as the sort of 'home base' for each iteration of data. 
-Each antenna re-starts every 24 hours or so, meaning batches are the natural day-long ish chunk of data to analyze.
-Moreover, during their re-start, they change alignment, so it's important we only work within self-consistent 'batches'.
-Config files contain all the main information that is needed to get started with our analysis.
+The data is divided into .raw folders of about 50 seconds each, with the rounded starting UTC timestamp of the file as its name. The files contain all the raw data, but also each spectrum's absolute spectrum number in the overall timestream. The main tool we use to parse such antenna timestreams is 'baseband_data_classes.py'. The data is initialized as a so-called Baseband_File_Iterator object, which, in accordance with its name, handily allows us to parse data continuously across files. When you open a timestream with a certain starting time, the Baseband-File-Iterator object, due to the poor UTC timestamping of the file data, will return a certain starting spectrum which very loosely corresponds to the actual time at which the data was recorded. Therefore, there is a discrepancy between system query and actual data measurement time.
+
+We select a single antenna as a reference antenna to which we align all the other ones. The spectra of the reference antenna will not be shifted, instead all the others to align with it. By default, and due to their central geographical position, we pick MARS1 (data permitting), or as second choice MARS2. By convention, all alignment is done as ref - nonref. So if the offset is positive, it means the reference spectrum number is ahead of the nonreference spectrum number. 
+
+As an example, let us open two antenna timestreams for some fixed system query, say 11 am. Consider $s_y$ as the opened spectrum number for the reference, $s_x$ as the opened spectrum number for the non-reference, and $Δx$ as the total TRUE spectrum offset between the two timestreams. The difference between $s_y$ and $s_x$ at this point will not correspond to the true spectrum offset. Instead, there will exist some required spectrum shift, $Δs_r$, which must be applied to the non-reference antenna such that it becomes aligned. We can write:
+$$
+Δx = s_y - s_x + Δs_r
+$$
+Beware of the sign of $Δs_r$, might be the opposite in the actual code. A visualization of this alignment can be seen in the image below:
+
+![alt text](./specnumoffsets.jpeg)
+
+When opening up two files, the initial difference between the two, $s_x - s_y$, is easily determined. What we need the satellites for is finding the required RELATIVE shift $Δs_r$ to alter the net difference and obtain alignment. Note that we have not yet determined the absolute time at which we measure the data. This will come in later. 
 
 
 ## 2. Satellite Detection (known affectionately as 'satdet')
 
-This is the first big analysis, which as you may or may not have guessed, involves detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: determine when we can actually see what satellite, and determine the best spectrum alignment for each baseline. Naturally, doing this pairwise is a pain for each antenna, so we pick a reference antenna beforehand, so everything can be determined by relative offsets.
+As promised, we will now be detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: to determine when we can actually see which satellite, and to determine the best spectrum alignment for each baseline. We work on each baseline involving the reference antenna. Moreover, we call a satellite pass any satellite that is technically risen, and that could be visible to our antenna, whereas we call a pulse a satellite pass that is actually detected, and verified to be visible, using the method outlined below.
 
 ### a. Doing the 'det'
 
@@ -69,9 +75,20 @@ An important conceptual point is that when making this pulse list, we don't actu
 
 ## 3. What UTC time is it Mr. Wolf
 
-### a. On Upchannelization
+### a. The UTC timing problem
 
-Our baseband data does not have sufficient frequency resolution to sufficiently sample phase ramps across frequency. Therefore, we need to re-channelize our data into finer channels. This data is used throughout the rest of the pipeline. We upchannelize using a re-PFB pipeline written by Mohan, found in '/scripts/xcorr'. The re-PFB script that is mainly used in this pipeline is 'fine_timing.py', but the engine for this is found elsewhere in the same directory.
+Now that we have aligned the spectra, we must consider the absolute time at which we have recorded the data. This amounts to assigning a proper UTC time to the reference antenna spectra (and therefore to the rest of the consequently aligned timestreams). The reason for this is that to isolate clock delay, we must first remove the satellite's geometric delay. We know the exact satellite positions, so removing geometric delay is a simple exercise in, well, you guessed it, geometry. However, we don't know what actual abolute UTC time the data in our antenna corresponds to. That means any estimate we make of satellite position incurrs some error, and therefore some delay offset. Depending on the geometry of the setup, this may be a large error. For example, consider XXXX
+
+(insert example derivation)
+
+Thankfully, they are all reasonably closely aligned with respect to each other (by spectrum), so we can just find a single net UTC offset that will best fit the entire setup. To better visualize what is happening, we can draw up the two alignments that must be made. De-coupling spectrum alignment and UTC alignment is a useful conceptual notion to keep in mind, as they are very separarate ideas and methods. 
+
+(insert the double-alignment figure)
+
+
+### b. On Upchannelization
+
+Before the UTC analysis, we re-channelize our data into finer channels. This data is used throughout the rest of the pipeline. We upchannelize using a re-PFB pipeline written by Mohan, found in '/scripts/xcorr'. The re-PFB script that is mainly used in this pipeline is 'fine_timing.py', but the engine for this is found elsewhere in the same directory.
 
 We usually upchannelize by a factor of 64, meaning channels are about 1 kHz wide. Thus, since METEOR satellites we have between 80 and 100 kHz of bandwidth, we have 80-100 channels of signal. 
 
@@ -153,7 +170,7 @@ Here is also the full with-time plot.
 
 Once you've got your timing solution, you may want to do some analysis on it, understand what's going on, read it, love it, care for it, etc. There are several helper scripts to reformat and visualize the data. 
 
-## 6. Basic Signal Processing
+## 6. Basic Signal Processing, Relevant Theory
 
 Collection of theorems and ideas, alongside derivations and justifications, which may help you understand this pipeline.
 
