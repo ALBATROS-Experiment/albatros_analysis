@@ -2,6 +2,7 @@ import numpy as np
 # from correlations_temp import baseband_data_classes as bdc
 import time
 import argparse
+import os
 from os import path
 import sys
 
@@ -119,16 +120,22 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
         )
         f_obj = bdc.Baseband(f_start)
         specnums[anum] = f_obj.spec_num[0] + idx
+
+    print('specnums', specnums)
     
     if len(spec_offsets) == 1: #only one antenna
         return idxs, files
     spec_offsets = np.asarray(spec_offsets,dtype='int64')
     spec_offsets -= spec_offsets[0] #normalize to specoffset of the first (ref) ant
+    print('spec offsets', spec_offsets)
     for jj in range(0, len(idxs)):  # all except first antenna
+        print(f'\nPROCESSING ANTENNA {jj}')
         init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
-        print("before correction", idxs[0], idxs[jj])
+        print('initial offset wrt ref ant', init_offset)
+        print("idxs before correction", idxs[0], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
-        print(spec_offsets[jj] - init_offset) #this is the offset within the respective files
+        print('spec offset', spec_offsets[jj], 'init offset', init_offset) #this is the offset within the respective files
+        print('correction', spec_offsets[jj]-init_offset)
         idxs[jj] -= spec_offsets[jj] - init_offset  # the other way around.
         if idxs[jj] < 0:
             raise NotImplementedError(
@@ -139,7 +146,78 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     return idxs, files
 
 
+def get_init_info_all_ant2(init_t, end_t, spec_offsets, dir_parents, overflow):
+    """_summary_
 
+    Parameters
+    ----------
+    init_t : float
+        Start time in unix timestamp format.
+    end_t : float
+        End time in unix timestamp format
+    spec_offsets : list
+        spectrum number offsets for each antenna with reference to the first antenna.
+        first antenna's offset with itself is always set to 0.
+    dir_parents : list
+        List of paths where each antenna's data (5-digit dirs) resides.
+    overflow : list/array
+        List/array of integers, tells you how many overflows there have been prior to init_t in the batch
+
+    Returns
+    -------
+    List
+        list of In-file specidx offsets for each antenna, List of files for each antenna
+
+    Raises
+    ------
+    NotImplementedError
+        Note that due to an edge case, the method _might_ fail
+        if the start time corresponds to beginning of a file,
+        and in-file index pointer needs to seek to past times due to clock offsets.
+    """
+    # spec offset definition:
+    # offset in actual spectrum numbers from two antennas that line up the two timestreams
+    idxs = len(dir_parents) * [0]
+    specnums = len(dir_parents) * [0]
+    files = []
+    for anum, dir_parent in enumerate(dir_parents):
+        f_start, idx = butils.get_file_from_timestamp(init_t, dir_parent, "f")
+        idxs[anum] = idx
+        f_end, _ = butils.get_file_from_timestamp(end_t, dir_parent, "f")
+        files.append(
+            butils.time2fnames(
+                butils.get_tstamp_from_filename(f_start),
+                butils.get_tstamp_from_filename(f_end),
+                dir_parent,
+                "f",
+                mind_gap=True,
+            )
+        )
+        f_obj = bdc.BasebandFileIterator(files[anum], 0, idx, 1024, num_overflow=overflow[anum]) #arbitrary acclen, here it's 1024
+        specnums[anum] = f_obj.spec_num_start
+    print('specnums', specnums)
+    
+    if len(spec_offsets) == 1: #only one antenna
+        return idxs, files
+    spec_offsets = np.asarray(spec_offsets,dtype='int64')
+    spec_offsets -= spec_offsets[0] #normalize to specoffset of the first (ref) ant
+    print('spec offsets', spec_offsets)
+    for jj in range(0, len(idxs)):  # all except first antenna
+        print(f'\nPROCESSING ANTENNA {jj}')
+        init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
+        print('initial offset wrt ref ant', init_offset)
+        print("idxs before correction", idxs[0], idxs[jj])
+        # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
+        print('spec offset', spec_offsets[jj], 'init offset', init_offset) #this is the offset within the respective files
+        print('correction', spec_offsets[jj]-init_offset)
+        idxs[jj] -= spec_offsets[jj] - init_offset  # the other way around.
+        if idxs[jj] < 0:
+            raise NotImplementedError(
+                "Edge case, idx < 0. Don't start right at the beginning of a file."
+            )
+        # not handling the edge case for now
+        print("after correction", idxs[0], idxs[jj])
+    return idxs, files, specnums[0]
 
 
 def get_avg_fast(

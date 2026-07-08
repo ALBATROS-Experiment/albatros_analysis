@@ -1,0 +1,109 @@
+import numpy as np
+# from correlations_temp import baseband_data_classes as bdc
+import time
+import argparse
+import os
+import sys
+import helper
+sys.path.insert(0,os.path.expanduser("~"))
+import json
+import datetime,uuid
+from albatros_analysis.src.utils import orbcomm_utils as outils
+
+if __name__=="__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config", help="Path to config file")
+    parser.add_argument(
+        "-o",
+        "--outdir",
+        dest="outdir",
+        type=str,
+        default=".",
+        help="Output plot directory [default: .]",
+    )
+    args = parser.parse_args()
+
+    with open(args.config, "r") as f:
+        config = json.load(f)
+
+    # Determine reference antenna
+    ref_ant = min(
+        config["antennas"].keys(),
+        key=lambda ant: config["antennas"][ant]["clock_offset"],
+    )
+    dir_parents = []
+    spec_offsets = []
+    antpos=[]
+    # Call get_starting_index for all antennas except reference
+    for i, (ant, details) in enumerate(config["antennas"].items()):
+        # if ant != ref_ant:
+        antpos.append(details["coordinates"])
+        dir_parents.append(details["path"])
+        spec_offsets.append(details["clock_offset"])
+
+    init_t = config["correlation"]["start_timestamp"]
+    end_t = config["correlation"]["end_timestamp"]
+    chanstart = config["frequency"]["start_channel"]
+    chanend = config["frequency"]["end_channel"]
+    osamp = config["correlation"]["osamp"]
+    pfb_size = config["correlation"]["pfb_size"]
+    new_acclen = config["correlation"]["new_acclen"]
+    cutsize = 16
+    print("pfbsize",pfb_size)
+    nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
+    channels = np.arange(chanstart, chanend)
+    print("init t", init_t, "end_t", end_t)
+    idxs, files = helper.get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
+    print("final idxs", idxs)
+    print("nchunks", nchunks)
+    # print("loaded files", files)
+    print("IPFB ROWS", pfb_size, "OSAMP", osamp)
+    filt_thresh = 0.2
+    # t_acclen = acclen*4096/250e6
+    # sys.exit()
+    nant = len(dir_parents)
+    npol = 2
+    nrows_total = nchunks * pfb_size // (osamp * new_acclen)
+    tag = 'regular'
+    timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    # uid = str(uuid.uuid4())[:4]  # short unique suffix
+    bit_mode = 1
+    fname = (
+        f"vis_{init_t}:{end_t}_bit={bit_mode}_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_tim={nrows_total}_"
+        f"upx={osamp}_acc={new_acclen}_ipfb={filt_thresh}_"
+        f"{'complex64'}_{tag}_{timestamp}"
+    )
+    print(fname)
+    data_dir = os.path.join(args.outdir, f'vis_ant={nant}_pol={npol}_cha={chanstart}:{chanend}_{timestamp}') 
+    os.makedirs(data_dir, exist_ok=True)
+    outfile = os.path.join(data_dir, fname)
+
+
+
+    #get starting spectrum
+    #given length of data in seconds 
+    niter = int(end_t-init_t)+1
+    orig_t = np.arange(0,niter)
+    tle_path = outils.get_tle_file(init_t, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
+    print("coords", antpos)
+    satnorad = 57166
+    delays = outils.get_per_ant_sat_delay(antpos, tle_path, init_t-0.46, niter, satnorad, dt=1)
+    print("delays shape", delays.shape)
+    # sys.exit()
+
+
+
+
+    if osamp > 1:
+        t1=time.time()
+        pols,new_channels=helper.repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,cutsize=16,filt_thresh=filt_thresh, delays=delays,orig_t=orig_t)
+        t2=time.time()
+    else:
+        t1=time.time()
+        pols,new_channels=helper.xcorr_avg(idxs,files,pfb_size,nchunks,channels)
+        t2=time.time()
+    print("Total time taken", t2-t1)
+
+    # fname = f"xcorr_all_ant_4bit_{str(init_t)}_{str(new_acclen)}_{str(osamp)}_{str(nchunks)}_{chanstart}_{chanend}_{filt_thresh}.npz"
+
