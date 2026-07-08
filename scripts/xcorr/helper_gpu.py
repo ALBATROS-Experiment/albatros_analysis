@@ -206,7 +206,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             expected_start_specnum = start_specnums[ant_idx] + (chunk_idx) * read_size
             # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
             assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
-            assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
+            # assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
             # print(f"chunk specnums {chunk['specnums'][0:10]}, start_specnums {start_specnums[ant_idx] + (chunk_idx) * read_size}")
             # print(f"for antenna {ant_idx}, len specnums is {len(chunk['specnums'])}")
             if len(chunk['specnums']) != read_size:

@@ -226,6 +226,7 @@ class Baseband:
                         "Why are there two -ve diffs in specnum? Investigate this file"
                     )
                 if num_overflows > 0:
+                    print(f"{file_name} rx num_overflows {num_overflows}")
                     self.spec_num[:] += num_overflows * 2**32 #correct for all previous overflows
         return
 

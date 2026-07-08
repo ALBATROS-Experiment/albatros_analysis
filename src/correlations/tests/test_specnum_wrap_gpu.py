@@ -5,9 +5,9 @@ from src.correlations import correlations as cr
 import numpy as np
 
 def test_specnum_wrap():
-    files=['/gpfs/fs1/home/s/sievers/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap1.raw',
-     '/gpfs/fs1/home/s/sievers/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap2.raw',
-     '/gpfs/fs1/home/s/sievers/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap3.raw']
+    files=['/home/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap1.raw',
+     '/home/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap2.raw',
+     '/home/mohanagr/albatros_analysis/src/correlations/tests/data/specnum_wrap3.raw']
     start_file_num=0
     acclen=10
     idxstart=0
