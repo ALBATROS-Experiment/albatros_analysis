@@ -154,7 +154,7 @@ if __name__ == "__main__":
             spec_pstart2 = cut['spec_start_corrected']
         else:
             #get visibilities without any cutting
-            vis1 = get_vis(data1,satID,freqs,pstart1,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
+            vis1 = futils.get_vis(data1,satID,freqs,pstart1,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
             #get mask if needed
             if masking:
                 mask1, fig_mask1 = get_mask(vis1, tol=1.7)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
             else:
                 mask1 = None
             #get thermal noise to see where to cut
-            thermal_noise1, fig_phases1 = get_thermal_noise(vis1,ant_idxs,mask=mask1)
+            thermal_noise1, fig_phases1 = futils.get_thermal_noise(vis1,ant_idxs,mask=mask1)
             print('Thermal noise 1 shape:', thermal_noise1.shape)
             #plot phases
             fig_phases1.savefig(os.path.join(path_pulse, 'phases1.png'))
@@ -181,7 +181,7 @@ if __name__ == "__main__":
             fig_thermal_noise1.savefig(os.path.join(path_pulse, 'thermal_noise1.png'))
             plt.close(fig_thermal_noise1)
             #cut according to phase noise
-            chunks_cut_start, chunks_cut_end = find_lowest_noise(thermal_noise1)
+            chunks_cut_start, chunks_cut_end = futils.find_lowest_noise(thermal_noise1)
             spec_cut_start, spec_cut_end = chunks_cut_start*acclen, chunks_cut_end*acclen
             spec_pstart2 = spec_pstart1 + spec_cut_start*64
             print(chunks_cut_start, chunks_cut_end)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         data2 = data1[:,:,spec_cut_start:spec_cut_end,:]
         print('pstart2:', pstart2)
         print('data2 shape', data2.shape)
-        vis2=get_vis(data2,satID,freqs,pstart2,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
+        vis2=futils.get_vis(data2,satID,freqs,pstart2,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
         nblines, ntimes, nchans = vis2.shape
         print(vis2.shape)
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             mask2 = None
 
         #get cut phases and thermal noise
-        thermal_noise2, fig_phases2 = get_thermal_noise(vis2, ant_idxs, mask=mask2)
+        thermal_noise2, fig_phases2 = futils.get_thermal_noise(vis2, ant_idxs, mask=mask2)
         fig_phases2.savefig(os.path.join(path_pulse, 'phases2.png'))
         plt.close(fig_phases2)
 
@@ -273,7 +273,7 @@ if __name__ == "__main__":
 
         # DETERMINE RAMP GUESSES
 
-        avg_multi_vis0 = np.mean(vis2[:, 80:90, :], axis=1) #make lowest phase noise region?
+        avg_multi_vis0 = np.mean(vis2[:, 80:90, :], axis=1) #hard-coded for now
         print(avg_multi_vis0.shape)
 
         avg_multi_phase0 = np.unwrap(np.angle(avg_multi_vis0), axis = 1)

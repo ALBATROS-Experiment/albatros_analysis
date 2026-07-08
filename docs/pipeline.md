@@ -8,7 +8,7 @@ To begin, we need to establish some basic knowledge about the project. There are
 
 The objective of the pipeline is to align the antenna timestreams (with respect to each other) to nanosecond level precision. This matters a lot in inteferometry, since information lives in the relative signal delays and phases. ALBATROS antenna have clocks which are not synchronized to each other, so we have order 1 second offsets (huge). All the data is saved to hard-drive (it's the arctic) so all analysis has to be done off-site and off-line. The antenna also see the whole sky, meaning that we can't just look at a bright source for calibration (annoying). Moreover, for various reasons Mohan told me but I can't quite remember, we can't use an artificial beacon (also annoying). Therefore, we need to use satellites that pass overhead as our point of reference to get our timing solution.
 
-Our antenna ADC samples at 250 MSPS, each antenna channelizes (using a PFB) the incoming timestream into 2048 channels (4096-point FT step). Thus our baseband data has spectra of channel width ~61 kHz and period ~16 microsecs. It is also 1-bit quantized. The natural proxy for time in our system is baseband spectra, i.e. the smallest timestep iteration. 
+Our antenna ADC samples at 250 MSPS, each antenna channelizes (using a PFB) the incoming timestream into 2048 channels (4096-point FT step). Thus our baseband data has spectra of channel width ~61 kHz and period ~16 microsecs. It is also 1-bit quantized. The natural proxy for time in our system is baseband spectra, i.e. the smallest timestep iteration.
 
 The general flow of the pipeline, with rather self-explanatory script names and data storage files, is best outlined in the following flowchart:
 
@@ -42,7 +42,6 @@ Beware of the sign of $Δs_r$, might be the opposite in the actual code. A visua
 
 When opening up two files, the initial difference between the two, $s_x - s_y$, is easily determined. What we need the satellites for is finding the required RELATIVE shift $Δs_r$ to alter the net difference and obtain alignment. Note that we have not yet determined the absolute time at which we measure the data. This will come in later. 
 
-
 ## 2. Satellite Detection (known affectionately as 'satdet')
 
 As promised, we will now be detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: to determine when we can actually see which satellite, and to determine the best spectrum alignment for each baseline. We work on each baseline involving the reference antenna. Moreover, we call a satellite pass any satellite that is technically risen, and that could be visible to our antenna, whereas we call a pulse a satellite pass that is actually detected, and verified to be visible, using the method outlined below.
@@ -56,7 +55,6 @@ Using satellite trajectories overhead, we predict when one of them passes overhe
 This part addresses the first of the main objectives of satdet: determining spectrum alignment.
 There are plenty of pulses, some of which yield different values of 'specnum offset'?
 We must determine a consensus. The relevant script is 'get_consensus_offset.py'
-
 
 ### c. Pulses and Data (what who where when why?)
 
@@ -72,7 +70,6 @@ An example of why this dump might be useful: the image shows satellite SNR with 
 
 An important conceptual point is that when making this pulse list, we don't actually care about the exact times, we are free to round to the nearest integer. It serves as its 'name' for the rest of the pipeline. Using this approximate starting time, the timestream loads up data at this approximate time. We upsample this data and store it, recording the exact starting spectrum of the pulse. This is the value which is fixed forever, and holds the time information of the pulse. Since the clock are unreliable, we find a spectrum-to-UTC time mapping, which then gives us the actual starting time of the pulse. That gives its exact starting time, not its UTC name (which only serves to give a second-level precise idea of where to look for data).
 
-
 ## 3. What UTC time is it Mr. Wolf
 
 ### a. The UTC timing problem
@@ -85,12 +82,11 @@ Thankfully, they are all reasonably closely aligned with respect to each other (
 
 (insert the double-alignment figure)
 
-
 ### b. On Upchannelization
 
 Before the UTC analysis, we re-channelize our data into finer channels. This data is used throughout the rest of the pipeline. We upchannelize using a re-PFB pipeline written by Mohan, found in '/scripts/xcorr'. The re-PFB script that is mainly used in this pipeline is 'fine_timing.py', but the engine for this is found elsewhere in the same directory.
 
-We usually upchannelize by a factor of 64, meaning channels are about 1 kHz wide. Thus, since METEOR satellites we have between 80 and 100 kHz of bandwidth, we have 80-100 channels of signal. 
+We usually upchannelize by a factor of 64, meaning channels are about 1 kHz wide. Thus, since METEOR satellites we have between 80 and 100 kHz of bandwidth, we have 80-100 channels of signal.
 
 We use the recorded pulse times from 'pulses.json', alongside the spectrum alignment to generate the upchannelized data for each pulse. We now record the spectrum number of the first spectrum used in the upchannelized data of the reference antenna (to which, if you recall, all other antenna timestreams are aligned), and keep it in the same 'pulses.json' file. This spectrum number is now anchored as the starting point of the pulse, as the upchannelized data starts at that point. Also notice that we are upchannlizing, meaning that each new spectrum contains 64 old spectra: we sample less often in time. (we have to be careful with spectrum number indexing; it's our only reliable measure of data poition in time, but we can easily get confused).
 

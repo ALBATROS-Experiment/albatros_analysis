@@ -4,7 +4,6 @@ import numpy as np
 import json
 import argparse
 import matplotlib.pyplot as plt
-import helper_discrepancies as hd
 
 def get_prediction_error(res, spectra):
     '''Get the error on the predicted UTC discrepancy given residual matrix'''
@@ -46,8 +45,6 @@ if __name__ == "__main__":
             spectra.append(pulse["start_specnum"])
     utc = np.array(utc)
     spectra=np.array(spectra)
-    spectra = hd.correct_overflow(spectra)
-
 
     #do some math
     UTC_per_spec, UTC_offset = np.polyfit(spectra, utc, 1)

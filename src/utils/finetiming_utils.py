@@ -1,9 +1,16 @@
+#system stuff
+import os
+from os import path
+import sys
+sys.path.insert(0, "/home/thomasb/")
+#general
 import numpy as np
 import numba as nb
 from matplotlib import pyplot as plt
+#utils
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
-from albatros_anslysis.src.utils import sat_utils as sutils
+from albatros_analysis.src.utils import sat_utils as sutils
 
 #=========================================================================
 #BASIC STUFF

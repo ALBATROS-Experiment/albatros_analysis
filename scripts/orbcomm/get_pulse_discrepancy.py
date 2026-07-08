@@ -10,6 +10,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.utils import sat_utils as sutils
+from albatros_analysis.src.utils import finetiming_utils as futils
 
 from albatros_analysis.scripts.xcorr.fine_timing  import dump_upchan_baseband
 from albatros_analysis.scripts.xcorr import helper as hxc
@@ -20,7 +21,6 @@ import json
 from scipy.optimize import minimize
 from skyfield.api import load, wgs84
 import cupy
-import helper_finetiming as hf
 import argparse
 
 def objective_times(time_offset,
@@ -101,10 +101,10 @@ def objective_times(time_offset,
             )
             if many_chans:
                 spec2_phased = np.empty_like(data_slice[aj,0,:,:])
-                spec2_phased = hf.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
-                Vxx = hf.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
-                spec2_phased = hf.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
-                Vyy = hf.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
+                spec2_phased = futils.apply_delay(data_slice[aj,0,:,:], spec2_phased, -delay, freqs)
+                Vxx = futils.xcorr_avg(data_slice[ai,0,:,:], spec2_phased, acclen)
+                spec2_phased = futils.apply_delay(data_slice[aj,1,:,:], spec2_phased, -delay, freqs)
+                Vyy = futils.xcorr_avg(data_slice[ai,1,:,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V[:,8]))-np.angle(V[:,0])[0],label=f'{ai}-{aj}')
@@ -118,10 +118,10 @@ def objective_times(time_offset,
 
             else:
                 spec2_phased = np.empty_like(data_slice[aj,0,:])
-                spec2_phased = hf.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
-                Vxx = hf.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
-                spec2_phased = hf.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
-                Vyy = hf.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
+                spec2_phased = futils.apply_delay_1d(data_slice[aj,0,:], spec2_phased, -delay, freqs[0])
+                Vxx = futils.xcorr_avg_1d(data_slice[ai,0,:],spec2_phased,acclen)
+                spec2_phased = futils.apply_delay_1d(data_slice[aj,1,:], spec2_phased, -delay, freqs[0])
+                Vyy = futils.xcorr_avg_1d(data_slice[ai,1,:],spec2_phased,acclen)
                 V=(Vxx+Vyy)/2
                 if plot:
                     ax.plot(np.unwrap(np.angle(V))-np.angle(V)[0],label=f'{ai}-{aj}')
