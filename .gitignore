@@ -26,3 +26,5 @@ devenv/
 env/
 html/pdoc/
 
+.ipynb_checkpoints/
+__pycache__/
