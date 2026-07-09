@@ -7,21 +7,17 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'batch_start_ts', type=int
-    )
-    parser.add_argument(
-        '-r', '--ref_ant', type=str, default='MARS2', help='determines the reference antenna'
-    )
-    parser.add_argument(
-        '-l', '--acclen', type=int, default=3000000, help='determines the reference antenna'
-    )
-    parser.add_argument(
-        '-w', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file'
-    )
+    parser.add_argument('batch_start_ts', type=int)
+    parser.add_argument('-r', '--ref_ant', type=str, default='MARS2', help='determines the reference antenna')
+    parser.add_argument('-l', '--acclen', type=int, default=3000000, help='determines the reference antenna')
+    parser.add_argument('-t', '--testing', action='store_true')
+    parser.add_argument('-w', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file')
     args = parser.parse_args()
 
-    path = f'/scratch/thomasb/batch_{args.batch_start_ts}/satdet'
+    if args.testing:
+        path = f'/scratch/thomasb/batch_{args.batch_start_ts}_testing/satdet'
+    else:
+        path = f'/scratch/thomasb/batch_{args.batch_start_ts}/satdet'
 
     with open(os.path.join(path, f'satdet_{int(args.acclen/1e6)}M_ref{args.ref_ant}.json'), 'r') as f:
         data = json.load(f)

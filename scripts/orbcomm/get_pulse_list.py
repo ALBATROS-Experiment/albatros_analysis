@@ -8,48 +8,36 @@ import json
 import argparse
 from albatros_analysis.src.utils import baseband_utils as butils
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("batch_start_ts", type=int)
+    parser.add_argument("config_file", type=str)
     parser.add_argument("-r", "--ref_ant", type=str, default="MARS2", help='The antenna that was used as reference for satdet')
     parser.add_argument("-n", '--nref_ant', type=str, default="MARS7", help='The other antenna that makes up the baseline over which to check SNR')
     parser.add_argument('-c', '--min_chunks', default=3, help='Minimum number of chunks')
     parser.add_argument('-s', '--min_snr', default=100, help='Minimum SNR')
     parser.add_argument('-l', '--acclen', type=int, default=3000000, help='coarse acclen for satdet cxcorr')
+    parser.add_argument('-t', '--testing', action='store_true')
     parser.add_argument('-w', '--write_to_file', action='store_true', help='see if we want to write a new file for pulses')
     args = parser.parse_args()
 
-    #========================================================================================
-    #some hardcoded stuff to eventually make modular
-    ant_names = ['MARS1', 'MARS2', 'MARS3', 'MARS4', 'MARS5', 'MARS6', 'MARS7', 'MARS8']
 
-    ant_paths = np.array([
-    '/project/rrg-sievers/albatros/mars/202507/mars1/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars2/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars3/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars4/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars5',
-    '/project/rrg-sievers/albatros/mars/202507/mars6/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars7/baseband',
-    '/project/rrg-sievers/albatros/mars/202507/mars8/baseband'
-])
+    #OPEN CONFIG-------------------------------------------------------------------------------
+    with open(args.config_file, "r") as f:
+        config = json.load(f)
+        ant_paths, coords, ant_names = [], [], []
 
-#     ant_paths = np.array([
-#     "/scratch/mohanagr/summer_2025/baseband/mars1",
-#     "/scratch/mohanagr/summer_2025/baseband/mars2",
-#     "/scratch/mohanagr/summer_2025/baseband/mars3",
-#     "/scratch/mohanagr/summer_2025/baseband/mars4",
-#     "/scratch/mohanagr/summer_2025/baseband/mars5",
-#     "/scratch/mohanagr/summer_2025/baseband/mars6",
-#     "/scratch/mohanagr/summer_2025/baseband/mars7",
-#     "/scratch/mohanagr/summer_2025/baseband/mars8"
-# ])
+        print("\nAntenna Details:")
+        for i, (ant, details) in enumerate(config["antennas"].items()):
+            print(ant, details)
+            ant_paths.append(details["path"])
+            ant_names.append(details["name"])
+        batch_start_ts = config["correlation"]["start_timestamp"]
 
-    #========================================================================================
-    #set basic parameters
-    batch_start_ts = args.batch_start_ts
-    path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+    if args.testing:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}_testing'
+    else:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+    
     path_satdet = os.path.join(path_batch, 'satdet')
     path_data = os.path.join(path_satdet, f'satdet_{int(args.acclen/1e6)}M_ref{args.ref_ant}.json') #gets us to the data that uses ref ant
     os.makedirs(os.path.join(path_batch, 'data'), exist_ok=True)

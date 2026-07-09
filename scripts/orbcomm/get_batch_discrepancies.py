@@ -1,7 +1,6 @@
 #system stuff
 import os
 import sys
-import path 
 sys.path.insert(0, "/home/thomasb/")
 #general
 import numpy as np 
@@ -25,10 +24,6 @@ from albatros_analysis.src.utils import finetiming_utils as futils
 from albatros_analysis.scripts.xcorr import helper as xchelper
 from albatros_analysis.scripts.xcorr.fine_timing import dump_upchan_baseband
 from albatros_analysis.scripts.orbcomm.get_pulse_discrepancy import get_discrepancy
-#etc
-import figures as fgs
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -36,6 +31,9 @@ if __name__ == "__main__":
     #parser.add_argument("pulse_list", type = list)
     parser.add_argument("-o", "--out_path", type=str, default="/scratch/thomasb")
     parser.add_argument('-c', "--coherent", action='store_true')
+    parser.add_argument('-m', "--meteors_only", action='store_true')
+    parser.add_argument('-t', "--testing", action='store_true')
+
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -73,7 +71,11 @@ if __name__ == "__main__":
     T_SPECTRA = 4096/250e6*osamp
 
     # set up some paths
-    path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
+    if args.testing:
+        path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}_testing")
+    else:
+        path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
+
     os.makedirs(path_batch, exist_ok=True)
     path_discrepancies = os.path.join(path_batch, 'timing_discrepancies')
     os.makedirs(path_discrepancies, exist_ok=True)
@@ -89,6 +91,12 @@ if __name__ == "__main__":
         pulse_start_ts, pulse_end_ts = pulse['t_start'], pulse['t_end']
         tle_path = outils.get_tle_file(pulse_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
         satID = pulse['sat']
+
+        if args.meteors_only:
+            if satID not in {59051, 57166}:
+                print('NOT RUSSIAN, SKIPPING!')
+                continue
+
         det_chan = channels[pulse['channel']] #if want to compute with fewer channels
         if det_chan%2 == 0:
             compute_chans = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
@@ -220,7 +228,7 @@ if __name__ == "__main__":
         results = get_discrepancy(args.config_path, 
                                 path_disk, 
                                 satID, 
-                                out_path=path_batch, 
+                                path_batch, 
                                 osamp=osamp, 
                                 plot=True,
                                 coherent=args.coherent)

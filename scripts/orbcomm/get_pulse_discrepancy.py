@@ -1,27 +1,28 @@
+#system
 import os
 import sys
 sys.path.append(os.path.expanduser('~'))
-import numpy as np 
+#general
+import numpy as np
+import numba as nb
+import time
+import importlib
+import json 
+import argparse
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-import figures as fgs
+from skyfield.api import load, wgs84
+#utils
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
-
 from albatros_analysis.src.utils import baseband_utils as butils
 from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.utils import sat_utils as sutils
 from albatros_analysis.src.utils import finetiming_utils as futils
-
+#functions and helpers
 from albatros_analysis.scripts.xcorr.fine_timing  import dump_upchan_baseband
 from albatros_analysis.scripts.xcorr import helper as hxc
-import numba as nb
-import time
-import importlib
-import json
 from scipy.optimize import minimize
-from skyfield.api import load, wgs84
-import cupy
-import argparse
+
 
 def objective_times(time_offset,
                     t_start, t_end,
@@ -196,8 +197,8 @@ def cost_curve(offset_start, offset_end,
 def get_discrepancy(config_path, 
                     disk_path,
                     satID,
+                    out_path, 
                     osamp=64,
-                    out_path="/scratch/thomasb", 
                     plot=False,
                     coherent=False):
     print(f'Starting Discrepancy Fit for {disk_path}')

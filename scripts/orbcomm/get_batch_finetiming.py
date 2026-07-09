@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_path", type=str)
     #parser.add_argument("pulse_list", type = list)
+    parser.add_argument('-m', "--meteors_only", action='store_true')
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -49,7 +50,6 @@ if __name__ == "__main__":
     acclen = config['correlation']['new_acclen']
 
     T_SPECTRA = 4096/250e6 * osamp
-    METEOR_ONLY = True
     ant_idxs = [0, 1, 2, 3, 4, 5, 6]
     antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
     nant_used = len(ant_idxs)
@@ -110,7 +110,7 @@ if __name__ == "__main__":
             masking = False
         if satID in {28654,25338,33591}:
             masking=True
-            if METEOR_ONLY:
+            if args.meteors_only:
                 continue
         print('masking:', masking)
         #get old channels for fname

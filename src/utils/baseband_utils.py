@@ -751,13 +751,13 @@ def check_data_holes(t_start, t_end, dir, filesize=500001224, tol = 60, verbose=
 
 
 def get_windows_oneant(json_path, 
-                       batch_start, 
-                       ant,
-                       min_SNR,
-                       min_nchunks,
-                       max_nchunks=None,
-                       interval=None
-                       ):
+                        batch_start,
+                        ant,
+                        min_SNR,
+                        min_nchunks,
+                        max_nchunks=None,
+                        interval=None
+                        ):
 
     windows = []
     with open(json_path, 'r') as f:
