@@ -4,7 +4,6 @@ sys.path.append(os.path.expanduser('~'))
 import numpy as np 
 from matplotlib import pyplot as plt
 from datetime import datetime as dt
-import figures as fgs
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 
 from albatros_analysis.src.utils import baseband_utils as butils
@@ -216,6 +215,10 @@ def get_discrepancy(config_path,
     osamp = config["correlation"]["osamp"]
     acclen = config["correlation"]["new_acclen"]
 
+    ##
+    out_path = out_path + f'/batch_{batch_start_ts}'
+    ##
+
     print('batch start ts', batch_start_ts)
     print('batch end ts', batch_end_ts)
 
@@ -254,7 +257,7 @@ def get_discrepancy(config_path,
 
     #CUTTING DATA-------------------------------------
 
-    cutting_path = os.path.join(out_path, 'data/cutting_discrep.json')
+    cutting_path = os.path.join(out_path, f'data/cutting_discrep.json')
     with open(cutting_path, "r") as f:
         cutter = json.load(f)
     cut_spectra_start = cutter[fname]["cut_spectra_start"]
