@@ -11,12 +11,12 @@ from albatros_analysis.src.utils import baseband_utils as butils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str)
-    parser.add_argument("-r", "--ref_ant", type=str, default="MARS2", help='The antenna that was used as reference for satdet')
-    parser.add_argument("-n", '--nref_ant', type=str, default="MARS7", help='The other antenna that makes up the baseline over which to check SNR')
+    parser.add_argument("-ref", "--ref_ant", type=str, default="MARS2", help='The antenna that was used as reference for satdet')
+    parser.add_argument("-sec", '--secondary_ant', type=str, default="MARS7", help='The other antenna that makes up the baseline over which to check SNR')
     parser.add_argument('-c', '--min_chunks', default=3, help='Minimum number of chunks')
-    parser.add_argument('-s', '--min_snr', default=100, help='Minimum SNR')
+    parser.add_argument('-snr', '--min_snr', default=100, help='Minimum SNR')
     parser.add_argument('-l', '--acclen', type=int, default=3000000, help='coarse acclen for satdet cxcorr')
-    parser.add_argument('-t', '--testing', action='store_true')
+    parser.add_argument('-t', '--testing', type=str, default=None)
     parser.add_argument('-w', '--write_to_file', action='store_true', help='see if we want to write a new file for pulses')
     args = parser.parse_args()
 
@@ -33,8 +33,8 @@ if __name__ == '__main__':
             ant_names.append(details["name"])
         batch_start_ts = config["correlation"]["start_timestamp"]
 
-    if args.testing:
-        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}_testing'
+    if args.testing is not None:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}_testing/{args.testing}'
     else:
         path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
     
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     #get the windows
     w_all = butils.get_windows_oneant(path_data, 
                                 batch_start_ts, 
-                                args.nref_ant,  #gives us the entry that uses non-ref
+                                args.secondary_ant,  #gives us the entry that uses non-ref
                                 args.min_snr,
                                 args.min_chunks,
                                 max_nchunks=None,

@@ -735,8 +735,22 @@ def get_thermal_noise(vis, ant_idxs, mask=None, T_SPECTRA=4096/250e6 * 64, accle
     return thermal_noise, fig
 
 #=========================================================================
-#LINEAR ALGEBRA (for OLS fit)
+#LINEAR ALGEBRA
 #=========================================================================
+
+def get_prediction_error(res, spectra):
+    '''Get the error on the predicted UTC discrepancy given residual matrix'''
+    A = np.column_stack((spectra, np.ones(len(spectra))))
+    N = np.cov(res)
+    print(N)
+
+    if res.ndim >1:
+        v1 = np.linalg.inv(A.T@np.linalg.inv(N)@A)
+    else:
+        v1 = N*np.linalg.inv(A.T@A)
+
+    return A@v1@A.T
+
 
 @nb.njit()
 def symmetrize(A):

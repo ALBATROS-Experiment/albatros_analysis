@@ -22,8 +22,6 @@ from scipy.optimize import minimize,check_grad,least_squares
 from scipy.ndimage import median_filter
 from scipy.ndimage import binary_opening, binary_closing, label
 from skyfield.api import load, wgs84
-#etc
-import figures as fgs
 
 sys.path.append(os.path.expanduser('~'))
 
@@ -35,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("config_path", type=str)
     #parser.add_argument("pulse_list", type = list)
     parser.add_argument('-m', "--meteors_only", action='store_true')
+    parser.add_argument('-t', "--testing", type=str, default=None)
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -57,7 +56,11 @@ if __name__ == "__main__":
     print(T_SPECTRA)
     print(nblines)  
 
-    path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+    if args.testing is not None:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}_testing/{args.testing}'
+    else:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+
     path_fine_timing = os.path.join(path_batch, 'fine_timing')
     os.makedirs(path_fine_timing, exist_ok=True)
 
@@ -154,7 +157,7 @@ if __name__ == "__main__":
             spec_pstart2 = cut['spec_start_corrected']
         else:
             #get visibilities without any cutting
-            vis1 = futils.get_vis(data1,satID,freqs,pstart1,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
+            vis1 = futils.get_vis(data1,satID,freqs,pstart1,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,acclen)
             #get mask if needed
             if masking:
                 mask1, fig_mask1 = get_mask(vis1, tol=1.7)
@@ -197,7 +200,7 @@ if __name__ == "__main__":
         data2 = data1[:,:,spec_cut_start:spec_cut_end,:]
         print('pstart2:', pstart2)
         print('data2 shape', data2.shape)
-        vis2=futils.get_vis(data2,satID,freqs,pstart2,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,osamp,acclen)
+        vis2=futils.get_vis(data2,satID,freqs,pstart2,pulse_end_ts,antpos,ant_idxs,tle_path,T_SPECTRA,acclen)
         nblines, ntimes, nchans = vis2.shape
         print(vis2.shape)
 
@@ -360,8 +363,8 @@ if __name__ == "__main__":
             else:
                 weights = weight_matrix[tt,:]
             t1=time.time()
-            tau_fit_params = least_squares(func, taus_guess, args=(ydata, freqs_normalized, weights),
-                                                                jac=jac,
+            tau_fit_params = least_squares(futils.func, taus_guess, args=(ydata, freqs_normalized, weights),
+                                                                jac=futils.jac,
                                                                 method='lm',
                                                                 ftol=1e-06, 
                                                                 xtol=1e-06, 
@@ -498,7 +501,7 @@ if __name__ == "__main__":
         print(tau_linear2)
         print(errs_all)
 
-        with h5py.File(os.path.join(path_fine_timing, f'timing_solution_15may.h5'), 'a') as f:
+        with h5py.File(os.path.join(path_fine_timing, f'timing_solution.h5'), 'a') as f:
             if fname_data not in f:
                 grp = f.create_group(fname_data)
             else:

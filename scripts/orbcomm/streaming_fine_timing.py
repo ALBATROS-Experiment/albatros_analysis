@@ -1,4 +1,19 @@
-def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45, downconvert=True, orig_t=None, delays=None):
+import sys
+from os import path
+sys.path.insert(0, path.expanduser("~"))
+from albatros_analysis.src.correlations import baseband_data_classes as bdc
+import cupy as cp
+from albatros_analysis.src.utils import pfb_utils as pu
+import numpy as np
+import time
+import os
+import datetime, uuid
+import argparse
+import json
+import albatros_analysis.scripts.xcorr.helper as helper
+
+
+def repfb(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfile,lblock=4096, ntap=4, cutsize=16,filt_thresh=0.45, downconvert=True, orig_t=None, delays=None):
     """Re-PFB baseband spectra for all antennas x polarizations and x-corr all frequencies
 
     Parameters
@@ -56,13 +71,11 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
         channel_slice = slice(new_channels[0], new_channels[-1]+1)
     #needs channels you want to cross-correlate in re-PFB'd data
     
-    
-    print(f"TOTAL SIZE ON DISK\t\t{vis_file.nbytes * nrows_total/vis_chunk_size /1024**3 : .2f} GB")
+    print("Baseband size:", baseband.nbytes/1e9, "GB")
 
     rowidx=0
     print(ipfb)
     print(fpfb)
-    print(xcorr)
     
     header = bdc.get_header(files[0][0])
     #print(header)
@@ -121,8 +134,8 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
                     baseband[ant_idx, pol_idx, ant_ptr[ant_idx]:ant_ptr[ant_idx]+pn[pol_idx], :] = cp.asnumpy(pol_new[:, channel_slice]) #only in case of IQ, this is not new_channels
             assert pn[0]==pn[1]
             ant_ptr[ant_idx] += pn[0]
-
-    return
+    np.save(outfile,baseband)
+    return baseband
 
 
     # if you have 1834 : 1854 as orig channels

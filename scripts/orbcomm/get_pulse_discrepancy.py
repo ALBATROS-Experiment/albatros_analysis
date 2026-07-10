@@ -407,7 +407,7 @@ if __name__ == "__main__":
     results = get_discrepancy(args.config_path, 
                             args.disk_path,
                             args.satID, 
-                            out_path=args.out_path, 
+                            args.out_path, 
                             plot=args.plot,
                             coherent=args.coherent)
     print("Results:", results)

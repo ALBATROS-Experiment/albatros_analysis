@@ -22,7 +22,7 @@ from albatros_analysis.src.utils import orbcomm_utils as outils
 from albatros_analysis.src.utils import finetiming_utils as futils
 #helper and big functions
 from albatros_analysis.scripts.xcorr import helper as xchelper
-from albatros_analysis.scripts.xcorr.fine_timing import dump_upchan_baseband
+from albatros_analysis.scripts.orbcomm.streaming_fine_timing import repfb
 from albatros_analysis.scripts.orbcomm.get_pulse_discrepancy import get_discrepancy
 
 if __name__ == "__main__":
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--out_path", type=str, default="/scratch/thomasb")
     parser.add_argument('-c', "--coherent", action='store_true')
     parser.add_argument('-m', "--meteors_only", action='store_true')
-    parser.add_argument('-t', "--testing", action='store_true')
+    parser.add_argument('-t', "--testing", type = str, default=None)
 
     args = parser.parse_args()
 
@@ -71,8 +71,8 @@ if __name__ == "__main__":
     T_SPECTRA = 4096/250e6*osamp
 
     # set up some paths
-    if args.testing:
-        path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}_testing")
+    if args.testing is not None:
+        path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}_testing/{args.testing}")
     else:
         path_batch = os.path.join(args.out_path, f"batch_{batch_start_ts}")
 
@@ -130,20 +130,12 @@ if __name__ == "__main__":
         elif os.path.exists(path_disk):
             print('Data exists but still have to cut it!')
             print('Loading Data')
-            data_all = np.load(path_disk)
+            baseband = np.load(path_disk)
+            print('baseband shape', baseband.shape)
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
             print('Computing V')
-            V = futils.get_vis(data_all,  #double check this works still, changed the visibiilty function
-                            satID,
-                            freqs,
-                            pulse_start_ts,
-                            pulse_end_ts,
-                            ant_coords,
-                            ant_idxs,  
-                            tle_path,
-                            T_SPECTRA,
-                            new_acclen)
+            V = futils.get_vis(baseband,satID,freqs,pulse_start_ts,pulse_end_ts,ant_coords,ant_idxs,tle_path,T_SPECTRA, new_acclen)
             print('Cutting')
             cut_spectra_start, cut_spectra_end, cut_chans = futils.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
@@ -170,23 +162,18 @@ if __name__ == "__main__":
             nrows_total = nchunks * pfb_size // (osamp * new_acclen)
             print('nrows total:', nrows_total)
             t1=time.time()
-            baseband, _ = dump_upchan_baseband(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,path_disk,cutsize=16,filt_thresh=filt_thresh)
+            baseband = repfb(idxs,files,pfb_size,nchunks,compute_chans,osamp,new_acclen,path_disk,cutsize=16,filt_thresh=filt_thresh)
             t2=time.time()
             print("Total time taken", t2-t1)
 
+            print('starting spectrum number', start_specnum)
+            pulse_list[pidx]['start_specnum'] = int(start_specnum)
+            with open(path_pulses, 'w') as f:
+                json.dump(pulse_list, f, indent=4)
+
             new_chans = np.linspace(compute_chans[0], compute_chans[-1]+1, osamp*4, endpoint=False)
             freqs = 250e6 - (new_chans/(4096/250e6))
-            V = futils.efield_to_vis(baseband,
-                                satID,
-                                freqs,
-                                pulse_start_ts,
-                                pulse_end_ts,
-                                ant_coords,
-                                ant_idxs,
-                                tle_path,
-                                T_SPECTRA,
-                                new_acclen
-                                )
+            V = futils.get_vis(baseband,satID,freqs,pulse_start_ts,pulse_end_ts,ant_coords,ant_idxs,tle_path,T_SPECTRA, new_acclen)
 
             #START TEMP FIGURE
             #======================================================
@@ -207,11 +194,6 @@ if __name__ == "__main__":
             #======================================================
             #END TEMP FIGURE
 
-            print('starting spectrum number', start_specnum)
-            pulse_list[pidx]['start_specnum'] = int(start_specnum)
-            with open(path_pulses, 'w') as f:
-                json.dump(pulse_list, f, indent=4)
-
             cut_spectra_start, cut_spectra_end, cut_chans = futils.discrep_cutting(V, satID, acclen=new_acclen)
             cuts[fname] = {'satID': satID,
                             'cut_spectra_start': cut_spectra_start,
@@ -221,7 +203,7 @@ if __name__ == "__main__":
             gc.collect()
             
         #save the cutting to file (no matter what happens, even if we don't change it)
-        with open(f"/scratch/thomasb/batch_{batch_start_ts}/data/cutting_discrep.json", "w") as f2:
+        with open(path_cutter, "w") as f2:
             json.dump(cuts, f2, indent=4)
         print('Saved to Cutting Json')
         #fit for discrepancy once data is set up and cut

@@ -7,17 +7,22 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('batch_start_ts', type=int)
+    parser.add_argument('config_path', type=str)
     parser.add_argument('-r', '--ref_ant', type=str, default='MARS2', help='determines the reference antenna')
     parser.add_argument('-l', '--acclen', type=int, default=3000000, help='determines the reference antenna')
-    parser.add_argument('-t', '--testing', action='store_true')
-    parser.add_argument('-w', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file')
+    parser.add_argument('-t', '--testing', type=str, default=None)
+    parser.add_argument('-f', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file')
+    parser.add_argument('-c', '--write_to_config', action='store_true', help='writes the consensus offsets to the config file')
     args = parser.parse_args()
 
-    if args.testing:
-        path = f'/scratch/thomasb/batch_{args.batch_start_ts}_testing/satdet'
+    with open(args.config_path, "r") as f:
+        config = json.load(f)
+        batch_start_ts = config["correlation"]["start_timestamp"]
+
+    if args.testing is not None:
+        path = f'/scratch/thomasb/batch_{batch_start_ts}_testing/{args.testing}/satdet'
     else:
-        path = f'/scratch/thomasb/batch_{args.batch_start_ts}/satdet'
+        path = f'/scratch/thomasb/batch_{batch_start_ts}/satdet'
 
     with open(os.path.join(path, f'satdet_{int(args.acclen/1e6)}M_ref{args.ref_ant}.json'), 'r') as f:
         data = json.load(f)
@@ -91,10 +96,21 @@ if __name__ == "__main__":
     #print(data['summary'])
     #sys.exit()         
     if args.write_to_file:       
-        print('writing to file!')
+        print('writing to satdet file!')
         with open(os.path.join(path, f'satdet_{int(args.acclen/1e6)}M_ref{args.ref_ant}.json'), 'w') as f:
             json.dump(data, f, indent=4)
 
+    if args.write_to_config:       
+        print('writing to config file!')
+        offset_data = data['summary']
+        print(offset_data)
+        with open(args.config_path, 'r') as f:
+            config_all = json.load(f)
+            for key, items in offset_data.items():
+                config_all['antenna'][key]['clock_offset'] = items['consensus_offset']
+                #print(config_all['antenna'][key])
+        with open(args.config_path, 'w') as f:
+            json.dump(config_all, f, indent=4)
 
 
     # idx = np.argsort(offsets)

@@ -1,30 +1,15 @@
-import sys
+#system stuff
 import os
+from os import path
+import sys
+sys.path.insert(0, "/home/thomasb/")
+#general
 import numpy as np
 import json
 import argparse
 import matplotlib.pyplot as plt
-
-def get_prediction_error(res, spectra):
-    '''Get the error on the predicted UTC discrepancy given residual matrix'''
-    A = np.column_stack((spectra, np.ones(len(spectra))))
-    N = np.cov(res)
-    print(N)
-
-    if res.ndim >1:
-        v1 = np.linalg.inv(A.T@np.linalg.inv(N)@A)
-    else:
-        v1 = N*np.linalg.inv(A.T@A)
-
-    return A@v1@A.T
-
-def get_MAD(data, axis=None):
-    '''getting the real median absolute deviation'''
-    data_median = np.median(data, axis=axis, keepdims=True)
-    abs_deviations = np.abs(data - data_median)
-    mad = np.median(abs_deviations, axis=axis)
-    return mad
-
+#utils
+from albatros_analysis.src.utils import finetiming_utils as futils
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -50,9 +35,9 @@ if __name__ == "__main__":
     UTC_per_spec, UTC_offset = np.polyfit(spectra, utc, 1)
     res = np.asarray(utc)-UTC_per_spec*np.asarray(spectra)-UTC_offset
     res_std = np.std(res)
-    res_MAD = get_MAD(res)
+    res_MAD = futils.get_MAD(res)
 
-    cov = get_prediction_error(res, spectra)
+    cov = futils.get_prediction_error(res, spectra)
     pred_var = np.diag(cov)
     pred_error = np.sqrt(pred_var)
     mean_err = np.mean(pred_error)
