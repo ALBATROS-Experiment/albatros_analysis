@@ -154,7 +154,7 @@ def time2fnames(time_start, time_stop, dir_parent, search_type, fraglen=5,mind_g
     """
     # print(time_start, time_stop)
     assert(search_type in ["f", "d"])
-    assert(time_stop > time_start)
+    assert(time_stop >= time_start)
     time_start, time_stop = [str(t) for t in [time_start, time_stop]]
     print(time_start, time_stop)
     stamps = np.arange(int(time_start[:5]), int(time_stop[:5])+1)

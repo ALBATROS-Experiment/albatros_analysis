@@ -33,12 +33,12 @@ def quantize(a):
     
 ### IPFB ###
 
-def setup_ipfb(final_channels):
+def setup_ipfb(final_channels, ipfb_chunk_size):
     ipfb = pu.StreamingIPFB_IQ(
         params.num_ant,
         params.num_pol,
         final_channels,
-        nblock = params.ipfb_chunk_size,
+        nblock = ipfb_chunk_size,
         ntap = params.num_pfb_tap,
         window = "hamming",
         cut = params.cutsize,
@@ -155,12 +155,14 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
         Here to be overwritten, but should be of the right shape
     """
 
+    dsamp = int(params.adc_samp_freq * ipfb.lblock / params.len_pfb_init / params.code_baudrate)
+
     ts_pol0 = ipfb.ipfb(ant_idx, 0, pol0, thresh=params.filt_thresh)
     ts_pol1 = ipfb.ipfb(ant_idx, 1, pol1, thresh=params.filt_thresh)
 
     # begin loop over frequencies
     for fi, freq in enumerate(params.ionosonde_freqs):
-        ipfb_start_freq = final_channels[0] * params.adc_samp_freq/4096
+        ipfb_start_freq = final_channels[0] * params.adc_samp_freq/params.len_pfb_init
         ddc_freq = (freq - ipfb_start_freq)/params.len_pfb_init #normalized
         
         ddc_kernel(ts_pol0, ddc_freq, phase_cycles[fi], ts_pol0_dc)
@@ -174,8 +176,8 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
 
         # filter the downconverted ts, sampling rate 5 us
         # FIX: Use separate filter states for pol0 and pol1
-        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], buf_len = 4096)[::params.dsamp]  
-        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], buf_len = 4096)[::params.dsamp]
+        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], buf_len = 4096)[::dsamp]  
+        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], buf_len = 4096)[::dsamp]
         # print("ts_pol0_filt shape is", ts_pol0_filt.shape, "and ts_pol1_filt shape is", ts_pol1_filt.shape)
         filtered_timestreams[fi, 0, :] = ts_pol0_filt
         filtered_timestreams[fi, 1, :] = ts_pol1_filt

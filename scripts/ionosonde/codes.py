@@ -113,6 +113,9 @@ def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
 
 def get_code_spectra(len_timestream, which_code = "1first"):
     """
+    Returns the spectrum of the desired code template (i.e. the desired code
+    template, FFT'd).
+
     Parameters
     ----------
     len_timestream:

@@ -8,8 +8,9 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as bu
 from albatros_analysis.scripts.ionosonde import params
 from albatros_analysis.scripts.ionosonde import signal_processing as sp
+from albatros_analysis.scripts.ionosonde import plotting
 
-def get_antenna_objs(idxs, files, nchunks, channels, verbose = False):
+def get_antenna_objs(idxs, files, nchunks, channels, read_size, verbose = False):
     """Get baseband spectra for all antennas x polarizations
 
     Parameters
@@ -22,8 +23,7 @@ def get_antenna_objs(idxs, files, nchunks, channels, verbose = False):
         Number of pfb_size blocks to read and process.
     channels : np.ndarray or list
         Channel numbers to feed IPFB [0,2048), should be present in baseband file.
-    nant : int, optional
-        Number of antennas, by default 1
+    read_size
     """
     print(files[0][0])
     header = bdc.get_header(files[0][0])
@@ -42,7 +42,7 @@ def get_antenna_objs(idxs, files, nchunks, channels, verbose = False):
             files[i],
             0,  # fileidx is 0 = start idx is inside the first file
             idxs[i],
-            params.read_size,
+            read_size,
             nchunks=nchunks,
             channels=channel_indices,
             type="float",
@@ -70,22 +70,26 @@ def get_antenna_objs(idxs, files, nchunks, channels, verbose = False):
     
     return final_channels, antenna_objs
 
-def process_from_data(t_start, t_diff = 15,
+def process_from_data(t_start, t_diff = 5,
                       fpath = "/scratch/mohanagr/drive3_mars_spring2025/baseband/",
                       outdir = f"/scratch/{os.environ.get('USER')}/ionosphere/output"):
     t_end = t_start + t_diff
     files, idx = bu.get_init_info(t_start, t_end, fpath)
-    nchunks = 1
+    nchunks = 2
     channels = np.arange(64,168)
     nchan = len(channels)
 
-    # Setup IPFB
-    ipfb = sp.setup_ipfb(channels) # This takes 10 GB of memory for some reason
+    ipfb_chunk_size = int(t_diff * params.chan_res_init)
+    read_size = ipfb_chunk_size - 2 * params.cutsize
 
-    len_timestream = params.read_size * ipfb.lblock
+    # Setup IPFB
+    ipfb = sp.setup_ipfb(channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
+
+    len_timestream = read_size * ipfb.lblock
     ncols = params.buf_len - params.filter_len
     nrows = len_timestream // ncols
-    Nts_dc = (nrows * ncols + params.dsamp - 1) // params.dsamp  # downsampled length after chopping end bits, essentially ceil
+    dsamp = int(params.adc_samp_freq * ipfb.lblock / params.len_pfb_init / params.code_baudrate)
+    Nts_dc = (nrows * ncols + dsamp - 1) // dsamp  # downsampled length after chopping end bits, essentially ceil
 
     # Get filter
     hf = sp.get_filter()
@@ -107,12 +111,12 @@ def process_from_data(t_start, t_diff = 15,
     ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     
     print(files)
-    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, channels)
+    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, channels, read_size)
 
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
         for ant_idx in range(params.num_ant):
             chunk = chunks[ant_idx]
-            expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * params.read_size
+            expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
 
             print("chunk pol0", chunk["pol0"].shape)
             
@@ -120,7 +124,7 @@ def process_from_data(t_start, t_diff = 15,
                 chunk["pol0"],
                 chunk["specnums"] - expected_start_specnum,
                 xp.arange(0, nchan),
-                params.read_size,
+                read_size,
                 nchan,
             )
 
@@ -129,7 +133,7 @@ def process_from_data(t_start, t_diff = 15,
                 chunk["pol1"],
                 chunk["specnums"] - expected_start_specnum,
                 xp.arange(0, nchan),
-                params.read_size,
+                read_size,
                 nchan,
             )
             corr = sp.process_one_chunk(pol0, pol1, final_channels,
@@ -138,10 +142,16 @@ def process_from_data(t_start, t_diff = 15,
                                         filter_state, filtered_timestreams)
     
     os.makedirs(outdir, exist_ok = True)
-    fname = f"iono_corr_2pols_{t_start}_to_{t_end}"
+    fname = f"iono_corr_2pols_B_{t_start}_to_{t_end}"
     print(f"Saving to {os.path.join(outdir, fname)}")
     np.savez(os.path.join(outdir, fname), corr = corr, freqs = params.ionosonde_freqs)
 
+    return params.ionosonde_freqs, corr.get()
+
             
 if __name__ == "__main__":
-    process_from_data(t_start=1746818097)
+    freqs, corr = process_from_data(t_start=1746818107)
+    # freqs, corr = process_from_data(t_start=1746818100)
+    # freqs, corr = process_from_data(t_start=1746818105)
+
+    # plotting.plot1(freqs, corr)
