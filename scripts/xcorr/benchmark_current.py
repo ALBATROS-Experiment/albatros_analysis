@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.expanduser("~"))
 from albatros_analysis.src.utils import pfb_utils as pu
 
-def benchmark_pipeline(nant=8, npol=2, pfb_size=32768, nchan=200, osamp=64, nchunks=50, bufsize_frac=1.0):
+def benchmark_pipeline(nant=8, npol=2, pfb_size=65536, nchan=200, osamp=64, nchunks=50, bufsize_frac=1.0):
     # Pipeline parameters
     lblock = 4096
     cutsize = 16
@@ -20,7 +20,7 @@ def benchmark_pipeline(nant=8, npol=2, pfb_size=32768, nchan=200, osamp=64, nchu
     # Initialize Streaming classes
     # ipfb = pu.StreamingIPFB_IQ(nant, npol, np.arange(nchan), nblock=pfb_size, lblock=lblock, cut=cutsize)
     ipfb = pu.StreamingIPFB(nant, npol, np.arange(nchan), nblock=pfb_size, lblock=lblock, cut=cutsize)
-    fpfb = pu.StreamingPFB(nant, npol, timestream_size=timestream_size, lblock=ipfb.lblock*osamp, dtype='complex64')
+    fpfb = pu.StreamingPFB(nant, npol, timestream_size=timestream_size, lblock=ipfb.lblock*osamp, dtype='float32')
     xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, np.arange(new_nchan), bufsize_frac=bufsize_frac)
 
     print(f"--- Benchmark Configuration ---")
@@ -29,7 +29,8 @@ def benchmark_pipeline(nant=8, npol=2, pfb_size=32768, nchan=200, osamp=64, nchu
     print(f"PFB Oversampling: {osamp}, New Accumulation: {new_acclen}")
 
     dummy_input = cp.random.rand(read_size, nchan).astype("complex64")
-    dummy_input_host = np.random.randn(read_size*100, nchan) #simulate data transferred from each file for each chunk
+    dummy_input_host = np.random.randn(read_size, nchan) #simulate data transferred from each file for each chunk
+    print("Dummy input host size (GB):", dummy_input_host.nbytes / 1e9)
     # Warm-up Phase
     print("Warming up (FFT planning, library init)...")
     for _ in range(2): # 2 chunks of warm-up
@@ -42,7 +43,9 @@ def benchmark_pipeline(nant=8, npol=2, pfb_size=32768, nchan=200, osamp=64, nchu
                     xcorr.load(a, p, pol_new)
         _warmup_rows = xcorr.xcorr()
     cp.cuda.Device().synchronize()
-    
+    mempool = cp.get_default_memory_pool()
+    print(f"Used memory (GB): {mempool.used_bytes()/1e9:.2f}")              # 0
+    print(f"Total memory (GB): {mempool.total_bytes()/1e9:.2f}")             # 512
     print(f"Processing {nchunks} chunks of data...")
     
     # Timing accumulation (in ms)
@@ -64,7 +67,7 @@ def benchmark_pipeline(nant=8, npol=2, pfb_size=32768, nchan=200, osamp=64, nchu
             _ = cp.asarray(dummy_input_host)   
             ev_end.record()
             ev_end.synchronize()
-            t_h2d_ms += cp.cuda.get_elapsed_time(ev_start, ev_end)
+            t_h2d_ms += cp.cuda.get_elapsed_time(ev_start, ev_end)  #PCIe speed roughly 10 GB/s
 
             for p in range(npol):
                 # 1. IPFB Execution

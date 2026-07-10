@@ -12,13 +12,14 @@ def test_all_ant_complex_xcorr1():
     x = cp.empty((nant*npol, ntime, nfreq), dtype='complex64', order='F')
     val = 1.37 + 1.37j #something that's not exactly representable in fp32
     x[:] = val
-    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1)
+    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1, normalize=True)
+
     assert xp.all(xp.isclose(out.astype('complex128'),xp.abs(val)**2,rtol=1e-4,atol=1e-8))
     #re-fill the array
     
     val = 1.37
     x[:]= val
-    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1)
+    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1, normalize=True)
     
     #Real should be 1.37^2, imag should be 0
     assert xp.all(xp.isclose(out.astype('complex128').real,xp.abs(val)**2,rtol=1e-4,atol=1e-8))
@@ -36,7 +37,7 @@ def test_all_ant_complex_xcorr2():
     x[0,:,1] = 4 #ant 1
     x[1,:,1] = 6 #ant 2
     x[2,:,1] = 8 #ant 3
-    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1) #return shape is (nant*npol x nant*npol x nfreq)
+    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1, normalize=True) #return shape is (nant*npol x nant*npol x nfreq)
     #dont print it all together because numpy printing scheme is to consider first axis as the axis into the screen.
     # print(out)
     # print(out[:,:,0]) #freq 1
@@ -84,7 +85,7 @@ def test_all_ant_complex_xcorr3():
     a0pol00 = xp.mean(xp.abs(timestream1)**2)
     a0pol11 = xp.mean(xp.abs(timestream2)**2)
 
-    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1,out=outarr[:,:,:,1]) #pass a slice of output
+    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1,out=outarr[:,:,:,1], normalize=True) #pass a slice of output
     assert xp.allclose(outarr[:,:,:,1],out)
     assert xp.allclose(outarr[:,:,:,0],0.) #make sure only the slice we passed is filled
 
@@ -121,7 +122,7 @@ def test_all_ant_complex_xcorr4():
                         idx2 = antidx2*npol + polidx2
                         truth[idx1 ,idx2, freq] = cp.mean(x[idx1,:,freq] * np.conj(x[idx2,:,freq]))
 
-    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1) #pass a slice of output
+    out=cr.avg_xcorr_all_ant_gpu(x,nant,npol,ntime,nfreq,split=1, normalize=True)
 
     # mismatch_mask = ~cp.isclose(out, truth)
     # print("out values at mismatches:", out[mismatch_mask])

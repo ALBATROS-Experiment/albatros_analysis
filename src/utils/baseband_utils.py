@@ -232,6 +232,7 @@ def get_init_info(init_t, end_t, dir_parent):
     """
     f1,idx=get_file_from_timestamp(init_t,dir_parent,'f')
     f2,_=get_file_from_timestamp(end_t,dir_parent,'f')
+    print(f1,f2)
     files=time2fnames(get_tstamp_from_filename(f1),get_tstamp_from_filename(f2),dir_parent,'f')
     return files,idx
 

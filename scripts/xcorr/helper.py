@@ -295,3 +295,87 @@ if __name__ == "__main__":
     idxs, files = get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents)
     print(idxs)
     # print(idxs, files)
+
+def load_all_parts(dir_path, start_time=None, end_time=None):
+    """
+    Finds all visibility part files in a directory, sorts them numerically,
+    and loads them into a single pre-allocated big array.
+    """
+    import os
+    import glob
+    import re
+    
+    # Find all part files
+    pattern = os.path.join(dir_path, "*_part*.npy")
+    part_files = glob.glob(pattern)
+    
+    if not part_files:
+        print(f"No part files found in {dir_path}")
+        return None
+
+    # Extract part number and sort numerically
+    def get_part_num(f):
+        match = re.search(r'_part(\d+)', f)
+        return int(match.group(1)) if match else -1
+        
+    part_files.sort(key=get_part_num)
+    num_files = len(part_files)
+    
+    print(f"Found {num_files} files. Calculating total time...")
+
+    # Load first file to get dimensions and dtype
+    first_arr = np.load(part_files[0], mmap_mode='r')
+    print("shape of first file", first_arr.shape)
+    nbl, chunk_time, nchan, npol2 = first_arr.shape
+    dtype = first_arr.dtype
+
+    last_arr = np.load(part_files[-1], mmap_mode='r')
+    total_time = (num_files-1)*chunk_time + last_arr.shape[1]
+
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = total_time
+        
+    if start_time < 0 or start_time > total_time:
+        raise ValueError(f"start_time {start_time} must be between 0 and {total_time}")
+    if end_time < start_time or end_time > total_time:
+        raise ValueError(f"end_time {end_time} must be between {start_time} and {total_time}")
+
+    load_time = end_time - start_time
+    if load_time == 0:
+        return np.empty((nbl, 0, nchan, npol2), dtype=dtype)
+        
+    print(f"Loading from time index {start_time} to {end_time} (total {load_time} samples)...")
+
+    # Pre-allocate the big array
+    full_array = np.empty((nbl, load_time, nchan, npol2), dtype=dtype)
+    
+    start_file_idx = start_time // chunk_time
+    end_file_idx = (end_time - 1) // chunk_time
+    
+    out_start = 0
+    for i in range(start_file_idx, end_file_idx + 1):
+        f = part_files[i]
+        arr = np.load(f)
+        
+        file_start_time = i * chunk_time
+        
+        # Calculate overlap
+        overlap_start = max(0, start_time - file_start_time)
+        overlap_end = min(arr.shape[1], end_time - file_start_time)
+        
+        arr_slice = arr[:, overlap_start:overlap_end, :, :]
+        
+        slice_len = arr_slice.shape[1]
+        out_end = out_start + slice_len
+        full_array[:, out_start:out_end, :, :] = arr_slice
+        out_start = out_end
+        
+        print(f"  Processed {os.path.basename(f)} slice [{overlap_start}:{overlap_end}]")
+    
+    print(f"\nLoading complete.")
+    print(f"Resulting shape: {full_array.shape}")
+    print(f"Total size: {full_array.nbytes / 1024**3:.2f} GB")
+
+    return full_array

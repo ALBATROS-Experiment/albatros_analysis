@@ -102,8 +102,9 @@ def test_pfb_gpu_vs_cpu(mysize, lblock = 4096):
     ts_specnum = 5000
     pfbobj = pu.StreamingPFB(8,2,timestream_size = mysize, lblock = lblock)
     win = pfbobj.win.ravel()
-    print("win shape", win.shape, "win dtype", win.dtype)
     win_np = cp.asnumpy(win)
+    
+    
     
     ts = np.random.randn(ts_specnum*lblock).astype('float32')
     ts_d1 = cp.asarray(ts)
@@ -115,32 +116,34 @@ def test_pfb_gpu_vs_cpu(mysize, lblock = 4096):
     cpu_pfb2 = pfb(ts2, lambda n, l: win_np, nchan=lblock//2+1) # Use exact same window bits
     gpu_full_pfb2 = pu.cupy_pfb(ts_d2, win, nchan=lblock//2+1)
     
-    print("cpu pfb shape", cpu_pfb1.shape)
-    print("mysize", mysize)
-    niter = len(ts)//mysize+1
-    # gpu_pfb_d1 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
-    # gpu_pfb_d2 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
-    gpu_pfb_d1 = cp.zeros((ts_specnum,lblock),dtype='float32')
-    gpu_pfb_d2 = cp.zeros((ts_specnum,lblock),dtype='float32')
-    print("gpu_pfb shape", gpu_pfb_d1.shape)
+    print("Timestream size", ts.size, "lblock", lblock, "Chunk per iteration", mysize)
+    print("Window shape and dtyype", win.shape, win.dtype)
+    print("Dumb CPU PFB of full timestream (shape)", cpu_pfb1.shape)
     
-    jj=0
-    kk=0
-    for i in range(niter):
-        spec1=pfbobj.pfb(0,0,ts_d1[i*mysize:(i+1)*mysize])
-        spec2=pfbobj.pfb(0,1,ts_d2[i*mysize:(i+1)*mysize])
-        if spec1 is not None:
-            gpu_pfb_d1[jj:jj+spec1.shape[0],:]=spec1
-            jj+=spec1.shape[0]
-        if spec2 is not None:
-            gpu_pfb_d2[kk:kk+spec2.shape[0],:]=spec2
-            kk+=spec2.shape[0]
-
-    err1_full_vs_stream = gpu_full_pfb1-gpu_pfb_d1[3:,:]
-    err2_full_vs_stream = gpu_full_pfb2-gpu_pfb_d2[3:,:]
-    print("gpu full pfb vs streaming pfb error1 max:", np.max(np.abs(err1_full_vs_stream)), "stddev:", np.std(err1_full_vs_stream))
-    print("gpu full pfb vs streaming pfb error2 max:", np.max(np.abs(err2_full_vs_stream)), "stddev:", np.std(err2_full_vs_stream))
+    niter = np.ceil(ts.size/mysize).astype('int')
+    gpu_pfb_d1 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    gpu_pfb_d2 = cp.zeros((ts_specnum,lblock//2+1),dtype='complex64')
+    # gpu_pfb_d1 = cp.zeros((ts_specnum,lblock),dtype='float32')
+    # gpu_pfb_d2 = cp.zeros((ts_specnum,lblock),dtype='float32')
+    print("Dumb GPU PFB full timestream (shape)", gpu_pfb_d1.shape)
     
+    for antnum in range(8):
+        jj=0
+        kk=0
+        for i in range(niter):
+            spec1=pfbobj.pfb(antnum, 0, ts_d1[i*mysize:(i+1)*mysize])
+            spec2=pfbobj.pfb(antnum, 1, ts_d2[i*mysize:(i+1)*mysize])
+            if spec1 is not None:
+                gpu_pfb_d1[jj:jj+spec1.shape[0],:]=spec1
+                jj+=spec1.shape[0]
+            if spec2 is not None:
+                gpu_pfb_d2[kk:kk+spec2.shape[0],:]=spec2
+                kk+=spec2.shape[0]
+        err1_full_vs_stream = gpu_full_pfb1-gpu_pfb_d1[3:,:]
+        err2_full_vs_stream = gpu_full_pfb2-gpu_pfb_d2[3:,:]
+        print("gpu full pfb vs streaming pfb error1 max:", np.max(np.abs(err1_full_vs_stream)), "stddev:", np.std(err1_full_vs_stream))
+        print("gpu full pfb vs streaming pfb error2 max:", np.max(np.abs(err2_full_vs_stream)), "stddev:", np.std(err2_full_vs_stream))
+        print("all close status full vs stream", cp.allclose(gpu_full_pfb1, gpu_pfb_d1[3:,:], atol=1e-4, rtol=1e-7), cp.allclose(gpu_full_pfb2, gpu_pfb_d2[3:,:], atol=1e-4, rtol=1e-7))
     # err1_cpu_vs_full = cpu_pfb1 - cp.asnumpy(gpu_full_pfb1)
     # err2_cpu_vs_full = cpu_pfb2 - cp.asnumpy(gpu_full_pfb2)
     # print("CPU vs GPU full error1 max:", np.max(np.abs(err1_cpu_vs_full)), "stddev:", np.std(err1_cpu_vs_full))
@@ -153,15 +156,7 @@ def test_pfb_gpu_vs_cpu(mysize, lblock = 4096):
     # print("Max error1 cpu vs gpu max:", np.max(np.abs(err1_cpu_vs_gpu)), "stddev:", np.std(err1_cpu_vs_gpu)) #discard top 3 rows
     # print("Max error2 cpu vs gpu max:", np.max(np.abs(err2_cpu_vs_gpu)), "stddev:", np.std(err2_cpu_vs_gpu)) #discard top 3 rows
     # print("Max error3\n", np.max(np.abs(gpu_pfb1[3:,:]-gpu_pfb2[3:,:]))) #discard top 3 rows
-    # arg = np.argmax(np.abs(gpu_pfb[3:,:]-cpu_pfb[:,:]))
-    # argrow = arg//lblock
-    # argcol = arg%lblock
-    # print(gpu_pfb[3+argrow,argcol-5:argcol+5])
-    # print("------------------------------")
-    # print(cpu_pfb[argrow, argcol-5:argcol+5])
-    # gpu_win = cp.asnumpy(pfbobj.win.ravel())
-    # cpu_win = sinc_hamming(4,lblock).astype("float32")
-    # print("Max window error", np.max(np.abs(gpu_win-cpu_win)))
+
 
 def speed_test():
     ts = cp.random.randn(65536*4096).astype('float32')

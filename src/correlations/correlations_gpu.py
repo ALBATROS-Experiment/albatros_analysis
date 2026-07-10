@@ -92,7 +92,7 @@ lib.cgemm_strided_batched.restype = None
 #     print(scratch.flags)
 #     return out
 
-def avg_xcorr_all_ant_gpu(x: xp.ndarray, nant: int,npol: int, ntime: int, nfreq: int, split : int = 1, scratch = None, out=None):
+def avg_xcorr_all_ant_gpu(x: xp.ndarray, nant: int,npol: int, ntime: int, nfreq: int, split : int = 1, scratch = None, out=None, normalize=False):
     #sgemm/cgemm callsign (m,n,k, ldA, strideA, ldB, strideB, ldC, strideC, nbatch)
     #A = m x k  | B = n x k  | C = m x n when B transpose enabled
     M=nant*npol
@@ -117,5 +117,7 @@ def avg_xcorr_all_ant_gpu(x: xp.ndarray, nant: int,npol: int, ntime: int, nfreq:
         ctypes.c_void_p(x.data.ptr),
         ctypes.c_void_p(out.data.ptr),
         M, N, K//split, batchCount
-    )
+        )
+        if normalize:
+            out[:]/=ntime
     return out

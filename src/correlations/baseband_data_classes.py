@@ -4,6 +4,7 @@ import numba as nb
 import numpy as np
 from .. import xp
 import os
+import concurrent.futures
 
 print("BDC is using", xp.__name__)
 
@@ -86,7 +87,7 @@ def add_constant(arr,const):
     elif xp.__name__=='cupy': add_constant_gpu(arr,const)
 
 class Baseband:
-    def __init__(self, file_name, readlen=-1, num_overflows=0, verbose=True):
+    def __init__(self, file_name, readlen=-1, num_overflows=0, force_cpu=False, verbose=True):
         """Create instance of Baseband object.
         Headers and spec_num always stored on host memory.
         Raw_data can be stored on either host/device depending on whether GPU is in use.
@@ -104,8 +105,13 @@ class Baseband:
             If it is an integer >=1, specifies # of packets to read.
             If it is a float in (0,1), reads fraction of total packets.
             Defaults to -1, in which case all packets are read.
-        fixoverflow: int
-            Defaults to 1. Number of cycles of int32 wrap that need to be undone in spectrum numbers.
+        num_overflows: int
+            Defaults to 0. Number of cycles of int32 wrap that need to be undone in spectrum numbers due to PAST overflows.
+        force_cpu: bool, optional
+            If True, raw_data will be stored on CPU (NumPy) even if GPU (CuPy) is available.
+            Useful for background pre-fetching.
+        verbose: bool, optional
+            If False, disable printing file read times
 
         Returns
         -------
@@ -201,8 +207,13 @@ class Baseband:
                     ],
                 )
                 t2 = time.time()
-                if verbose: print(f"took {t2-t1:5.3f} seconds to read raw data on ", file_name)
-                self.raw_data = xp.array(data["spectra"], dtype="uint8", order='c') #only raw data in GPU (if enabled)
+                if verbose: 
+                    print(f"took {t2-t1:5.3f} seconds to read raw data on ", file_name)
+                if force_cpu or xp.__name__ == 'numpy':
+                    self.raw_data = np.array(data["spectra"], dtype="uint8", order='c')
+                else:
+                    self.raw_data = xp.array(data["spectra"], dtype="uint8", order='c') #only raw data in GPU (if enabled)
+                
                 self.spec_num = np.array(data["spec_num"], dtype="int64", order='c')
                 # check for specnum overflow in current file
                 self._wrap_loc = np.where(np.diff(self.spec_num) < 0)[0]
@@ -215,6 +226,7 @@ class Baseband:
                         "Why are there two -ve diffs in specnum? Investigate this file"
                     )
                 if num_overflows > 0:
+                    print(f"{file_name} rx num_overflows {num_overflows}")
                     self.spec_num[:] += num_overflows * 2**32 #correct for all previous overflows
         return
 
@@ -366,6 +378,9 @@ class BasebandFloat(Baseband):
         chanstart=0,
         chanend=None,
         unpack=True,
+        num_overflows=0,
+        force_cpu=False,
+        verbose=True
     ):
         """Create instance of BasebandFloat.
 
@@ -380,8 +395,8 @@ class BasebandFloat(Baseband):
             If it is an integer >=1, specifies # of packets to read.
             If it is a float in (0,1), reads fraction of total packets.
             Defaults to -1, in which case all packets are read.
-        fixoverflow: bool
-            Defaults to True. ?? *warning: not passed to super*
+        num_overflows: int
+            Defaults to 0. Number of cycles of int32 wrap that need to be undone in spectrum numbers due to PAST overflows.
         channels: array like
             List of channel indices that must be unpacked. If passed, chanstart and chanend ignored.
         chanstart: int
@@ -391,8 +406,12 @@ class BasebandFloat(Baseband):
             Index of channel at which to end selection. Default is None
             in which case select up to highest available frequency channel.
             Used to instantiate `channels` if `channels` is None.
+        force_cpu: bool, optional
+            If True, raw_data will be stored on CPU (NumPy) even if GPU (CuPy) is available.
+        verbose: bool, optional
+            If False, disable printing file read times
         """
-        super().__init__(file_name, readlen)
+        super().__init__(file_name, readlen, num_overflows=num_overflows, force_cpu=force_cpu, verbose=verbose)
         self._assign_channels(channels=channels,chanstart=chanstart,chanend=chanend)
             
         if unpack:
@@ -434,6 +453,9 @@ class BasebandPacked(Baseband):
         chanstart=0,
         chanend=None,
         unpack=True,
+        num_overflows=0,
+        force_cpu=False,
+        verbose=True
     ):
         """Create instance of BasebandPacked.
 
@@ -448,16 +470,18 @@ class BasebandPacked(Baseband):
             If it is an integer >=1, specifies # of packets to read.
             If it is a float in (0,1), reads fraction of total packets.
             Defaults to -1, in which case all packets are read.
-        fixoverflow: bool
-            Defaults to True. ?? *Depricated*
+        num_overflows: int
+            Defaults to 0. Number of cycles of int32 wrap that need to be undone in spectrum numbers due to PAST overflows.
         chanstart: int
             Index of channel at which to start selection. Default is 0.
         chanend: int or None
             Index of channel at which to end selection. Default is None
             in which case select up to highest frequency channel.
+        force_cpu: bool, optional
+            If True, raw_data will be stored on CPU (NumPy) even if GPU (CuPy) is available.
         """
 
-        super().__init__(file_name, readlen)  # why not pass fixoverflow too??
+        super().__init__(file_name, readlen, num_overflows=num_overflows, force_cpu=force_cpu, verbose=verbose)
         self._assign_channels(channels=channels,chanstart=chanstart,chanend=chanend)
         # self.spec_idx2 = self.spec_num - self.spec_num[0]
         if unpack:
@@ -510,6 +534,8 @@ def get_rows_from_specnum(stidx, endidx, spec_arr):
 
 
 class BasebandFileIterator:
+    _executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
     def __init__(
         self,
         file_paths,
@@ -562,13 +588,14 @@ class BasebandFileIterator:
             file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
         )
         self.channel_idxs = self.obj.channel_idxs
-        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong
+        if idxstart >= len(self.obj.spec_idx): #get_init_info mapped it wrong and start row is in the next file.
             print(f"idxstart {idxstart} > length of file {len(self.obj.spec_idx)}. move to next file before starting.")
+            prev_len = len(self.obj.spec_idx)
             self.fileidx+=1
             self.obj = self.file_loader(
                 file_paths[self.fileidx], channels=channels, chanstart=chanstart, chanend=chanend, unpack=False
             )
-            idxstart = idxstart - len(self.obj.spec_idx)
+            idxstart = idxstart - prev_len
             print("new idxstart in the next file = ", idxstart)
 
         self.spec_num_start = idxstart + self.obj.spec_idx[0]
@@ -590,6 +617,10 @@ class BasebandFileIterator:
             # For 1 bit, we want one col for each chan if float.
         # self.pol0 = np.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
         # self.pol1 = np.zeros((self.acclen, self.ncols), dtype=self.dtype, order="c")
+        
+        self.next_file_future = None
+        self._queue_next_file()
+
     def get_file_loader(self):
         if self.type == 'float':
             myclass = BasebandFloat
@@ -598,14 +629,36 @@ class BasebandFileIterator:
             myclass = BasebandPacked
             self.dtype = 'uint8'
         def file_loader(*args, **kwargs):
+                kwargs['num_overflows'] = self._OVERFLOW_CTR
                 obj = myclass(*args, **kwargs)
-                if self._OVERFLOW_CTR > 0:
-                    add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
+                # if self._OVERFLOW_CTR > 0:
+                #     add_constant_cpu(obj.spec_num, self._OVERFLOW_CTR*2**32) #account for all previous overflows
                 if obj._overflowed: 
                     self._OVERFLOW_CTR+=1
                     print("overflow counter is ",self._OVERFLOW_CTR)
                 return obj
         return file_loader
+
+    def _queue_next_file(self):
+        """Pre-fetch the next file into CPU RAM in the background."""
+        next_idx = self.fileidx + 1
+        if next_idx < len(self.file_paths):
+            self.next_file_future = self._executor.submit(
+                self.file_loader,
+                self.file_paths[next_idx],
+                channels=self.channel_idxs,
+                unpack=False,
+                force_cpu=True
+            )
+            print('submitted next file queue job', self.file_paths[next_idx])
+        else:
+            self.next_file_future = None
+
+    def _ensure_gpu(self, obj):
+        """Move data to GPU only if we are in GPU mode and it's still on CPU."""
+        if xp.__name__ == 'cupy' and isinstance(obj.raw_data, np.ndarray):
+            obj.raw_data = xp.asarray(obj.raw_data)
+        return obj
 
     def __iter__(self):
         return self
@@ -672,11 +725,10 @@ class BasebandFileIterator:
                     if len(self.file_paths) == self.fileidx:
                         print("goddamn no more files.")
                         raise StopIteration("BFI Ran out of files!")
-                    self.obj = self.file_loader(
-                        self.file_paths[self.fileidx],
-                        channels=self.channel_idxs,
-                        unpack=False,
-                    )
+                    
+                    self.obj = self.next_file_future.result()
+                    self._ensure_gpu(self.obj)
+                    self._queue_next_file()
                     # print(
                     #     "Current obj first spec, last spec, and acc spec start",
                     #     self.obj.spec_idx[0],
