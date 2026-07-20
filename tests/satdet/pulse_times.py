@@ -10,6 +10,3 @@ This is tested using the same pulse, but evaluated using three different start a
 
 At the moment this is slightly difficult to test, but if we set the batch up such that it's the exact pulse times we should be okay?
 '''
-
-
-

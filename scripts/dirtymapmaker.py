@@ -1,7 +1,6 @@
 import numpy as np
 import cupy as cp
 import numba as nb
-import rfitools
 import healpy as hp
 from astropy.coordinates import EarthLocation, SkyCoord, AltAz
 from astropy.time import Time

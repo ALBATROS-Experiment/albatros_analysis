@@ -12,7 +12,7 @@ Our antenna ADC samples at 250 MSPS, each antenna channelizes (using a PFB) the 
 
 The general flow of the pipeline, with rather self-explanatory script names and data storage files, is best outlined in the following flowchart:
 
-![alt text](./flow.jpeg)
+![alt text](./images/flow.jpeg)
 
 Note that the arrows only point towards the right, meaning data that is generated in the script then gets stored in that file. Each script uses almost all previous data (e.g. practically all scripts use antenna coordinates, which are stored in the config files). 
 
@@ -38,7 +38,7 @@ $$
 $$
 Beware of the sign of $Δs_r$, might be the opposite in the actual code. A visualization of this alignment can be seen in the image below:
 
-![alt text](./specnumoffsets.jpeg)
+![alt text](./images/specnumoffsets.jpeg)
 
 When opening up two files, the initial difference between the two, $s_x - s_y$, is easily determined. What we need the satellites for is finding the required RELATIVE shift $Δs_r$ to alter the net difference and obtain alignment. Note that we have not yet determined the absolute time at which we measure the data. This will come in later. 
 
@@ -64,7 +64,7 @@ The second main objective is some reliable measure of where to look for high SNR
 
 An example of why this dump might be useful: the image shows satellite SNR with time, for two different batches overlayed. 
 
-![alt text](./snrs_times_properly.png)
+![alt text](./images/snrs_times_properly.png)
 
 **/data/pulses.json** records all the pulses we actually use in the later steps. Upsampling is computationally expensive, so we want to use pulse selection sparingly and cleverly. The relevant script is 'get_pulse_list.py', which finds all the times where there is a satellite risen for N continuous chunks at a minimum of X SNR. The script automatically checks the data presence for each antenna, and records which ones have missing data so as to inform the later upsampling scriupts. Due to the unreliability of detections on longer baselines, we select a short baseline to run the script on, with a reasonably high SNR floor. This way, we can gauge which pulses are bright. (TODO: We then verify there is a detection (need not be as high SNR) in the other baselines). This json answers the question: where do you want me to look for a timing solution, and what antenna can I trust to have data there? The computation of pulses.json marks the first time we actually index pulses by their starting time (rounded to nearest integer), since we can now reliably say there are visible, detected, and have sufficient SNR.
 
@@ -105,7 +105,7 @@ We fit on unwrapped phases. We expect the only major drift in unwrapped phases (
 Since we fit on unwrapped phases, we must first cut the pulse such that unwrapping issues do not corrupt the fit. Since we are not aligned to UTC time yet, and we are cut by visibility amplitude. Use XXXX to get best continuous 2 minutes. Results saved in '/data/cutting_UTC.json' so as to facilitate repeated runs for the same pulse. 
 
 The fitting cost surface typically looks something like this:
-![alt text](./scripts/cost_curve_timing.png)
+![alt text](./images/cost_curve_timing.png)
 
 ### c. UTC Mapping
 
@@ -158,7 +158,7 @@ IMPORTANT: there are two different types of fit here: fitting on the cost carrie
 
 The final fit, once you do the time average and normal equation fit gives us the red line. The correct carrier peak is right next to it, and the fit uncertainties are right next to it. 
 
-![alt text](./cost_surface.png)
+![alt text](./images/cost_surface.png)
 
 Here is also the full with-time plot.
 

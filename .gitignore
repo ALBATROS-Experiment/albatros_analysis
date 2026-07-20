@@ -26,3 +26,9 @@ devenv/
 env/
 html/pdoc/
 
+# ignorning package egg stuff
+*.egg-info/
+
+#ignoring website doc stuff
+*.html
+/site/*
