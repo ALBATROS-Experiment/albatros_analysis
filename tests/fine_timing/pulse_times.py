@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import subprocess
 import os
+import h5py
 import json
 
 '''
@@ -36,6 +37,7 @@ path_finetiming = os.path.join(path_batch, 'fine_timing')
 os.makedirs(path_finetiming, exist_ok=True)
 path_discrepancies = os.path.join(path_batch, 'timing_discrepancies')
 os.makedirs(path_discrepancies, exist_ok=True)
+
 
 
 #make and save articifial pulse list

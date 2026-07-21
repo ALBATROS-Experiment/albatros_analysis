@@ -16,6 +16,14 @@ nav:
   - Scripts:
       - Overview: scripts/index.md
       - Orbcomm: scripts/orbcomm.md
+  - Testing:
+      - Science:
+          - Overview: testing/science/index.md
+          - Pulse Times (SatDet): testing/science/pulse_times_satdet.md
+          - Pulse Times (FineTiming): testing/science/pulse_times_finetiming.md
+      - Software:
+          - Overview: testing/software/index.md
+          - BFI: testing/software/BFI.md
 
 theme:
   name: material
