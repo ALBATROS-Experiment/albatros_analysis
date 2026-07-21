@@ -2,7 +2,13 @@ site_name: ALBATROS Analysis Documentation
 
 nav:
   - Home: index.md
-  - Pipeline: pipeline.md
+  - Pipeline: 
+    - Overview: pipeline/index.md
+    - 1. Data Structure: pipeline/data_structure.md
+    - 2. Satellite Detection: pipeline/satdet.md
+    - 3. UTC Timing: pipeline/utc.md
+    - 4. Fine Timing: pipeline/finetiming.md
+    - Theory (Optional): pipeline/theory.md
   - API:
       - Overview: api/index.md
       - Utilities: api/utils.md
