@@ -3,12 +3,11 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "alb_utils"
+name = "alb_tools"
 version = "0.1.0"
 
 [tool.setuptools]
-py-modules = []
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]

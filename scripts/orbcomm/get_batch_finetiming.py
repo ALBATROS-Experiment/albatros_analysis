@@ -33,7 +33,9 @@ if __name__ == "__main__":
     parser.add_argument("config_path", type=str)
     #parser.add_argument("pulse_list", type = list)
     parser.add_argument('-m', "--meteors_only", action='store_true')
-    parser.add_argument('-t', "--testing", type=str, default=None)
+    parser.add_argument('-s', "--save_to_soln", action='store_true', help='Sets if results should be saved to the full timing_solution database.')
+    parser.add_argument('-t', "--testing", type=str, default=None , help='name of test that is being run')
+
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -49,6 +51,7 @@ if __name__ == "__main__":
     acclen = config['correlation']['new_acclen']
 
     T_SPECTRA = 4096/250e6 * osamp
+    window_size = 120
     ant_idxs = [0, 1, 2, 3, 4, 5, 6]
     antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
     nant_used = len(ant_idxs)
@@ -84,10 +87,6 @@ if __name__ == "__main__":
     #load in the discrepancy mapping
     UTC_per_spec = dict_fits_discrep['fit']['UTC_per_spec']
     UTC_offset = dict_fits_discrep['fit']['UTC_offset']
-
-    #BATCH 2
-    #UTC_per_spec = 1.638401491028474e-05
-    #UTC_offset = 1753200128.4654782
     
     #=========================================================================
     #ITERATION
@@ -132,7 +131,7 @@ if __name__ == "__main__":
         print('nchans:', nchans)
         print('new chans:', chans_new)
         #get frequencies
-        freqs = 250e6 - (chans_new/64 + chans_old[0])*250e6/4096
+        freqs = 250e6 - (chans_new/osamp + chans_old[0])*250e6/4096
         #load up data
         print('Loading Data')
         data1 = np.load(os.path.join(path_batch, 'data', fname_data), mmap_mode='r')
@@ -184,9 +183,9 @@ if __name__ == "__main__":
             fig_thermal_noise1.savefig(os.path.join(path_pulse, 'thermal_noise1.png'))
             plt.close(fig_thermal_noise1)
             #cut according to phase noise
-            chunks_cut_start, chunks_cut_end = futils.find_lowest_noise(thermal_noise1)
+            chunks_cut_start, chunks_cut_end = futils.find_lowest_noise(thermal_noise1, window_size = window_size)
             spec_cut_start, spec_cut_end = chunks_cut_start*acclen, chunks_cut_end*acclen
-            spec_pstart2 = spec_pstart1 + spec_cut_start*64
+            spec_pstart2 = spec_pstart1 + spec_cut_start*osamp
             print(chunks_cut_start, chunks_cut_end)
             #save important stuff so we don't have to keep doing this
             dict_cutting_finetiming[fname_data] ={'spec_cut_start':spec_cut_start,
@@ -350,7 +349,7 @@ if __name__ == "__main__":
 
     
         #=========================================================================
-        # FIT AND UNWRAP TAUS
+        # FIT TAUS
 
         # array of fitted taus for each time, for each (non-reference) antenna
         taus_fitted = np.zeros((ntimes,nant_used-1),dtype='float64')
@@ -376,8 +375,10 @@ if __name__ == "__main__":
             print(f"done tt={tt}, time = {t2-t1:5.3f}")
         fig, ax = plt.subplots(figsize=(8,5))
         labels=['M1-2', 'M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
+        #set up so they start from zero
+        taus_fitted -= taus_fitted[0,:]
         for antidx in range(nant-1):
-            ax.plot(taus_fitted[:,antidx] - taus_fitted[0,antidx], label=labels[antidx])
+            ax.plot(taus_fitted[:,antidx], label=labels[antidx])
             ax.set_xlabel('Time Sample (~1 s)')
             ax.set_ylabel('Relative Drift (ns)')
         ax.legend()
@@ -386,9 +387,7 @@ if __name__ == "__main__":
         fig.savefig(os.path.join(path_pulse, 'taus_fitted_wrapped.png'))
         plt.close(fig)
 
-
-        # DO WE NEED TO UNWRAP???
-        labels=['M1-2', 'M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
+        #get the unwrapped version. to see what difference it makes (optional)
         taus_unwrapped = np.unwrap(np.angle(np.exp(1j*taus_fitted.reshape(-1,nant_used-1)*2*np.pi*freqs_normalized.mean())),axis=0)/(2*np.pi*freqs_normalized.mean())
         # plot the relative delays of the other antenna with respect to the reference antenna
         fig_taus_unwrapped, ax = plt.subplots()
@@ -419,8 +418,8 @@ if __name__ == "__main__":
                 if i==0:
                     tau1=0
                 else:
-                    tau1 = taus_unwrapped[:,i-1]
-                tau2 = taus_unwrapped[:,j-1]
+                    tau1 = taus_fitted[:,i-1] #use the fitted taus, not unwrapped
+                tau2 = taus_fitted[:,j-1]
                 rel_delay = tau1-tau2
                 ax[blnum].set_title(f"{antmap[ai]}-{antmap[aj]} (id {blnum})")
                 phased_vis[blnum,:,:] = vis2[blnum,:,:]*np.exp(-2j*np.pi*freqs_normalized[None,:]*rel_delay[:,None])
@@ -465,13 +464,10 @@ if __name__ == "__main__":
         print(noise_matrix_avg)
 
 
-
-
         #=========================================================================
-        ntime2=1
         #can now just fit linearly using normal equations
         data_matrix = np.unwrap(np.angle(avg_multi_vis),axis=0)
-        data_matrix = data_matrix.reshape(ntime2,nchans,nblines)
+        data_matrix = data_matrix.reshape(1,nchans,nblines)
 
         Ag = futils.get_grammian(nant_used)
         print(data_matrix.shape)
@@ -482,7 +478,7 @@ if __name__ == "__main__":
                                     freqs_normalized,
                                     nant_used,
                                     nchans,
-                                    ntime2,
+                                    1,
                                     fit_constant=True)
 
 
@@ -491,8 +487,8 @@ if __name__ == "__main__":
 
         # Total parameters for tau: ntime * (nant-1)
         bs = nant_used - 1
-        tau_linear2 = mfit2[:ntime2 * bs]
-        phi_linear2 = mfit2[ntime2 * bs:]
+        tau_linear2 = mfit2[:1 * bs]
+        phi_linear2 = mfit2[1 * bs:]
         errs_all = np.sqrt(np.diag(AtA_inv2))
 
         taus_fitted_all = tau_linear2[:, np.newaxis] + taus_unwrapped.T
@@ -516,4 +512,33 @@ if __name__ == "__main__":
                 del grp['errs']
             taus_errs = grp.create_dataset('errs', data = taus_errs_all)
             taus.attrs['starting_specnum'] = spec_pstart2
+
+    if args.save_to_soln:
+        print('now saving the final thing into timing solution object')
+
+        nvis = window_size
+        ntimes = nvis*len(list_pulses)
+        spectra = np.zeros(ntimes)
+        taus = np.zeros((bs, ntimes))
+
+        pass_ctr = 0
+        with h5py.File(f'/scratch/thomasb/timing_solution/batch_{batch_start_ts}', 'r') as f:
+            for name, obj in f.items():
+                #specnum stuff
+                start_spec = obj['taus'].attrs['starting_specnum']
+                #beware: we want the CENTRAL spectrum number, not the STARTING one, we accumulate through entire integration time
+                s = np.arange(int(start_spec+int_spec/2), int(start_spec + (nvis+1/2)*int_spec), int_spec)
+                spectra[pass_ctr*nvis: (pass_ctr+1)*nvis] = s
+                #taus stuff
+                taus_old = obj['taus'][:]
+                print('taus shape', taus_old.shape)
+                taus[:, pass_ctr*nvis: (pass_ctr+1)*nvis] = taus_old
+                pass_ctr += 1
+                #
+                #add errors and such!!
+
+        with h5py.File(f'/scratch/thomasb/timing_solution/batch_{batch_start_ts}.h5', "w") as f:
+            f.create_dataset("spectra", data=spectra)
+            f.create_dataset("taus", data=taus) #shape (nbl, ntimes)
+
     print('done!')
