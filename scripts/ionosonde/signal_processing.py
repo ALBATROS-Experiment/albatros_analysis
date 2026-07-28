@@ -10,38 +10,37 @@ import sys, os
 # If you have a clone of the albatros_analysis repo there, this allows you to
 # import some useful functions
 sys.path.insert(0, os.path.expanduser("~"))
-from albatros_analysis.src import xp
+from albatros_analysis.src import xp, fft, ifft
 
-from albatros_analysis.src.utils import pycufft
 from albatros_analysis.src.utils import pfb_utils as pu
-from albatros_analysis.scripts.ionosonde import params
+from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde import codes
 
 ### SOME UTILITIES ###
 
-def add_zeros(arr, final_len):
-    out = np.zeros(final_len)
-    out[:len(arr)] = arr
-    return out
+# def add_zeros(arr, final_len):
+#     out = np.zeros(final_len)
+#     out[:len(arr)] = arr
+#     return out
 
-def quantize(a):
-    """One bit quantize a"""
-    if a >= 0:
-        return 1.
-    else:
-        return -1.
+# def quantize(a):
+#     """One bit quantize a"""
+#     if a >= 0:
+#         return 1.
+#     else:
+#         return -1.
     
 ### IPFB ###
 
-def setup_ipfb(final_channels, ipfb_chunk_size):
+def setup_ipfb(final_channels, ipfb_chunk_size, args=default_args):
     ipfb = pu.StreamingIPFB_IQ(
-        params.num_ant,
-        params.num_pol,
+        args.num_ant,
+        args.num_pol,
         final_channels,
         nblock = ipfb_chunk_size,
-        ntap = params.num_pfb_tap,
+        ntap = args.num_pfb_tap,
         window = "hamming",
-        cut = params.cutsize,
+        cut = args.cutsize,
     ) # Reminder: the lblock parameter of this function does absolutely nothing!
     # Do not set it! You will get confused. Use ipfb.lblock to determine it
     print("ipfb channels", ipfb.channels)
@@ -77,17 +76,17 @@ ddc_kernel = cp.ElementwiseKernel(
 
 ### FILTERING ###
 
-def get_filter():
-    cutoff = params.code_baudrate / params.adc_samp_freq
-    h = scipy.signal.firwin(params.filter_len, cutoff=cutoff/2, window=('kaiser', 4),fs=1) #cutoff is one sided bandwidth
-    h_cupy = cp.zeros((1, params.buf_len), dtype="complex64")
-    h_cupy[0, :params.filter_len] = cp.asarray(h, dtype="complex64")
-    hf = pycufft.fft(h_cupy, axis=1)
+def get_filter(args=default_args):
+    cutoff = args.code_baudrate / args.adc_samp_freq
+    h = scipy.signal.firwin(args.filter_len, cutoff=cutoff/2, window=('kaiser', 4),fs=1) #cutoff is one sided bandwidth
+    h_cupy = cp.zeros((1, args.buf_len), dtype="complex64")
+    h_cupy[0, :args.filter_len] = cp.asarray(h, dtype="complex64")
+    hf = fft(h_cupy, axis=1)
 
     return hf
 
-def apply_filter(dc_ts, hf, filter_state_1d, buf_len = 4096):
-    '''XX.
+def apply_filter(dc_ts, hf, filter_state_1d, args = default_args):
+    '''X.
 
     Parameters
     ----------
@@ -98,8 +97,7 @@ def apply_filter(dc_ts, hf, filter_state_1d, buf_len = 4096):
         and 0 in the ones we throw away.
     filter_state_1d :
         Only non-zero if data is being processed in multiple chunks.
-    buf_len :
-        Length of the FFTs. Must be longer than the filter length.
+
 
     Returns
     -------
@@ -107,18 +105,18 @@ def apply_filter(dc_ts, hf, filter_state_1d, buf_len = 4096):
         The filtered, downconverted timestream.
     '''
     Nfilt = filter_state_1d.shape[0]
-    ncols = buf_len - Nfilt
+    ncols = args.buf_len - Nfilt
     nrows = dc_ts.shape[0] // ncols
     dc_ts = dc_ts[: nrows * ncols].reshape(nrows, ncols)
 
-    inp = cp.zeros((nrows, buf_len), dtype="complex64") #buf_len is a fast FFT len, since we'll FFT input
+    inp = cp.zeros((nrows, args.buf_len), dtype="complex64") #buf_len is a fast FFT len, since we'll FFT input
     # print("inp shape is", inp.shape)
     inp[0, :Nfilt] = filter_state_1d
     inp[:, Nfilt:] = dc_ts[:, :]
     inp[1:, :Nfilt] = dc_ts[:-1, -Nfilt:]
     filter_state_1d[:] = dc_ts[-1, -Nfilt:]
 
-    filt_inp = pycufft.ifft(pycufft.fft(inp, axis=1) * hf, axis=1)
+    filt_inp = ifft(fft(inp, axis=1) * hf, axis=1)
     # print("filt_inp shape is", filt_inp.shape)
     out = cp.zeros((nrows, ncols), dtype="complex64")
     out[:, :] = filt_inp[:, Nfilt:]
@@ -127,7 +125,7 @@ def apply_filter(dc_ts, hf, filter_state_1d, buf_len = 4096):
 
 def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts_pol0_dc, ts_pol1_dc, ipfb,
           ant_idx, phase_cycles, filter_state,
-          filtered_timestreams):
+          filtered_timestreams, args=default_args):
     """TODO: Write description.
 
     Parameters
@@ -155,15 +153,17 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
         Here to be overwritten, but should be of the right shape
     """
 
-    dsamp = int(params.adc_samp_freq * ipfb.lblock / params.len_pfb_init / params.code_baudrate)
+    dsamp = int(args.adc_samp_freq * ipfb.lblock / args.len_pfb_init / args.code_baudrate)
 
-    ts_pol0 = ipfb.ipfb(ant_idx, 0, pol0, thresh=params.filt_thresh)
-    ts_pol1 = ipfb.ipfb(ant_idx, 1, pol1, thresh=params.filt_thresh)
+    ts_pol0 = ipfb.ipfb(ant_idx, 0, pol0, thresh=args.filt_thresh)
+    ts_pol1 = ipfb.ipfb(ant_idx, 1, pol1, thresh=args.filt_thresh)
 
     # begin loop over frequencies
-    for fi, freq in enumerate(params.ionosonde_freqs):
-        ipfb_start_freq = final_channels[0] * params.adc_samp_freq/params.len_pfb_init
-        ddc_freq = (freq - ipfb_start_freq)/params.len_pfb_init #normalized
+    new_samp_rate = args.adc_samp_freq * ipfb.lblock / args.len_pfb_init
+
+    for fi, freq in enumerate(args.ionosonde_freqs):
+        ipfb_start_freq = final_channels[0] * args.adc_samp_freq/args.len_pfb_init
+        ddc_freq = (freq - ipfb_start_freq) / new_samp_rate #normalized
         
         ddc_kernel(ts_pol0, ddc_freq, phase_cycles[fi], ts_pol0_dc)
         ddc_kernel(ts_pol1, ddc_freq, phase_cycles[fi], ts_pol1_dc)
@@ -176,14 +176,14 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
 
         # filter the downconverted ts, sampling rate 5 us
         # FIX: Use separate filter states for pol0 and pol1
-        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], buf_len = 4096)[::dsamp]  
-        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], buf_len = 4096)[::dsamp]
+        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], args=args)[::dsamp]  
+        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], args=args)[::dsamp]
         # print("ts_pol0_filt shape is", ts_pol0_filt.shape, "and ts_pol1_filt shape is", ts_pol1_filt.shape)
         filtered_timestreams[fi, 0, :] = ts_pol0_filt
         filtered_timestreams[fi, 1, :] = ts_pol1_filt
     
     # Perform correlation
-    code_spectra = codes.get_code_spectra(Nts_dc)
-    corr = pycufft.ifft( pycufft.fft(filtered_timestreams, axis=2) * cp.conj(code_spectra[None,:, :]), axis=2)
+    code_spectra = codes.get_code_spectra(Nts_dc, args=args)
+    corr = ifft( fft(filtered_timestreams, axis=2) * cp.conj(code_spectra[None,:, :]), axis=2)
     
     return corr

@@ -3,38 +3,64 @@
 import numpy as np
 import os
 
-c = 3e5 # km/s
-len_pfb_init = 4096 # Length of the orginial PFB tap
-# ipfb_chunk_size = int(5e5) # 409600 # 1000000
+import argparse
 
-code0_str = '0001_0010_0001_1101' # complementary code pair, code 0
-code1_str = '0001_0010_1110_0010' # complementary code pair, code 1
-code_snr_boost = 6
-code_len = 16
-code_baudrate = 200e3 # Hz, sampling rate for code
-ipp = 5.5e-3 # s, interpulse pulse period
-code_repeat_num = 10 # number of repetitions of code_pattern
+parser = argparse.ArgumentParser('Ionosonde')
 
-dac_rate = 250e6 # Hz, sampling rate of output to DAC
-dac_bitwidth = 16 # bitwidth of output to DAC
+parser.add_argument('--c', default=3e5, type=float, help='Speed of light in km/s.')
+
+# FPGA/ADC/Inital PFB
+parser.add_argument('--len_pfb_init', default=4096, type=int, help='Length of the FFTs taken by the FPGA.')
+parser.add_argument('--num_pfb_tap', default=4, type=int, help='Number of taps in the inital PFB.')
+parser.add_argument('--adc_samp_freq', default=250e6, type=float, help='Analog-to-digital converter (ADC) sample frequency.')
+parser.add_argument('--channels', default=np.arange(64,168), type=int, nargs="+")
+
+# Codes
+parser.add_argument('--code0_str', default='0001_0010_0001_1101', type=str, help='Code 0 of the complementary code pair.')
+parser.add_argument('--code1_str', default='0001_0010_1110_0010', type=str, help='Code 1 of the complementary code pair.')
+parser.add_argument('--code_snr_boost', default=6, type=int, help = 'Number of times each code symbol is repeated.')
+parser.add_argument('--code_len', default=16, type=int, help = 'Length of codes.')
+parser.add_argument('--code_baudrate', default=200e3, type=float, help='Code baudrate.')
+parser.add_argument('--template_dt', type=float, help='Sample spacing for smoothed code sequence.')
+parser.add_argument('--ipp', default=5.5e-3, type=float, help='Interpulse period, i.e. the time between sucessive code transmissions.')
+parser.add_argument('--code_repeat_num', default=10, type=int, help='Number of repetitions of code_pattern.')
+parser.add_argument('--trans_len', type=int, help='Calculate transmission length.')
+
+# parser.add_argument('--which_antenna', default=3, type=float, help='Antenna number.')
+parser.add_argument('--start_time', default=1746818100, type=int)
+parser.add_argument('--corr_time', default=15, type=int)
+parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive3_mars_spring2025/baseband/", type=str)
+parser.add_argument('--out_dir', default="/scratch/mayas/ionograms_testing", type=str)
+parser.add_argument('--corr_name', default="correlated_data.npz", type=str)
+parser.add_argument('--num_pol', default=2, type=int, help='Number of polarizations.')
+parser.add_argument('--num_ant', default=1, type=int, help='Number of anntenna.')
+
+parser.add_argument('--cutsize', default=16, type=int, help="???????")
+parser.add_argument('--filt_thresh', default=0.2, type=float, help="Filter threshold.")
+parser.add_argument('--filter_len', default=512, type=int, help="Filter length.")
+parser.add_argument('--buf_len', default=4096, type=int, help="Buffer length.")
+
+parser.add_argument('--iono_freqs_path', default=f"{os.path.expanduser('~')}/albatros_analysis/scripts/ionosonde/eureka_freqs_hz.csv",
+                    help='Path to CSV file with list of ionosonde frequencies.')
+parser.add_argument('--freq_idx_bounds', default=[36, 72], nargs=2, type=int, help='Which frequencies to actually analyze.')
+parser.add_argument('-f', type=str, help='Just here so that IPython works.')
+parser.add_argument('-v', '--verbose', action='store_true')
 
 
+default_args = parser.parse_args()
 
-# Bandwidth
-# bw = 104
+# Calculate transmission length
+if default_args.trans_len == None:
+    default_args.trans_len = (2 * default_args.code_repeat_num + 1) * default_args.ipp
+# Calculate channel resolution of orginial Fourier transform
+default_args.chan_res_init = default_args.adc_samp_freq / default_args.len_pfb_init
 
-adc_samp_freq = 250e6
+if default_args.template_dt == None:
+    default_args.template_dt = 1 / default_args.code_baudrate
 
-chan_res_init = adc_samp_freq / len_pfb_init # Channel resolution of original FT
+default_args.all_freqs = np.loadtxt(default_args.iono_freqs_path, skiprows = 1)
+default_args.ionosonde_freqs = default_args.all_freqs[default_args.freq_idx_bounds[0]:default_args.freq_idx_bounds[1]]
 
-num_ant = 1
-num_pol = 2
-num_pfb_tap = 4
-cutsize = 16
-# read_size = ipfb_chunk_size - 2 * cutsize
-filt_thresh = 0.2
-filter_len = 512
-buf_len = 4096
-
-all_freqs = np.loadtxt(f"{os.path.expanduser('~')}/albatros_analysis/scripts/ionosonde/eureka_freqs_hz.csv", skiprows = 1)
-ionosonde_freqs = all_freqs[36:72]
+if __name__ == "__main__":
+    print(default_args)
+    print(default_args.copy())

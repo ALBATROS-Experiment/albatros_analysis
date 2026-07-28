@@ -4,12 +4,11 @@ from scipy.interpolate import CubicSpline
 
 import os, sys
 sys.path.insert(0, os.path.expanduser("~"))
-from albatros_analysis.src import xp
+from albatros_analysis.src import xp, fft
 
-from albatros_analysis.scripts.ionosonde import params
-from albatros_analysis.src.utils import pycufft
+from albatros_analysis.scripts.ionosonde.params import default_args
 
-def clean_code(code_str):
+def clean_code(code_str, args = default_args):
     """
     Remove underscores from a code string and turn it into a numerical
     array where -1 are where there once were 0s and the 1s remain.
@@ -27,8 +26,7 @@ def clean_code(code_str):
 
     return np.array(res)
 
-def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
-                 smoothed = True, repeat_num = params.code_repeat_num) -> np.ndarray:
+def get_template(which_code = "1", smoothed = True, args = default_args) -> np.ndarray:
     '''Generate a repeated code template for later correlation. The two-code
     pattern specified by which_code is repeated repeat_num times.
 
@@ -48,18 +46,10 @@ def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
         - "1first"  : code1 in the first slot, code0 in the second slot.
 
         A ValueError is raised if which_code is not one of these values.
-    
-    template_dt : float, optional
-        Sampling interval of the returned smoothed template in seconds.
-        Defaults to one sample per code symbol (1 / params.code_baudrate).
 
     smoothed : bool, optional
         If True, return a cubic-spline-interpolated version of the template.
         If False, return the original discrete template.
-
-    repeat_num: int, optional
-        Number of times the codes are repeated
-        Defaults to params.code_repeat_num
 
     Returns
     -------
@@ -73,11 +63,11 @@ def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
     # This will then be broadcast at the code baudrate (usually 200 ksps, or
     # kilo-samples per second)
     # Codes are spaced by the interpulse period (abreviated IPP, usually 5.5 ms)
-    per_code_len = params.code_len * params.code_snr_boost
-    total_len = int(np.ceil(params.ipp * params.code_baudrate))
+    per_code_len = args.code_len * args.code_snr_boost
+    total_len = int(np.ceil(args.ipp * args.code_baudrate))
     
-    code0 = clean_code(params.code0_str).repeat(params.code_snr_boost)
-    code1 = clean_code(params.code1_str).repeat(params.code_snr_boost)
+    code0 = clean_code(args.code0_str, args=args).repeat(args.code_snr_boost)
+    code1 = clean_code(args.code1_str, args=args).repeat(args.code_snr_boost)
 
     # We first create a small template that we will then repeat
     # repeat_num times (usually 10)
@@ -91,19 +81,19 @@ def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
     if which_code == "0" or which_code == "0first":
         small_template[:per_code_len] = code0
     elif which_code == "1" or which_code == "1first":
-        small_template[:per_code_len] = code0
+        small_template[:per_code_len] = code1
 
     if which_code == "0offset" or which_code == "1first":
         small_template[total_len:total_len + per_code_len] = code0
     elif which_code == "1offset" or which_code == "0first":
         small_template[total_len:total_len + per_code_len] = code1
     
-    template = np.tile(small_template, repeat_num)
+    template = np.tile(small_template, args.code_repeat_num)
 
     if smoothed:
-        smoothed_template_points = np.arange(2 * repeat_num * total_len) * template_dt
+        smoothed_template_points = np.arange(2 * args.code_repeat_num * total_len) * args.template_dt
 
-        cs = CubicSpline(np.arange(2 * repeat_num * total_len) / params.code_baudrate, template)
+        cs = CubicSpline(np.arange(2 * args.code_repeat_num * total_len) / args.code_baudrate, template)
         smoothed_template = cs(smoothed_template_points)
  
         return smoothed_template
@@ -111,7 +101,7 @@ def get_template(which_code = "1first", template_dt = 1 / params.code_baudrate,
         return template
 
 
-def get_code_spectra(len_timestream, which_code = "1first"):
+def get_code_spectra(len_timestream, which_code = "1first", args=default_args):
     """
     Returns the spectrum of the desired code template (i.e. the desired code
     template, FFT'd).
@@ -122,7 +112,7 @@ def get_code_spectra(len_timestream, which_code = "1first"):
         AKA Nts_dc
     """
     code_templates_gpu = xp.zeros((1, len_timestream), dtype="complex64")
-    code_template = get_template(which_code = which_code, smoothed = False)
+    code_template = get_template(which_code = which_code, smoothed = False, args=args)
     code_templates_gpu[0, : len(code_template)] = xp.asarray(code_template, dtype="complex64")
-    code_spectra = pycufft.fft(code_templates_gpu, axis=1)
+    code_spectra = fft(code_templates_gpu, axis=1)
     return code_spectra

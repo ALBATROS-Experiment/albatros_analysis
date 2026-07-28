@@ -6,11 +6,11 @@ from albatros_analysis.src import xp
 
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as bu
-from albatros_analysis.scripts.ionosonde import params
+from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde import signal_processing as sp
-from albatros_analysis.scripts.ionosonde import plotting
+from albatros_analysis.scripts.ionosonde import ionogram
 
-def get_antenna_objs(idxs, files, nchunks, channels, read_size, verbose = False):
+def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_args):
     """Get baseband spectra for all antennas x polarizations
 
     Parameters
@@ -29,15 +29,18 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, verbose = False)
     header = bdc.get_header(files[0][0])
 
     channel_indices = np.where(np.isin(header["channels"], channels))[0]  # channels that are in requested channels
+    # These assert statements are here because the ALBATROS backend and
+    # low-level unpacking is not designed to handle odd starting chan
+    # and odd total chans
     assert channel_indices[0] % 2 == 0
     assert len(channel_indices) % 2 == 0
 
-    if verbose:
+    if args.verbose:
         print("Getting timestream")
         print("\tChannel indices to be used", channel_indices)
     
     antenna_objs = []
-    for i in range(params.num_ant):
+    for i in range(args.num_ant):
         aa = bdc.BasebandFileIterator(
             files[i],
             0,  # fileidx is 0 = start idx is inside the first file
@@ -67,43 +70,40 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, verbose = False)
         "\n---------------------------------------------"
     )
     final_channels = aa.obj.channels[aa.obj.channel_idxs].copy()
-    
+
+    print(f"FINAL CHANNELS: {final_channels}")
     return final_channels, antenna_objs
 
-def process_from_data(t_start, t_diff = 5,
-                      fpath = "/scratch/mohanagr/drive3_mars_spring2025/baseband/",
-                      outdir = f"/scratch/{os.environ.get('USER')}/ionosphere/output"):
-    t_end = t_start + t_diff
-    files, idx = bu.get_init_info(t_start, t_end, fpath)
-    nchunks = 2
-    channels = np.arange(64,168)
-    nchan = len(channels)
+def process_from_data(args=default_args):
+    files, idx = bu.get_init_info(args.start_time, int(args.start_time + args.corr_time), args.baseband_dir)
+    nchunks = 1
+    nchan = len(args.channels)
 
-    ipfb_chunk_size = int(t_diff * params.chan_res_init)
-    read_size = ipfb_chunk_size - 2 * params.cutsize
+    ipfb_chunk_size = int(args.corr_time * args.chan_res_init)
+    read_size = ipfb_chunk_size - 2 * args.cutsize
 
     # Setup IPFB
-    ipfb = sp.setup_ipfb(channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
+    ipfb = sp.setup_ipfb(args.channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
 
     len_timestream = read_size * ipfb.lblock
-    ncols = params.buf_len - params.filter_len
+    ncols = args.buf_len - args.filter_len
     nrows = len_timestream // ncols
-    dsamp = int(params.adc_samp_freq * ipfb.lblock / params.len_pfb_init / params.code_baudrate)
+    dsamp = int(args.adc_samp_freq * ipfb.lblock / args.len_pfb_init / args.code_baudrate)
     Nts_dc = (nrows * ncols + dsamp - 1) // dsamp  # downsampled length after chopping end bits, essentially ceil
 
     # Get filter
     hf = sp.get_filter()
 
     # we'll have to store the end phase for all frequencies to downconvert continuously
-    phase_cycles = xp.zeros(len(params.ionosonde_freqs), dtype="float64")
+    phase_cycles = xp.zeros(len(args.ionosonde_freqs), dtype="float64")
     # we'll have to store the last filter state for all frequencies and polarizations to filter continuously
-    filter_state = xp.zeros((len(params.ionosonde_freqs), params.num_pol,
-                             params.filter_len), dtype="complex64")
+    filter_state = xp.zeros((len(args.ionosonde_freqs), args.num_pol,
+                             args.filter_len), dtype="complex64")
 
 
     # Pre-allocate temporary timestreams for downconversion to avoid in-place modification and repeated allocations
-    filtered_timestreams = xp.zeros((len(params.ionosonde_freqs),
-                                     params.num_pol, Nts_dc),
+    filtered_timestreams = xp.zeros((len(args.ionosonde_freqs),
+                                     args.num_pol, Nts_dc),
                                      dtype="complex64") # this takes up roughly 5 GB
 
     print("len_timestream AKA Nts", len_timestream)
@@ -111,10 +111,10 @@ def process_from_data(t_start, t_diff = 5,
     ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     
     print(files)
-    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, channels, read_size)
+    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
 
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
-        for ant_idx in range(params.num_ant):
+        for ant_idx in range(args.num_ant):
             chunk = chunks[ant_idx]
             expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
 
@@ -139,19 +139,15 @@ def process_from_data(t_start, t_diff = 5,
             corr = sp.process_one_chunk(pol0, pol1, final_channels,
                                         hf, len_timestream, Nts_dc, ts_pol0_dc,
                                         ts_pol1_dc, ipfb, ant_idx, phase_cycles,
-                                        filter_state, filtered_timestreams)
+                                        filter_state, filtered_timestreams, args=args)
     
-    os.makedirs(outdir, exist_ok = True)
-    fname = f"iono_corr_2pols_B_{t_start}_to_{t_end}"
-    print(f"Saving to {os.path.join(outdir, fname)}")
-    np.savez(os.path.join(outdir, fname), corr = corr, freqs = params.ionosonde_freqs)
+    os.makedirs(args.out_dir, exist_ok = True)
+    print(f"Saving to {os.path.join(args.out_dir, args.corr_name)}")
+    np.savez(os.path.join(args.out_dir, args.corr_name), corr = corr, freqs = args.ionosonde_freqs)
 
-    return params.ionosonde_freqs, corr.get()
+    return args.ionosonde_freqs, corr.get()
 
             
 if __name__ == "__main__":
-    freqs, corr = process_from_data(t_start=1746818107)
-    # freqs, corr = process_from_data(t_start=1746818100)
-    # freqs, corr = process_from_data(t_start=1746818105)
-
-    # plotting.plot1(freqs, corr)
+    freqs, corr = process_from_data()
+    ionogram.process_and_plot()
