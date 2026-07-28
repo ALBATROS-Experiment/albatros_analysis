@@ -51,7 +51,9 @@ if __name__ == "__main__":
     acclen = config['correlation']['new_acclen']
 
     T_SPECTRA = 4096/250e6 * osamp
-    window_size = 120
+    window_size = int(2**13*3*5/acclen) #want around 2 minutes always
+    print('ACCLEN=', acclen)
+    print('WINDOW SIZE=', window_size)
     ant_idxs = [0, 1, 2, 3, 4, 5, 6]
     antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
     nant_used = len(ant_idxs)
@@ -166,7 +168,7 @@ if __name__ == "__main__":
             else:
                 mask1 = None
             #get thermal noise to see where to cut
-            thermal_noise1, fig_phases1 = futils.get_thermal_noise(vis1,ant_idxs,mask=mask1)
+            thermal_noise1, fig_phases1 = futils.get_thermal_noise(vis1,ant_idxs,mask=mask1, acclen=acclen)
             print('Thermal noise 1 shape:', thermal_noise1.shape)
             #plot phases
             fig_phases1.savefig(os.path.join(path_pulse, 'phases1.png'))
@@ -211,7 +213,7 @@ if __name__ == "__main__":
             mask2 = None
 
         #get cut phases and thermal noise
-        thermal_noise2, fig_phases2 = futils.get_thermal_noise(vis2, ant_idxs, mask=mask2)
+        thermal_noise2, fig_phases2 = futils.get_thermal_noise(vis2, ant_idxs, mask=mask2, acclen=acclen)
         fig_phases2.savefig(os.path.join(path_pulse, 'phases2.png'))
         plt.close(fig_phases2)
 

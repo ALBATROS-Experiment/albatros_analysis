@@ -257,7 +257,7 @@ def get_vis(data,satID,freqs, pstart,pend,antpos,ant_idxs, tle_path, T_SPECTRA, 
 #=========================================================================
 
 @nb.njit()
-def func(tau_t, data, freq, weights):
+def func(tau_t, data, freq, weights, fit_phi=False):
     ''' 
     Get residuals for given tau at single time sample, for all blines
 
@@ -271,6 +271,8 @@ def func(tau_t, data, freq, weights):
         Frequencies corresponding to each channel
     weights : np.npdarray shape (nblines)
         Weights (from phase noise) for each baseline. 
+    fit_phi : bool, optional
+        If you want to have an phase offset as well
 
     Returns
     -------
@@ -283,6 +285,15 @@ def func(tau_t, data, freq, weights):
     Convention is reference - nonreference.
     Weights can also be per-channel, so shape (nblines, nchan).
     '''
+    # set up taus and optional phis
+    if fit_phi:
+        n = len(x) // 2
+        tau_t = x[:n]
+        phi_t = x[n:]
+    else:
+        tau_t = x
+        phi_t = np.zeros_like(tau_t)
+
     # for one time sample
     nant=len(tau_t) + 1
     nbl = nant*(nant-1)//2
@@ -373,6 +384,111 @@ def jac(tau_t, data, freq, weights):
                     J[rowidx + n_eval, ai - 1] = im
                     J[rowidx + n_eval, aj - 1] = -im
                 blnum += 1
+    return J
+
+
+@nb.njit()
+def jac2(x, data, freq, weights, fit_phi=False):
+    '''
+    Jacobian for a single time sample.
+
+    Parameters
+    ----------
+    x : ndarray
+        If fit_phi=False:
+            x = tau, shape (nant-1,)
+        If fit_phi=True:
+            x = [tau, phi], shape (2*(nant-1),)
+    '''
+
+    if fit_phi:
+        n = len(x) // 2
+        tau_t = x[:n]
+        phi_t = x[n:]
+        npar = 2 * n
+    else:
+        tau_t = x
+        phi_t = np.zeros_like(tau_t)
+        n = len(tau_t)
+        npar = n
+
+    nant = n + 1
+    nbl = nant * (nant - 1) // 2
+    nfreq = len(freq)
+    n_eval = nfreq * nbl
+
+    J = np.zeros((2 * n_eval, npar), dtype=np.float64)
+
+    phi_offset = nant - 1
+
+    for j in range(nfreq):
+
+        blnum = 0
+        two_pi_nu = 2.0 * np.pi * freq[j]
+
+        for ai in range(nant):
+            for aj in range(ai + 1, nant):
+
+                rowidx = j * nbl + blnum
+
+                if weights.ndim == 2:
+                    w = weights[blnum, j]
+                else:
+                    w = weights[blnum]
+
+                if ai == 0:
+                    pred = (
+                        -two_pi_nu * tau_t[aj - 1]
+                        -phi_t[aj - 1]
+                    )
+                else:
+                    pred = (
+                        two_pi_nu * (tau_t[ai - 1] - tau_t[aj - 1])
+                        + (phi_t[ai - 1] - phi_t[aj - 1])
+                    )
+
+                ym = np.exp(1j * pred)
+                dtheta = 1j * ym * w
+
+                # delay derivatives
+                dre_tau = two_pi_nu * np.real(dtheta)
+                dim_tau = two_pi_nu * np.imag(dtheta)
+
+                if fit_phi:
+                    # phase derivatives
+                    dre_phi = np.real(dtheta)
+                    dim_phi = np.imag(dtheta)
+
+                if ai == 0:
+
+                    # tau
+                    J[rowidx, aj - 1] = -dre_tau
+                    J[rowidx + n_eval, aj - 1] = -dim_tau
+
+                    if fit_phi:
+                        # phi
+                        J[rowidx, phi_offset + aj - 1] = -dre_phi
+                        J[rowidx + n_eval, phi_offset + aj - 1] = -dim_phi
+
+                else:
+
+                    # tau
+                    J[rowidx, ai - 1] = dre_tau
+                    J[rowidx, aj - 1] = -dre_tau
+
+                    J[rowidx + n_eval, ai - 1] = dim_tau
+                    J[rowidx + n_eval, aj - 1] = -dim_tau
+
+                    if fit_phi:
+                        # phi
+                        J[rowidx, phi_offset + ai - 1] = dre_phi
+                        J[rowidx, phi_offset + aj - 1] = -dre_phi
+
+                        J[rowidx + n_eval, phi_offset + ai - 1] = dim_phi
+                        J[rowidx + n_eval, phi_offset + aj - 1] = -dim_phi
+
+                blnum += 1
+
     return J
 
 #=========================================================================

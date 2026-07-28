@@ -50,7 +50,7 @@ if crunch_numbers:
             json.dump(UTC_fit, f, indent=4)
 
         path_data = os.path.join(path_run, 'data')
-        os.makedirs(path_discrep, exist_ok=True)
+        os.makedirs(path_data, exist_ok=True)
         with open(os.path.join(path_data, 'pulses.json'), 'w') as f:
             json.dump(pulse, f, indent=4)
 

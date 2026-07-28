@@ -2,6 +2,7 @@ import sys
 from os import path
 sys.path.insert(0, path.expanduser("~"))
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
+from albatros_analysis.src.utils import orbcomm_utils as outils
 import cupy as cp
 from albatros_analysis.src.utils import pfb_utils as pu
 import numpy as np
