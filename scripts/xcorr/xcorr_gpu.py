@@ -18,7 +18,7 @@ if __name__=="__main__":
         "--outdir",
         dest="outdir",
         type=str,
-        default=".",
+        default="/scratch/thomasb",
         help="Output plot directory [default: .]",
     )
     args = parser.parse_args()

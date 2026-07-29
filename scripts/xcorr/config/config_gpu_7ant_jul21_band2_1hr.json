@@ -51,7 +51,7 @@
         "new_acclen": 512
     },
     "frequency": {
-        "start_channel": 260, 
+        "start_channel": 260,
         "end_channel": 280
     }
 }

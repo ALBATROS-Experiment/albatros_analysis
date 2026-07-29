@@ -1,0 +1,58 @@
+site_name: ALBATROS Analysis Documentation
+
+nav:
+  - Home: index.md
+  - Pipeline: 
+    - Overview: pipeline/index.md
+    - 1. Data Structure: pipeline/data_structure.md
+    - 2. Satellite Detection: pipeline/satdet.md
+    - 3. UTC Timing: pipeline/utc.md
+    - 4. Fine Timing: pipeline/finetiming.md
+    - Theory (Optional): pipeline/theory.md
+  - API:
+      - Overview: api/index.md
+      - Utilities: api/utils.md
+      - Correlations: api/correlations.md
+  - Scripts:
+      - Overview: scripts/index.md
+      - Orbcomm: scripts/orbcomm.md
+  - Testing:
+      - Science:
+          - Overview: testing/science/index.md
+          - Pulse Times (SatDet): testing/science/pulse_times_satdet.md
+          - Pulse Times (FineTiming): testing/science/pulse_times_finetiming.md
+      - Software:
+          - Overview: testing/software/index.md
+          - BFI: testing/software/BFI.md
+
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            members_order: source
+
+            separate_signature: true
+            show_signature_annotations: true
+
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+            merge_init_into_class: true
+
+            docstring_style: numpy
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

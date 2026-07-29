@@ -547,7 +547,7 @@ class BasebandFileIterator:
         chanstart=0,
         chanend=None,
         type="packed",
-        num_overlow=0
+        num_overflow=0
     ):
         """Create an instance of BasebandFileIterator (BFI).
 
@@ -576,7 +576,7 @@ class BasebandFileIterator:
             in which case select up to highest frequency channel.
         """
         print("ACCLEN RECEIVED IS", acclen)
-        self._OVERFLOW_CTR = num_overlow #keeps track of overflows encounted in a very long averaging run
+        self._OVERFLOW_CTR = num_overflow #keeps track of overflows encounted in a very long averaging run
         self.acclen = acclen
         self.file_paths = file_paths
         self.fileidx = fileidx

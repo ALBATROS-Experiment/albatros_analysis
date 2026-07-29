@@ -6,6 +6,17 @@
 *.png
 *.swp
 *.raw
+*.jpeg
+
+*.pdf
+*.out
+*.log
+*.synctex.gz
+*.toc
+*.aux
+*.fls
+*.fdb_latexmk
+
 plots/
 usage.txt
 plot_one_file_scaled.py
@@ -14,6 +25,7 @@ plot_one_file_scaled.py
 devenv/
 env/
 html/pdoc/
+
 
 ## From GitHub standard Python gitignore
 
@@ -237,3 +249,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ignorning package egg stuff
+*.egg-info/
+
+#ignoring website doc stuff
+*.html
+/site/*

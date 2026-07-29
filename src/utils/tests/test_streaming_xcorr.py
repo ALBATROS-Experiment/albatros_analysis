@@ -64,7 +64,10 @@ def test_xcorr(specsize, bufsize_frac=1):
     acclen_big =  specsize * acclen * 5
     niter = acclen_big//specsize
     nrows = acclen_big//acclen
+<<<<<<< HEAD
+=======
     print(f"acclen: {acclen} specsize: {specsize} acclen_big: {acclen_big} niter: {niter} nrows: {nrows}")
+>>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b
     nant = 8
     npol = 2
     nchan = 4
@@ -80,6 +83,15 @@ def test_xcorr(specsize, bufsize_frac=1):
             x[i*npol+j, :,:] = temp[j]
         data[i]=temp
 
+<<<<<<< HEAD
+    print("generating truth...")
+    for i in range(nrows):
+        truth[:,:,:,i] = dumb_xcorr(x[:,i*acclen:(i+1)*acclen,:],nant,npol,nchan)
+    print("running streaming xcorr...")
+    idx=0
+    for i in range(niter):
+        print("---iteration----", i)
+=======
     # print("generating truth...")
     for i in range(nrows):
         truth[:,:,:,i] = dumb_xcorr(x[:,i*acclen:(i+1)*acclen,:],nant,npol,nchan)
@@ -87,13 +99,17 @@ def test_xcorr(specsize, bufsize_frac=1):
     idx=0
     for i in range(niter):
         # print("---iteration----", i)
+>>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b
         for antidx in range(nant):
             for polidx in range(npol):
                 spectra = data[antidx][polidx] #fioll
                 sc.load(antidx, polidx, spectra[i * specsize : (i + 1) * specsize])
         chunks = sc.xcorr()
         n = len(chunks)
+<<<<<<< HEAD
+=======
         # print("n is", n)
+>>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b
         if n > 0:
             for ch in chunks:
                 out[:,:,:,idx] = ch
@@ -104,8 +120,11 @@ def test_xcorr(specsize, bufsize_frac=1):
 
 if __name__ == "__main__":
     # test_xcorr_simple()
+<<<<<<< HEAD
+=======
     test_xcorr(1, bufsize_frac=1)
     test_xcorr(6, bufsize_frac=10)
+>>>>>>> 691fef5d7fa0e0ace00e9a1317533f35cda7656b
     test_xcorr(11,bufsize_frac=1.1)
     test_xcorr(9)
     test_xcorr(8)
