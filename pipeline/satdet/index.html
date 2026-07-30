@@ -390,10 +390,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#21-doing-the-det" class="md-nav__link">
+  <a href="#21-detection-process" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.1 Doing the 'det'
+        2.1 Detection Process
       
     </span>
   </a>
@@ -401,10 +401,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#22-specnumoffsetting" class="md-nav__link">
+  <a href="#22-finding-spectrum-number-offsets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.2 Specnumoffsetting
+        2.2 Finding Spectrum Number Offsets
       
     </span>
   </a>
@@ -412,10 +412,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#23-pulses-and-data-what-who-where-when-why" class="md-nav__link">
+  <a href="#23-finding-good-satellite-passes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 Pulses and Data (what who where when why?)
+        2.3 Finding Good Satellite Passes
       
     </span>
   </a>
@@ -1101,10 +1101,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#21-doing-the-det" class="md-nav__link">
+  <a href="#21-detection-process" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.1 Doing the 'det'
+        2.1 Detection Process
       
     </span>
   </a>
@@ -1112,10 +1112,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#22-specnumoffsetting" class="md-nav__link">
+  <a href="#22-finding-spectrum-number-offsets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.2 Specnumoffsetting
+        2.2 Finding Spectrum Number Offsets
       
     </span>
   </a>
@@ -1123,10 +1123,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#23-pulses-and-data-what-who-where-when-why" class="md-nav__link">
+  <a href="#23-finding-good-satellite-passes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 Pulses and Data (what who where when why?)
+        2.3 Finding Good Satellite Passes
       
     </span>
   </a>
@@ -1152,13 +1152,13 @@
 
 <h1 id="2-satellite-detection">2 Satellite Detection</h1>
 <p>As promised, we will now be detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: to determine when we can actually see which satellite, and to determine the best spectrum alignment for each baseline. We work on each baseline involving the reference antenna. Moreover, we call a satellite pass any satellite that is technically risen, and that could be visible to our antenna, whereas we call a pulse a satellite pass that is actually detected, and verified to be visible, using the method outlined below.</p>
-<h2 id="21-doing-the-det">2.1 Doing the 'det'</h2>
+<h2 id="21-detection-process">2.1 Detection Process</h2>
 <p>Using satellite trajectories overhead, we predict when one of them passes overhead and becomes visible to the antenna (orbcomm_utils.get_risen_sats). For each baseline containing the reference antenna, we perform a coarse cross-correlation. If the SNR is high enough, we call a satellite 'pass' a 'pulse', and it counts as a detection. For each such detection, we record the spectrum number offset of the peak of the cxcorr (which is a function of delay, as you may recall).</p>
-<h2 id="22-specnumoffsetting">2.2 Specnumoffsetting</h2>
+<h2 id="22-finding-spectrum-number-offsets">2.2 Finding Spectrum Number Offsets</h2>
 <p>This part addresses the first of the main objectives of satdet: determining spectrum alignment.
 There are plenty of pulses, some of which yield different values of 'specnum offset'?
 We must determine a consensus. The relevant script is 'get_consensus_offset.py'</p>
-<h2 id="23-pulses-and-data-what-who-where-when-why">2.3 Pulses and Data (what who where when why?)</h2>
+<h2 id="23-finding-good-satellite-passes">2.3 Finding Good Satellite Passes</h2>
 <p>The second main objective is some reliable measure of where to look for high SNR satellite pulses. We need this so as to not waste our time computing data for pulses that are either very faint or not long enough (our usual length cut is about 120 seconds). We have two primary jsons that keep data, which serve two different purposes.</p>
 <p><strong>/satdet/satdet_XM_refMARSX.json</strong> records all the detections for each chunk of each pulse for each antenna. It's the output of get_satdet.py, so it's messy but exhaustive. It is also the home of a 'summary' section which stores all the consensus specnumoffsets for each antenna. The question it aims to answer is what antenna we see, how we align them, and whether it's worth looking somewhere. Note that it does not actually record whether there is any holes in the antenna data; it is simply recorded as a non-detection. We also do not index the pulses in any way in satdet, since we have not yet determined if they are valuable or will be used.</p>
 <p>An example of why this dump might be useful: the image shows satellite SNR with time, for two different batches overlayed. </p>
