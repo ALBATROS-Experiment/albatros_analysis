@@ -257,13 +257,13 @@ def get_vis(data,satID,freqs, pstart,pend,antpos,ant_idxs, tle_path, T_SPECTRA, 
 #=========================================================================
 
 @nb.njit()
-def func(tau_t, data, freq, weights, fit_phi=False):
+def func(x, data, freq, weights, fit_phi=False):
     ''' 
     Get residuals for given tau at single time sample, for all blines
 
     Parameters
     ----------
-    tau_t : np.ndarray shape (nant-1)
+    x : np.ndarray shape (nant-1)
         The time offsets for each non-reference antenna
     data : np.ndarray shape (nblines, nchan)
         Visibility data for single timestamp
@@ -318,6 +318,85 @@ def func(tau_t, data, freq, weights, fit_phi=False):
                 residuals[rowidx] = w * np.real(y)
                 residuals[rowidx + n_eval] = w * np.imag(y)
                 blnum += 1
+    return residuals
+
+@nb.njit()
+def func2(x, data, freq, weights, fit_phi=False):
+    """
+    Get residuals for given tau (and optionally phase offsets) at a single time sample.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        If fit_phi=False:
+            x = tau, shape (nant-1,)
+        If fit_phi=True:
+            x = [tau, phi], shape (2*(nant-1),)
+    data : np.ndarray
+        Visibility phases for a single timestamp, flattened to shape
+        (nblines * nchan,).
+    freq : np.ndarray
+        Frequencies corresponding to each channel.
+    weights : np.ndarray
+        Baseline or baseline/channel weights.
+    fit_phi : bool, optional
+        Whether to fit a constant phase offset for each antenna.
+
+    Returns
+    -------
+    np.ndarray
+        Residual vector with real and imaginary parts concatenated.
+    """
+
+    if fit_phi:
+        n = len(x) // 2
+        tau_t = x[:n]
+        phi_t = x[n:]
+    else:
+        tau_t = x
+        phi_t = np.zeros_like(tau_t)
+
+    nant = len(tau_t) + 1
+    nbl = nant * (nant - 1) // 2
+    nfreq = len(freq)
+    n_eval = nbl * nfreq
+
+    residuals = np.zeros(2 * n_eval, dtype=np.float64)
+
+    for j in range(nfreq):
+
+        blnum = 0
+        two_pi_nu = 2.0 * np.pi * freq[j]
+
+        for ai in range(nant):
+            for aj in range(ai + 1, nant):
+
+                rowidx = j * nbl + blnum
+
+                if weights.ndim == 2:
+                    w = weights[blnum, j]
+                else:
+                    w = weights[blnum]
+
+                if ai == 0:
+                    pred = (
+                        -two_pi_nu * tau_t[aj - 1]
+                        - phi_t[aj - 1]
+                    )
+                else:
+                    pred = (
+                        two_pi_nu * (tau_t[ai - 1] - tau_t[aj - 1])
+                        + (phi_t[ai - 1] - phi_t[aj - 1])
+                    )
+
+                model = np.exp(1j * pred)
+                obs = np.exp(1j * data[rowidx])
+
+                residuals[rowidx] = w * np.real(model - obs)
+                residuals[rowidx + n_eval] = w * np.imag(model - obs)
+
+                blnum += 1
+
     return residuals
 
 @nb.njit()
@@ -677,8 +756,8 @@ def cost_surface(data, guesses, freqs_normalized, wts, antidx = 0, timeidx=0, N1
 
     cost1, cost2 = np.zeros(N1), np.zeros(N1)
     for i in range(N1):
-        cost1[i] = np.sum(func(taus_trial1[i], data[timeidx,:,:].ravel(), freqs_normalized, wts)**2)
-        cost2[i] = np.sum(func(taus_trial2[i], data[timeidx,:,:].ravel(), freqs_normalized, wts)**2)
+        cost1[i] = np.sum(func(taus_trial1[i], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
+        cost2[i] = np.sum(func(taus_trial2[i], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
 
     center = N1//2
     trough = taus_trial2[np.argmin(cost2[center-100:center+100])+center-100]

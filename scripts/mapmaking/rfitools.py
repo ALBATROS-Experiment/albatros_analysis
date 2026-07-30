@@ -2,6 +2,64 @@ import numpy as np
 import numba as nb
 import time as time
 from astropy.coordinates import EarthLocation, SkyCoord, AltAz
+import os
+import glob
+import re
+
+def load_all_parts(dir_path):
+    """
+    Finds all visibility part files in a directory, sorts them numerically,
+    and loads them into a single pre-allocated big array.
+    """
+    # Find all part files
+    pattern = os.path.join(dir_path, "*_part*.npy")
+    part_files = glob.glob(pattern)
+    
+    if not part_files:
+        print(f"No part files found in {dir_path}")
+        return None
+
+    # Extract part number and sort numerically
+    def get_part_num(f):
+        match = re.search(r'_part(\d+)', f)
+        return int(match.group(1)) if match else -1
+        
+    part_files.sort(key=get_part_num)
+    num_files = len(part_files)
+    
+    print(f"Found {num_files} files. Pre-allocating and loading...")
+
+    # Load first file to get dimensions and dtype
+    first_arr = np.load(part_files[0])
+    print("shape of first file", first_arr.shape)
+    nbl, chunk_time, nchan, npol2 = first_arr.shape
+    dtype = first_arr.dtype
+
+    last_arr = np.load(part_files[-1])
+    total_time = (num_files-1)*chunk_time + last_arr.shape[1]
+
+    # Pre-allocate the big array
+    full_array = np.empty((total_time, nchan, nbl), dtype=dtype, order='F')
+    full_array[:chunk_time, :, :] = 0.5*(first_arr[:,:,:,0] + first_arr[:,:,:,3]).transpose(1,2,0)
+    full_array[-last_arr.shape[1]:, :, :] = 0.5*(last_arr[:,:,:,0] + last_arr[:,:,:,3]).transpose(1,2,0)
+    del first_arr, last_arr
+    # Fill the array
+
+    start=chunk_time
+    for i in range(1, num_files-1):
+        f = part_files[i]
+        arr = np.load(f)
+        end = start + arr.shape[1]
+        I = 0.5*(arr[:,:,:,0] + arr[:,:,:,3])
+        full_array[start:end, :, :] = I.transpose(1,2,0)
+        start = end
+        print(f"  Processed {os.path.basename(f)} into slice [{start}:{start+arr.shape[1]}]")
+    
+    print(f"\nLoading complete.")
+    print(f"Resulting shape: {full_array.shape}")
+    print(f"Total size: {full_array.nbytes / 1024**3:.2f} GB")
+
+    return full_array
 
 @nb.njit(parallel=True)
 def tilled_transpose(x,bsc=32,bsr=128): 
@@ -342,14 +400,14 @@ def get_all_bls(coords, ants = None, refonly=False, enu=True):
         bls=itrs_to_enu(bls,coords[0][0],coords[0][1])
     return bls
 
-def get_geo_delay(bl,alt,az):
-    x = 0
-    c=299792458
-    x = np.sin(az)*np.cos(alt) * bl[0] #east
-    x += np.cos(az)*np.cos(alt) * bl[1] #north
-    x += np.sin(alt) * bl[2] #up
-    # print(x)
-    return x/c
+# def get_geo_delay(bl,alt,az):
+#     x = 0
+#     c=299792458
+#     x = np.sin(az)*np.cos(alt) * bl[0] #east
+#     x += np.cos(az)*np.cos(alt) * bl[1] #north
+#     x += np.sin(alt) * bl[2] #up
+#     # print(x)
+#     return x/c
 
 @nb.njit(parallel=True)
 def geo_delay_from_enu(bls,az,alt):
