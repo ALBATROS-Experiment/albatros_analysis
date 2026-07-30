@@ -8,6 +8,9 @@ from albatros_analysis.src import xp, fft
 
 from albatros_analysis.scripts.ionosonde.params import default_args
 
+import logging
+logger = logging.getLogger(__name__)
+
 def clean_code(code_str, args = default_args):
     """
     Remove underscores from a code string and turn it into a numerical

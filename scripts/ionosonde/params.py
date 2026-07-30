@@ -3,6 +3,9 @@
 import numpy as np
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+
 import argparse
 
 parser = argparse.ArgumentParser('Ionosonde')
@@ -27,9 +30,9 @@ parser.add_argument('--code_repeat_num', default=10, type=int, help='Number of r
 parser.add_argument('--trans_len', type=int, help='Calculate transmission length.')
 
 # parser.add_argument('--which_antenna', default=3, type=float, help='Antenna number.')
-parser.add_argument('--start_time', default=1746818100, type=int)
+parser.add_argument('--start_time', default=1746645900, type=int)
 parser.add_argument('--corr_time', default=15, type=int)
-parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive3_mars_spring2025/baseband/", type=str)
+parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive7_mars_spring2025/baseband/", type=str)
 parser.add_argument('--out_dir', default="/scratch/mayas/ionograms_testing", type=str)
 parser.add_argument('--corr_name', default="correlated_data.npz", type=str)
 parser.add_argument('--num_pol', default=2, type=int, help='Number of polarizations.')
@@ -43,7 +46,7 @@ parser.add_argument('--buf_len', default=4096, type=int, help="Buffer length.")
 parser.add_argument('--iono_freqs_path', default=f"{os.path.expanduser('~')}/albatros_analysis/scripts/ionosonde/eureka_freqs_hz.csv",
                     help='Path to CSV file with list of ionosonde frequencies.')
 parser.add_argument('--freq_idx_bounds', default=[36, 72], nargs=2, type=int, help='Which frequencies to actually analyze.')
-parser.add_argument('-f', type=str, help='Just here so that IPython works.')
+parser.add_argument('--f', type=str, help='Just here so that IPython works.')
 parser.add_argument('-v', '--verbose', action='store_true')
 
 
@@ -63,4 +66,3 @@ default_args.ionosonde_freqs = default_args.all_freqs[default_args.freq_idx_boun
 
 if __name__ == "__main__":
     print(default_args)
-    print(default_args.copy())

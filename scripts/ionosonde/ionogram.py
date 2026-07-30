@@ -1,5 +1,8 @@
 ### IMPORTS ###
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Array-handling
 import numpy as np
 # Peak finding with distance seperation
@@ -211,7 +214,7 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
 def plot_all_traces(freqs, corr, ref_idx):
     pass
 
-def ionogram(freqs, corr, ref_idx, dist_range = [-500, 500], which_pol = "total",
+def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "total",
              pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"}, args = default_args):
     """Build and plot an ionogram: signal power vs. frequency and distance.
 
@@ -266,7 +269,8 @@ def ionogram(freqs, corr, ref_idx, dist_range = [-500, 500], which_pol = "total"
     ax.set_title(f"0 km is {ref_idx / args.code_baudrate} @ {freqs[0]/1e6:.2f} MHz")
 
     fig.savefig(os.path.join(args.out_dir, "std_ionogram.png"))
-    print(f"Ionogram saved to {os.path.join(args.out_dir, 'std_ionogram.png')}")
+    np.savetxt(os.path.join(args.out_dir, "ionogram.csv"), to_plot, delimiter=",")
+    logger.info("Ionogram saved to %s", os.path.join(args.out_dir, "std_ionogram.png"))
 
 def process_and_plot(args=default_args):
     """Run the full ionogram pipeline on a saved correlation file and plot it.
@@ -298,5 +302,3 @@ if __name__ == "__main__":
     # file_name = "/scratch/mayas/ionograms_testing/iono_corr_2pols_B_1746818100_to_1746818115.npz"
 
     process_and_plot()
-
-    

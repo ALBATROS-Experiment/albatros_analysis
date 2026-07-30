@@ -1,5 +1,8 @@
 ### IMPORTS ###
 
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import cupy as cp
 import scipy
@@ -43,9 +46,9 @@ def setup_ipfb(final_channels, ipfb_chunk_size, args=default_args):
         cut = args.cutsize,
     ) # Reminder: the lblock parameter of this function does absolutely nothing!
     # Do not set it! You will get confused. Use ipfb.lblock to determine it
-    print("ipfb channels", ipfb.channels)
+    logger.debug("IPFB channels: %s", ipfb.channels)
     # ipfb_start_freq = final_channels[0] * params.adc_samp_freq / params.len_pfb_init #center freq of start chan
-    print(ipfb)
+    logger.debug("IPFB: %s", ipfb)
     
     return ipfb
     

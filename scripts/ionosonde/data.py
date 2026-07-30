@@ -10,6 +10,9 @@ from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde import signal_processing as sp
 from albatros_analysis.scripts.ionosonde import ionogram
 
+import logging
+logger = logging.getLogger(__name__)
+
 def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_args):
     """Get baseband spectra for all antennas x polarizations
 
@@ -25,7 +28,7 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
         Channel numbers to feed IPFB [0,2048), should be present in baseband file.
     read_size
     """
-    print(files[0][0])
+    logger.debug("First file: %s", files[0][0])
     header = bdc.get_header(files[0][0])
 
     channel_indices = np.where(np.isin(header["channels"], channels))[0]  # channels that are in requested channels
@@ -35,9 +38,9 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
     assert channel_indices[0] % 2 == 0
     assert len(channel_indices) % 2 == 0
 
-    if args.verbose:
-        print("Getting timestream")
-        print("\tChannel indices to be used", channel_indices)
+
+    logger.debug("Getting timestream")
+    logger.debug("Channel indices to be used: %s", channel_indices)
     
     antenna_objs = []
     for i in range(args.num_ant):
@@ -53,25 +56,17 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
         antenna_objs.append(aa)
 
 
-    # print("channels present", aa.obj.channels)
-    print(
-        "---------------------------------------------\n",
-        "Channel indices loaded",
+    logger.info(
+        "Channel indices loaded %s to %s (channels %s to %s), rough bandwidth %.3f MHz",
         aa.obj.channel_idxs[0],
-        "to",
         aa.obj.channel_idxs[-1],
-        "corresponding to channels",
         aa.obj.channels[aa.obj.channel_idxs[0]],
-        "to",
         aa.obj.channels[aa.obj.channel_idxs[-1]],
-        "rough bandwidth of",
         len(aa.obj.channel_idxs) * 0.061,
-        "MHz",
-        "\n---------------------------------------------"
     )
     final_channels = aa.obj.channels[aa.obj.channel_idxs].copy()
 
-    print(f"FINAL CHANNELS: {final_channels}")
+    logger.info("Final channels: %s", final_channels)
     return final_channels, antenna_objs
 
 def process_from_data(args=default_args):
@@ -106,11 +101,11 @@ def process_from_data(args=default_args):
                                      args.num_pol, Nts_dc),
                                      dtype="complex64") # this takes up roughly 5 GB
 
-    print("len_timestream AKA Nts", len_timestream)
+    logger.debug("len_timestream (Nts): %s", len_timestream)
     ts_pol0_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     
-    print(files)
+    logger.debug("Files: %s", files)
     final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
 
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
@@ -118,7 +113,7 @@ def process_from_data(args=default_args):
             chunk = chunks[ant_idx]
             expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
 
-            print("chunk pol0", chunk["pol0"].shape)
+            logger.debug("chunk pol0 shape: %s", chunk["pol0"].shape)
             
             pol0 = bdc.make_continuous_gpu(
                 chunk["pol0"],
@@ -128,7 +123,7 @@ def process_from_data(args=default_args):
                 nchan,
             )
 
-            print("pol0", pol0.shape)
+            logger.debug("pol0 shape: %s", pol0.shape)
             pol1 = bdc.make_continuous_gpu(
                 chunk["pol1"],
                 chunk["specnums"] - expected_start_specnum,
@@ -142,7 +137,7 @@ def process_from_data(args=default_args):
                                         filter_state, filtered_timestreams, args=args)
     
     os.makedirs(args.out_dir, exist_ok = True)
-    print(f"Saving to {os.path.join(args.out_dir, args.corr_name)}")
+    logger.info("Saving to %s", os.path.join(args.out_dir, args.corr_name))
     np.savez(os.path.join(args.out_dir, args.corr_name), corr = corr, freqs = args.ionosonde_freqs)
 
     return args.ionosonde_freqs, corr.get()

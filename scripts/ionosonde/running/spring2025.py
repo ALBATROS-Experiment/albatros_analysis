@@ -1,28 +1,70 @@
-import numpy as np
-import sys, os
+import contextlib
+import copy
+
+import logging
+logger = logging.getLogger(__name__)
+
+import pandas as pd
+import os, sys
 
 sys.path.insert(0, os.path.expanduser("~"))
 
+from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde.data import process_from_data
 from albatros_analysis.scripts.ionosonde.ionogram import process_and_plot
 
+out_dir_root = "/scratch/mayas/ionograms_to_share"
+
+failure_summary = []
+
 for ant in [2, 3, 7]:
-    folder_names = os.listdir(f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/")
+    baseband_dir = f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/"
+    folder_names = os.listdir(baseband_dir)
 
     for folder_name in folder_names:
-        file_names = os.listdir(f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/{folder_name}")
+        folder_path = os.path.join(baseband_dir, folder_name)
+        file_names = os.listdir(folder_path)
 
-        times = []
-        
-        for f_name in file_names:
-            if f_name[-4:] == ".raw":
-                    times.append(int(f_name[:-4]))
+        times = [int(f[:-4]) for f in file_names if f.endswith(".raw")]
 
-        # The ionosonde broadcasts every 5 minutes, with the exception of the hour and 40 minute marks
-        # But will process those too as null tests
-        for time in range((min(times) // 600 + 1) * 600, (max(times) // 600 + 1) * 600, 600):
-            default_args.start_time = time - 5
-            default_args.corr_time = 15
-            default_args.baseband_dir = f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/"
-            default_args.out_dir = f"/scratch/mayas/ionograms_to_share/{time}/mars{ant}/"
-            process_from_data(default_args)
+        if not times:
+            # Nothing to process in this folder, so just skip
+            continue
+
+        # The ionosonde broadcasts every 5 minutes, with the exception of
+        # the hour and 40 minute marks. But will process those too as null
+        # tests.
+        num_sec = 300
+        for time in range((min(times) // num_sec + 1) * num_sec, (max(times) // num_sec + 1) * num_sec, num_sec):
+            # Work on a fresh copy of the args for every run
+            args = copy.deepcopy(default_args)
+            args.start_time = time
+            args.corr_time = 1
+            args.baseband_dir = baseband_dir
+            args.out_dir = f"{out_dir_root}/{time}/mars{ant}/"
+
+            os.makedirs(args.out_dir, exist_ok=True)
+            log_path = os.path.join(args.out_dir, f"log.txt")
+
+            exception = None
+
+            logger.info("=== run started ===")
+            logger.info(
+                "antenna=%s folder=%s timestamp=%s (start_time=%s)",
+                ant, folder_name, time, args.start_time,
+            )
+            try:
+                process_from_data(args)
+                process_and_plot(args)
+                status = "success"
+            except Exception as e:
+                logger.exception("run failed")
+                status = "FAILURE"
+                exception = e
+
+            logger.info("=== run finished [%s] ===", status)
+
+            failure_summary.append([(status == "success"), ant, time, exception])
+
+df = pd.DataFrame(failure_summary, columns=["Success?", "MARS Station", "Time", "Exception"])
+df.to_csv(os.path.join(out_dir_root, "failure_summary.csv"))
