@@ -6,257 +6,290 @@ import matplotlib.pyplot as plt
 
 class TimingSolution:
     """
-    Interface for retrieving antenna delays from calibration batches.
+    Interface for accessing antenna timing solutions.
+
+    The class loads a database of calibration batches and selects the
+    batch containing a requested observation start time. Timing solutions
+    and associated metadata for the selected batch can then be accessed
+    through the class methods. Timing solutions can then also be interpolated
+    as desired for data analysis.
 
     Parameters
     ----------
+    query_unix_start : float or int
+        Unix timestamp (seconds) used to identify the calibration batch
+        containing the desired observation.
     root : str or pathlib.Path
-        Directory containing calibration batches and index.json.
+        Path to the directory containing the timing solution database.
+        This directory must contain an ``index.json`` file and the HDF5
+        files referenced by the index.
+
+    Attributes
+    ----------
+    root : pathlib.Path
+        Root directory of the timing solution database.
+    batch : dict
+        Dictionary describing the selected calibration batch.
+    batch_name : str
+        Name of the selected batch, in form 'batch_{batch_start_unix}'.
+    batch_start_unix : float
+        Start time of the selected batch in Unix seconds.
+    batch_end_unix : float
+        End time of the selected batch in Unix seconds.
+    ref_ant : str
+        Name of the reference antenna for the selected batch.
+    non_ref_ants : list of str
+        Names of the non-reference antennas whose delays are stored in the
+        timing solutions.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the timing solution database or its ``index.json`` file cannot
+        be found.
+    ValueError
+        If ``query_unix_start`` is not contained within any calibration
+        batch, or if it is contained within more than one batch.
 
     Notes
     -----
-    The database is organized into independent calibration batches.
-    A requested time range must lie entirely inside one batch.
+    Calibration solutions are organized into independent, non-overlapping
+    batches. The class selects the unique batch whose time range contains
+    ``query_unix_start``.
     """
 
-    def __init__(self, root):
+    def __init__(self, query_unix_start, root):
 
+        # root path where all timing solutions stored
         self.root = Path(root)
 
+        # set up batch
+        self.batch = self._find_batch(query_unix_start)
+
+        # set up metadata
+        self.batch_name = self.batch['batch']
+        self.batch_start_unix = self.batch['start']
+        self.batch_end_unix = self.batch['end']
+        self.ref_ant = self.batch['ref_ant']
+        self.non_ref_ants = self.batch['non_ref_ants']
+        self.UTC_per_spec = self.batch["UTC_per_spec"]
+        self.UTC_offset = self.batch["UTC_offset"]
+
+        # load up timing solution
+        self._load_data()
+
+    def _find_batch(self, query_unix_start):
+        # set index file name
         index_file = self.root / "index.json"
-
         if not index_file.exists():
-            raise FileNotFoundError(
-                f"Could not find {index_file}"
-            )
+            raise FileNotFoundError(f"Could not find {index_file}")
 
+        #set up index of all batches
         with open(index_file, "r") as f:
-            self.index = json.load(f)
-
-
-    def find_batch(self, start, end):
-        """
-        Find calibration batch containing requested time range.
-
-        Parameters
-        ----------
-        start : float
-            Starting Unix timestamp.
-
-        end : float
-            Ending Unix timestamp.
-
-        satellite : str, optional
-            Satellite name.
-
-        Returns
-        -------
-        dict
-            Batch metadata.
-
-        Raises
-        ------
-        ValueError
-            If requested interval spans multiple batches
-            or no batch exists.
-        """
-
+            index = json.load(f)
+            
+        # figure out what batch it's asking for, set to property
         matches = []
 
-        for batch in self.index:
-
-            contained = (start >= batch["start"] and end <= batch["end"])
-
+        for batch in index:
+            contained = (query_unix_start >= batch["start"] and query_unix_start <= batch["end"])
             if contained:
                 matches.append(batch)
 
         if len(matches) == 0:
-            raise ValueError("You are asking for times that are not contained in a single batch.")
-
+            raise ValueError("Your queried unix start time does not lie in any batches with timing solutions.")
         if len(matches) > 1:
-            raise ValueError("Your requested times somehow completely fit into two or more different batches, check your data there must be an error.")
-
+            raise ValueError("Your queried unix start time somehow lies within multiple batches. Check the timing solutions, something is stored wrong (there should be no overlap).")
         return matches[0]
 
-    def find_ref_ant(self, start, end):
-        batch = self.find_batch(start, end)
-        return batch['ref_ant']
 
-    def find_other_ants(self, start, end):
-        batch = self.find_batch(start, end)
-        return batch['non_ref_ants']
+    def _load_data(self):
 
-
-    def load_batch(self, batch_name):
-        """
-        Load delay data from HDF5 file.
-
-        Parameters
-        ----------
-        batch_name : str
-            Batch identifier.
-
-        Returns
-        -------
-        dict
-            Dictionary containing spectra,
-            unix_time, and delays.
-        """
-
-        filename = (self.root / f"{batch_name}.h5")
+        filename = (self.root / f"{self.batch_name}.h5")
 
         if not filename.exists():
-            raise FileNotFoundError(filename)
+            raise FileNotFoundError(f'Could not find {filename}')
 
         with h5py.File(filename, "r") as f:
-            data = {
-                "spectra": f["spectra"][:], 
-                "taus": f["taus"][:],
-                }
-
-        return data
+            self.taus = f["taus"][:]
+            self.spectra = f["spectra"][:]
+            self.unix = self.spectra * self.UTC_per_spec + self.UTC_offset
 
 
-
-    def spectra_to_unix(self, batch, data):
+    def spectra_to_unix(self, spectra):
         """
-        Convert spectrum indices to UNIX timestamps.
+        Converts any desired reference antenna spectrum indices to UNIX timestamps.
 
         Parameters
         ----------
-        batch_name
-            Name of batch we want to look at
-        data
-            Data of batch we want, which contains its spectra
+        spectra : np.ndarray
+            Array of reference antenna spectra.
 
         Returns
         -------
         np.ndarray
-            Fractional spectrum positions.
+            Unix timesamps corresponding to input spectra.
         """
-
-        UTC_per_spec = batch["UTC_per_spec"]
-        UTC_offset = batch["UTC_offset"]
-
-        spectra = data["spectra"]
-        unix = data["spectra"]*UTC_per_spec + UTC_offset
-
-        return unix
+        return spectra * self.UTC_per_spec + self.UTC_offset
 
 
-    def interpolate_delay(self, query_unix_start, query_unix_end, time_resolution, data, unix_data, extrapolate = True, method="linear" ):
+    def interpolate_delay(self, interp_unix_start, interp_unix_end, dt, extrapolate = True, method="linear" ):
         """
-        Interpolate delays at requested Unix timestamps.
+        Interpolate antenna delay timing solutions at requested Unix timestamps.
+
+        The timing solutions loaded for the selected batch are
+        interpolated onto a user-defined time grid. Each antenna delay solution
+        is interpolated independently using the specified interpolation method.
 
         Parameters
         ----------
-        query_unix_start : float
-            Starting Unix timestamp.
+        interp_unix_start : float
+            Starting Unix timestamp for the requested interpolation range.
 
-        query_unix_end : float
-            Ending Unix timestamp.
+        interp_unix_end : float
+            Ending Unix timestamp for the requested interpolation range.
 
-        time_resolution : float
-            Output spacing in seconds.
+        dt : float
+            Spacing between requested output timestamps in seconds.
 
-        data : dict
-            Dictionary containing delay solutions.
-            Requires:
-                data["taus"] : ndarray, shape (ntimes, nblines)
+        extrapolate : bool, optional
+            Whether to allow interpolation outside the time range covered by
+            the loaded timing solution. If False, a ValueError is raised when
+            the requested range extends beyond the available data.
+            Default is True.
 
-        unix : np.ndarray
-            Unix timestamps corresponding to the delay solutions.
-            Shape (ntimes,)
-
-        method : str
-            Interpolation method.
+        method : str, optional
+            Interpolation method to use. Currently only ``"linear"`` is
+            supported.
+            Default is ``"linear"``.
 
         Returns
         -------
-        query_unix : np.ndarray
-            Requested Unix timestamps.
+        unix_interp : np.ndarray
+            Requested Unix timestamps at which delay solutions have been
+            interpolated.
 
         taus_interp : np.ndarray
-            Interpolated delays.
-            Shape (nblines, nrequested_times)
+            Interpolated antenna delay solutions.
+            Shape is ``(nant - 1, ntime)``, where ``nant - 1`` is the number
+            of non-reference antennas and ``ntime`` is the number of requested
+            output timestamps.
+
+        Raises
+        ------
+        ValueError
+            If extrapolation is disabled and the requested interpolation range
+            lies outside the available timing solution range.
+
+        NotImplementedError
+            If an unsupported interpolation method is requested.
+
+        Notes
+        -----
+        Delay solutions are stored internally as ``self.taus`` and their
+        corresponding Unix timestamps as ``self.unix``. Linear interpolation is
+        performed independently for each antenna delay stream.
         """
 
-        taus = data["taus"]
+        #check the interpolation times fall inside the batch
+        if (interp_unix_start < self.batch_start_unix) or (interp_unix_end > self.batch_end_unix):
+            raise ValueError("Interpolation time interval falls outside batch range")
 
-        # Generate requested timestamps
-        query_unix = np.arange(query_unix_start, query_unix_end, time_resolution)
+        # generate requested timestamps
+        unix_interp = np.arange(interp_unix_start, interp_unix_end, dt)
+        unix_data = self.unix 
 
-        # Check bounds
+        # set taus as array
+        taus = self.taus
+
+        # check bounds
         if extrapolate == False:
-            if query_unix[0] < unix_data[0] or query_unix[-1] > unix_data[-1]:
-                raise ValueError("Requested times outside batch range. Don't want to extrapolate.")
+            if unix_interp[0] < unix_data[0] or unix_interp[-1] > unix_data[-1]:
+                raise ValueError("You have extrapolation turned off, and requested times outside batch's satellite data range.")
 
         if method == "linear":
 
-            taus_interp = np.zeros((taus.shape[0], len(query_unix)))
-            print('number of baselines in tau data:', taus.shape[0])
-            print('number of queried unix times:', len(query_unix))
+            taus_interp = np.zeros((taus.shape[0], len(unix_interp)))
+            print('number of baselines (containing ref ant) in tau data:', taus.shape[0])
+            print('number of desired interpolation unix times:', len(unix_interp))
             print('number of data unix times', unix_data.shape)
 
             # Interpolate each baseline independently
             for bl in range(taus.shape[0]):
-                taus_interp[bl, :] = np.interp(query_unix, unix_data, taus[bl,:])
+                taus_interp[bl, :] = np.interp(unix_interp, unix_data, taus[bl,:])
 
-            return query_unix, taus_interp
+            return unix_interp, taus_interp
 
         else:
             raise NotImplementedError(f"Unknown interpolation method {method}")
 
 
-
-    def find_timing_sol(
-        self,
-        start,
-        end,
-        time_resolution,
-        extrapolate = True,
-        method="linear"
-    ):
+    def get_data_mask(self, query_unix, tolerance):
         """
-        Retrieve delays over a requested time interval.
+        Return mask indicating where timing solution samples exist nearby.
 
         Parameters
         ----------
-        start : float
-            Starting Unix timestamp.
+        query_unix : np.ndarray
+            Requested Unix timestamps.
 
-        end : float
-            Ending Unix timestamp.
-
-        time_resolution : float
-            Requested output spacing in seconds.
-
-        extrapolate: bool, optional
-            Determines whether you can take data that lies before or after all sat passes.
-            Basically, are you allowed to guess the evolution when you don't know what happens before or after.
-
-        method : str
-            Delay interpolation method.
+        tolerance : float
+            Maximum allowed distance (seconds) between a requested time and
+            an available timing solution sample.
 
         Returns
         -------
-
-        delays : np.ndarray
-            Interpolated antenna delays.
+        np.ndarray
+            Boolean mask. True where a timing solution sample exists within
+            the tolerance window.
         """
 
-        # identify correct batch. make sure only lives in single batch
-        batch = self.find_batch(start, end)
-        batch_name = batch["batch"]
-        print('Your data lives in', batch_name)
+        idx = np.searchsorted(self.unix, query_unix)
 
-        # get the data for this batch
-        data = self.load_batch(batch_name)
+        # clip indices at boundaries
+        idx = np.clip(idx, 1, len(self.unix)-1)
 
-        #get the unix times at which we have data
-        unix_times_data = self.spectra_to_unix(batch, data)
+        # distance to nearest available sample
+        dt = np.minimum(
+            np.abs(query_unix - self.unix[idx]),
+            np.abs(query_unix - self.unix[idx-1])
+        )
 
-        # interpolate the delay
-        unix_times_query, taus = self.interpolate_delay(start, end, time_resolution, data, unix_times_data, extrapolate = extrapolate, method=method)
+        return dt <= tolerance
 
-        return unix_times_query, taus
+
+    def all_blines(self, taus):
+        """
+        For taus that are only with respect to the reference, creates all baseline combinations.
+        By convention the reference antenna has zero delay.
+
+        Parameters
+        ----------
+        taus : np.ndarray
+            All delays, shape (nant-1, ntimes)
+
+        Returns
+        -------
+        np.ndarray
+            All delays for all baselines, shape (nbl, ntimes)
+
+        Notes
+        -----
+        Beware of convention: ref-nref, and small-large.
+        Means that when subtracting, if A<B,  have delayA - delayB = (ref - tauA) - (ref - tauB) = tauB - tauA.
+        Therefore, counterintuitively, you subtract smaller index from larger. 
+        """
+        nant = taus.shape[0] + 1
+        ntimes = taus.shape[1]
+        nbl = nant*(nant-1)/2
+
+        taus2 = np.vstack(np.zeros(ntimes), taus)
+        taus_all = np.zeros((nbl, ntimes))
+
+        blid = 0
+        for i in range(nant):
+            tau_i = taus2[i,:]
+            for j in range(i+1 ,nant):
+                tau_j = taus2[j,:]
+                taus_all[blix, :] = taus_j - taus_i
+                blid +=1
