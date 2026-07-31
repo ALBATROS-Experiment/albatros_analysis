@@ -1,7 +1,7 @@
 import logging
  
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logger.propagate = False  # don't also hand messages to the root logger
  
 console_handler = logging.StreamHandler()

@@ -25,12 +25,12 @@ parser.add_argument('--code_snr_boost', default=6, type=int, help = 'Number of t
 parser.add_argument('--code_len', default=16, type=int, help = 'Length of codes.')
 parser.add_argument('--code_baudrate', default=200e3, type=float, help='Code baudrate.')
 parser.add_argument('--template_dt', type=float, help='Sample spacing for smoothed code sequence.')
-parser.add_argument('--ipp', default=5.5e-3, type=float, help='Interpulse period, i.e. the time between sucessive code transmissions.')
+parser.add_argument('--ipp', default=115501000/1e9/21, type=float, help='Interpulse period, i.e. the time between sucessive code transmissions.')
 parser.add_argument('--code_repeat_num', default=10, type=int, help='Number of repetitions of code_pattern.')
 parser.add_argument('--trans_len', type=int, help='Calculate transmission length.')
 
 # parser.add_argument('--which_antenna', default=3, type=float, help='Antenna number.')
-parser.add_argument('--start_time', default=1746645900, type=int)
+parser.add_argument('--start_time', default=1729341800, type=int)
 parser.add_argument('--corr_time', default=15, type=int)
 parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive7_mars_spring2025/baseband/", type=str)
 parser.add_argument('--out_dir', default="/scratch/mayas/ionograms_testing", type=str)
@@ -47,8 +47,6 @@ parser.add_argument('--iono_freqs_path', default=f"{os.path.expanduser('~')}/alb
                     help='Path to CSV file with list of ionosonde frequencies.')
 parser.add_argument('--freq_idx_bounds', default=[36, 72], nargs=2, type=int, help='Which frequencies to actually analyze.')
 parser.add_argument('--f', type=str, help='Just here so that IPython works.')
-parser.add_argument('-v', '--verbose', action='store_true')
-
 
 default_args = parser.parse_args()
 

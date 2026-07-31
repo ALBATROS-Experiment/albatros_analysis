@@ -12,6 +12,7 @@ from albatros_analysis.scripts.ionosonde import ionogram
 
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel("DEBUG")
 
 def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_args):
     """Get baseband spectra for all antennas x polarizations
@@ -35,12 +36,17 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
     # These assert statements are here because the ALBATROS backend and
     # low-level unpacking is not designed to handle odd starting chan
     # and odd total chans
-    assert channel_indices[0] % 2 == 0
-    assert len(channel_indices) % 2 == 0
-
-
-    logger.debug("Getting timestream")
     logger.debug("Channel indices to be used: %s", channel_indices)
+
+    if channel_indices.size == 0:
+        logger.debug(f"The only channels recorded were {header['channels']}, but {channels} were requested.")
+        raise ValueError(f"No requested channels recorded.")
+    if channel_indices[0] % 2 == 1:
+        raise ValueError("Odd starting channel.")
+    if len(channel_indices) % 2 == 1:
+        raise ValueError("Odd number of channels.")
+
+    logger.debug("Getting antenna objects.")
     
     antenna_objs = []
     for i in range(args.num_ant):
@@ -77,6 +83,9 @@ def process_from_data(args=default_args):
     ipfb_chunk_size = int(args.corr_time * args.chan_res_init)
     read_size = ipfb_chunk_size - 2 * args.cutsize
 
+    logger.debug("Files: %s", files)
+    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
+
     # Setup IPFB
     ipfb = sp.setup_ipfb(args.channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
 
@@ -104,9 +113,7 @@ def process_from_data(args=default_args):
     logger.debug("len_timestream (Nts): %s", len_timestream)
     ts_pol0_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
-    
-    logger.debug("Files: %s", files)
-    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
+
 
     for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
         for ant_idx in range(args.num_ant):

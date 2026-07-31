@@ -266,7 +266,7 @@ def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "tota
     fig.colorbar(im, label='SNR (dB)')
     ax.set_xlabel("Frequency (MHz)")
     ax.set_ylabel("Range (km)") # Range is distance / 2
-    ax.set_title(f"0 km is {ref_idx / args.code_baudrate} @ {freqs[0]/1e6:.2f} MHz")
+    ax.set_title(f"0 km is {args.start_time + ref_idx / args.code_baudrate} @ {freqs[0]/1e6:.2f} MHz")
 
     fig.savefig(os.path.join(args.out_dir, "std_ionogram.png"))
     np.savetxt(os.path.join(args.out_dir, "ionogram.csv"), to_plot, delimiter=",")
