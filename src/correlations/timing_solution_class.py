@@ -4,6 +4,35 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
+def get_all_batches(root_dir):
+    """
+    Gives start and end times of all batches for which there are timing solutions.
+
+    Parameters
+    ----------
+    root_dir : str
+        Directory to the data
+
+    Returns
+    -------
+    list
+        List of tuples (start, end) for all the batches
+    """
+    root = Path(root_dir)
+    index_file = root / "index.json"
+
+    if not index_file.exists():
+        raise FileNotFoundError(f"Could not find {index_file}")
+
+    with open(index_file, "r") as f:
+        index = json.load(f)
+    
+    batches = []
+    for batch in index:
+        batches.append((batch['start'], batch['end']))
+    return batches
+
+
 class TimingSolution:
     """
     Interface for accessing antenna timing solutions.
@@ -135,7 +164,7 @@ class TimingSolution:
 
     def interpolate_delay(self, interp_unix_start, interp_unix_end, dt, extrapolate = True, method="linear" ):
         """
-        Interpolate antenna delay timing solutions at requested Unix timestamps.
+        Interpolate antenna delay timing solutions for entire requested Unix interval.
 
         The timing solutions loaded for the selected batch are
         interpolated onto a user-defined time grid. Each antenna delay solution
@@ -222,6 +251,80 @@ class TimingSolution:
 
         else:
             raise NotImplementedError(f"Unknown interpolation method {method}")
+
+
+    def interpolate_existing_delays(interp_unix_start, interp_unix_end, dt, border_window):
+        """
+        Interpolate timing solutions only around periods with existing data.
+
+        Finds all timing solution samples within the requested interval,
+        extends each contiguous data region by ``border_window`` seconds,
+        and interpolates delays onto a regular time grid. Regions with no
+        timing solution data are not included.
+
+        Parameters
+        ----------
+        interp_start : float
+            Start Unix timestamp of requested range.
+
+        interp_end : float
+            End Unix timestamp of requested range.
+
+        dt : float
+            Output time resolution in seconds.
+
+        border_window : float
+            Time padding applied around the edges of existing data regions.
+
+        Returns
+        -------
+        unix_interp : np.ndarray
+            Unix timestamps where interpolated delays are available.
+
+        taus_interp : np.ndarray
+            Interpolated delay solutions corresponding to ``unix_interp``.
+        """
+
+        # data samples inside requested interval
+        unix_mask = (self.unix >= interp_unix_start) & (self.unix <= interp_unix_end)
+
+        if not np.any(unix_mask):
+            raise ValueError("No timing solution data exists within requested interval.")
+
+        unix_existing = self.unix[unix_mask]
+
+        # find gaps between existing data regions
+        gaps = np.where(np.diff(unix_existing) > 1.5 * dt)[0]
+
+        # Split into continuous regions
+        pass_starts = np.concatenate(([0], gaps + 1))
+        pass_ends = np.concatenate((gaps, [len(unix_existing) - 1]))
+
+        unix_all = []
+        taus_all = []
+
+        # Iterate over all passes
+        for start_idx, end_idx in zip(pass_starts, pass_ends):
+
+            # Actual data limits for this pass
+            pass_start = pass_existing[start_idx]
+            pass_end = pass_existing[end_idx]
+
+            # Expand by border window (careful to not go outisde requested times)
+            interp_pass_start = max(interp_unix_start, pass_start - border_window)
+            interp_pass_end = min(interp_end, pass_end + border_window)
+
+            # Interpolate this region using existing method
+            unix_i, taus_i = self.interpolate_delay(interp_pass_start, interp_pass_end, dt)
+
+            unix_all.append(unix_i)
+            taus_all.append(taus_i)
+
+        # Concatenate separate passes
+        unix_interp = np.concatenate(unix_all)
+        taus_interp = np.concatenate(taus_all, axis=1)
+
+        return unix_interp, taus_interp
 
 
     def get_data_mask(self, query_unix, tolerance):
