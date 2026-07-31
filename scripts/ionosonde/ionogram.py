@@ -214,6 +214,7 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
 def plot_all_traces(freqs, corr, ref_idx):
     pass
 
+
 def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "total",
              pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"}, args = default_args):
     """Build and plot an ionogram: signal power vs. frequency and distance.
@@ -248,41 +249,51 @@ def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "tota
     
     corr_power = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
 
-    to_plot = np.zeros([ref_idx_high - ref_idx_low, len(freqs)])
+    normalized = np.zeros([ref_idx_high - ref_idx_low, len(freqs)])
+    pol0 = np.zeros([ref_idx_high - ref_idx_low, len(freqs)], dtype=np.complex64)
+    pol1 = np.zeros([ref_idx_high - ref_idx_low, len(freqs)], dtype=np.complex64)
 
     for i in range(len(freqs)):
-        if ref_idx_low + offset(i) < 0:
-            to_plot[:, i] = np.nan
-        elif ref_idx_high + offset(i) > corr.shape[2]:
-            to_plot[:, i] = np.nan
+        low_idx = ref_idx_low + offset(i, args=args)
+        high_idx = ref_idx_high + offset(i, args=args)
+
+        if low_idx < 0:
+            normalized[:, i] = np.nan
+            pol0[:, i] = np.nan
+            pol1[:, i] = np.nan
+        elif high_idx > corr.shape[2]:
+            normalized[:, i] = np.nan
+            pol0[:, i] = np.nan
+            pol1[:, i] = np.nan
         else:
-            # print(0, ref_idx_low + offset(i), ref_idx_high + offset(i), corr.shape[2])
-            to_plot[:, i] = corr_power[i, ref_idx_low + offset(i, args=args): ref_idx_high + offset(i, args=args)] / np.median(corr_power[i, ref_idx_low + offset(i, args=args): ref_idx_high + offset(i, args=args)])
+            med = np.median(corr_power[i, low_idx: high_idx])
+            
+            normalized[:, i] = corr_power[i, low_idx:high_idx] / med
+            pol0[:, i] = corr[i, 0, low_idx:high_idx]
+            pol1[:, i] = corr[i, 1, low_idx:high_idx]
 
     fig, ax = plt.subplots()
 
     dists = np.arange(ref_idx_low - ref_idx, ref_idx_high - ref_idx) / args.code_baudrate * args.c
-    im = ax.pcolormesh(freqs/1e6, dists / 2, 5 * np.log10(to_plot), **pcm_kw)
+    im = ax.pcolormesh(freqs/1e6, dists / 2, 5 * np.log10(normalized), **pcm_kw)
     fig.colorbar(im, label='SNR (dB)')
     ax.set_xlabel("Frequency (MHz)")
     ax.set_ylabel("Range (km)") # Range is distance / 2
     ax.set_title(f"0 km is {args.start_time + ref_idx / args.code_baudrate} @ {freqs[0]/1e6:.2f} MHz")
 
+    os.makedirs(args.out_dir, exist_ok=True)
     fig.savefig(os.path.join(args.out_dir, "std_ionogram.png"))
-    np.savetxt(os.path.join(args.out_dir, "ionogram.csv"), to_plot, delimiter=",")
+    np.savetxt(os.path.join(args.out_dir, "ionogram.csv"), normalized, delimiter=",")
     logger.info("Ionogram saved to %s", os.path.join(args.out_dir, "std_ionogram.png"))
+
+    return normalized, pol0, pol1
 
 def process_and_plot(args=default_args):
     """Run the full ionogram pipeline on a saved correlation file and plot it.
 
     Loads frequency and correlation data from an .npz file, automatically
     selects the clearest channel, locates the true reference (transmit)
-    index, and produces an ionogram plot.
-
-    Parameters
-    ----------
-    file_name : str
-        Path to an .npz file containing "freqs" and "corr" arrays."""
+    index, and produces an ionogram plot."""
     data = np.load(os.path.join(args.out_dir, args.corr_name))
     
     freqs, corr = data["freqs"], data["corr"]

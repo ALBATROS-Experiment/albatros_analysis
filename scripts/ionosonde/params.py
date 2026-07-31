@@ -46,7 +46,7 @@ parser.add_argument('--buf_len', default=4096, type=int, help="Buffer length.")
 parser.add_argument('--iono_freqs_path', default=f"{os.path.expanduser('~')}/albatros_analysis/scripts/ionosonde/eureka_freqs_hz.csv",
                     help='Path to CSV file with list of ionosonde frequencies.')
 parser.add_argument('--freq_idx_bounds', default=[36, 72], nargs=2, type=int, help='Which frequencies to actually analyze.')
-parser.add_argument('--f', type=str, help='Just here so that IPython works.')
+parser.add_argument('-f', '--f', type=str, help='Just here so that IPython works.')
 
 default_args = parser.parse_args()
 
