@@ -2,17 +2,17 @@
 
 As promised, we will now be detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: to determine when we can actually see which satellite, and to determine the best spectrum alignment for each baseline. We work on each baseline involving the reference antenna. Moreover, we call a satellite pass any satellite that is technically risen, and that could be visible to our antenna, whereas we call a pulse a satellite pass that is actually detected, and verified to be visible, using the method outlined below.
 
-## 2.1 Doing the 'det'
+## 2.1 Detection Process
 
 Using satellite trajectories overhead, we predict when one of them passes overhead and becomes visible to the antenna (orbcomm_utils.get_risen_sats). For each baseline containing the reference antenna, we perform a coarse cross-correlation. If the SNR is high enough, we call a satellite 'pass' a 'pulse', and it counts as a detection. For each such detection, we record the spectrum number offset of the peak of the cxcorr (which is a function of delay, as you may recall).
 
-## 2.2 Specnumoffsetting
+## 2.2 Finding Spectrum Number Offsets
 
 This part addresses the first of the main objectives of satdet: determining spectrum alignment.
 There are plenty of pulses, some of which yield different values of 'specnum offset'?
 We must determine a consensus. The relevant script is 'get_consensus_offset.py'
 
-## 2.3 Pulses and Data (what who where when why?)
+## 2.3 Finding Good Satellite Passes
 
 The second main objective is some reliable measure of where to look for high SNR satellite pulses. We need this so as to not waste our time computing data for pulses that are either very faint or not long enough (our usual length cut is about 120 seconds). We have two primary jsons that keep data, which serve two different purposes.
 
