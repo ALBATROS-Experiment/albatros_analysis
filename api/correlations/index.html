@@ -780,28 +780,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.find_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;find_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.load_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#src.correlations.timing_solution_class.TimingSolution.spectra_to_unix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -824,10 +802,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.find_timing_sol" class="md-nav__link">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;find_timing_sol
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_data_mask
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.all_blines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;all_blines
       
     </span>
   </a>
@@ -1624,28 +1613,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.find_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;find_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.load_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#src.correlations.timing_solution_class.TimingSolution.spectra_to_unix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1668,10 +1635,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#src.correlations.timing_solution_class.TimingSolution.find_timing_sol" class="md-nav__link">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;find_timing_sol
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_data_mask
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.all_blines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;all_blines
       
     </span>
   </a>
@@ -3109,14 +3087,19 @@ Returns the object's public attributes which is the header information.</p>
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">TimingSolution</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">TimingSolution</span><span class="p">(</span><span class="n">query_unix_start</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
 
 
-        <p>Interface for retrieving antenna delays from calibration batches.</p>
+        <p>Interface for accessing antenna timing solutions.</p>
+<p>The class loads a database of calibration batches and selects the
+batch containing a requested observation start time. Timing solutions
+and associated metadata for the selected batch can then be accessed
+through the class methods. Timing solutions can then also be interpolated
+as desired for data analysis.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3132,6 +3115,23 @@ Returns the object's public attributes which is the header information.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
+                <code>query_unix_start</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> or <span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Unix timestamp (seconds) used to identify the calibration batch
+containing the desired observation.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>root</code>
             </td>
             <td>
@@ -3139,7 +3139,9 @@ Returns the object's public attributes which is the header information.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Directory containing calibration batches and index.json.</p>
+                <p>Path to the directory containing the timing solution database.
+This directory must contain an <code>index.json</code> file and the HDF5
+files referenced by the index.</p>
               </div>
             </td>
             <td>
@@ -3150,10 +3152,138 @@ Returns the object's public attributes which is the header information.</p>
     </table>
 
 
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.root">root</span></code></td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Root directory of the timing solution database.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.batch">batch</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary describing the selected calibration batch.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.batch_name">batch_name</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the selected batch, in form 'batch_{batch_start_unix}'.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.batch_start_unix">batch_start_unix</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Start time of the selected batch in Unix seconds.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.batch_end_unix">batch_end_unix</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>End time of the selected batch in Unix seconds.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.ref_ant">ref_ant</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the reference antenna for the selected batch.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.non_ref_ants">non_ref_ants</span></code></td>
+            <td>
+                  <code>list of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Names of the non-reference antennas whose delays are stored in the
+timing solutions.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="FileNotFoundError">FileNotFoundError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the timing solution database or its <code>index.json</code> file cannot
+be found.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>query_unix_start</code> is not contained within any calibration
+batch, or if it is contained within more than one batch.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
 <details class="note" open>
   <summary>Notes</summary>
-  <p>The database is organized into independent calibration batches.
-A requested time range must lie entirely inside one batch.</p>
+  <p>Calibration solutions are organized into independent, non-overlapping
+batches. The class selects the unique batch whose time range contains
+<code>query_unix_start</code>.</p>
 </details>
 
 
@@ -3179,17 +3309,17 @@ A requested time range must lie entirely inside one batch.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="src.correlations.timing_solution_class.TimingSolution.find_batch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">find_batch</span>
+<h4 id="src.correlations.timing_solution_class.TimingSolution.spectra_to_unix" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">spectra_to_unix</span>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">find_batch</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">spectra_to_unix</span><span class="p">(</span><span class="n">spectra</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Find calibration batch containing requested time range.</p>
+        <p>Converts any desired reference antenna spectrum indices to UNIX timestamps.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3205,46 +3335,14 @@ A requested time range must lie entirely inside one batch.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>start</code>
+                <code>spectra</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Starting Unix timestamp.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>end</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Ending Unix timestamp.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>satellite</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Satellite name.</p>
+                <p>Array of reference antenna spectra.</p>
               </div>
             </td>
             <td>
@@ -3266,11 +3364,171 @@ A requested time range must lie entirely inside one batch.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="dict">dict</span></code>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Batch metadata.</p>
+                <p>Unix timesamps corresponding to input spectra.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="src.correlations.timing_solution_class.TimingSolution.interpolate_delay" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">interpolate_delay</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">interpolate_delay</span><span class="p">(</span><span class="n">interp_unix_start</span><span class="p">,</span> <span class="n">interp_unix_end</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Interpolate antenna delay timing solutions at requested Unix timestamps.</p>
+<p>The timing solutions loaded for the selected batch are
+interpolated onto a user-defined time grid. Each antenna delay solution
+is interpolated independently using the specified interpolation method.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>interp_unix_start</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Starting Unix timestamp for the requested interpolation range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>interp_unix_end</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ending Unix timestamp for the requested interpolation range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dt</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Spacing between requested output timestamps in seconds.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extrapolate</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to allow interpolation outside the time range covered by
+the loaded timing solution. If False, a ValueError is raised when
+the requested range extends beyond the available data.
+Default is True.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interpolation method to use. Currently only <code>"linear"</code> is
+supported.
+Default is <code>"linear"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;linear&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>unix_interp</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Requested Unix timestamps at which delay solutions have been
+interpolated.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>taus_interp</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interpolated antenna delay solutions.
+Shape is <code>(nant - 1, ntime)</code>, where <code>nant - 1</code> is the number
+of non-reference antennas and <code>ntime</code> is the number of requested
+output timestamps.</p>
               </div>
             </td>
           </tr>
@@ -3293,14 +3551,31 @@ A requested time range must lie entirely inside one batch.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If requested interval spans multiple batches
-or no batch exists.</p>
+                <p>If extrapolation is disabled and the requested interpolation range
+lies outside the available timing solution range.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotImplementedError">NotImplementedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If an unsupported interpolation method is requested.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Delay solutions are stored internally as <code>self.taus</code> and their
+corresponding Unix timestamps as <code>self.unix</code>. Linear interpolation is
+performed independently for each antenna delay stream.</p>
+</details>
 
     </div>
 
@@ -3309,17 +3584,17 @@ or no batch exists.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="src.correlations.timing_solution_class.TimingSolution.load_batch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">load_batch</span>
+<h4 id="src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_data_mask</span>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">load_batch</span><span class="p">(</span><span class="n">batch_name</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">get_data_mask</span><span class="p">(</span><span class="n">query_unix</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Load delay data from HDF5 file.</p>
+        <p>Return mask indicating where timing solution samples exist nearby.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3335,281 +3610,9 @@ or no batch exists.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>batch_name</code>
+                <code>query_unix</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Batch identifier.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="dict">dict</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Dictionary containing spectra,
-unix_time, and delays.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="src.correlations.timing_solution_class.TimingSolution.spectra_to_unix" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">spectra_to_unix</span>
-
-
-</h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">spectra_to_unix</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Convert spectrum indices to UNIX timestamps.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>batch_name</code>
-            </td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Name of batch we want to look at</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>data</code>
-            </td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Data of batch we want, which contains its spectra</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Fractional spectrum positions.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="src.correlations.timing_solution_class.TimingSolution.interpolate_delay" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">interpolate_delay</span>
-
-
-</h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">interpolate_delay</span><span class="p">(</span><span class="n">query_unix_start</span><span class="p">,</span> <span class="n">query_unix_end</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">unix_data</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Interpolate delays at requested Unix timestamps.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>query_unix_start</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Starting Unix timestamp.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>query_unix_end</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Ending Unix timestamp.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>time_resolution</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Output spacing in seconds.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>data</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Dictionary containing delay solutions.
-Requires:
-    data["taus"] : ndarray, shape (ntimes, nblines)</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>unix</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Unix timestamps corresponding to the delay solutions.
-Shape (ntimes,)</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>method</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Interpolation method.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;linear&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>query_unix</code></td>            <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
@@ -3617,15 +3620,48 @@ Shape (ntimes,)</p>
                 <p>Requested Unix timestamps.</p>
               </div>
             </td>
+            <td>
+                <em>required</em>
+            </td>
           </tr>
           <tr class="doc-section-item">
-<td><code>taus_interp</code></td>            <td>
+            <td>
+                <code>tolerance</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum allowed distance (seconds) between a requested time and
+an available timing solution sample.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Interpolated delays.
-Shape (nblines, nrequested_times)</p>
+                <p>Boolean mask. True where a timing solution sample exists within
+the tolerance window.</p>
               </div>
             </td>
           </tr>
@@ -3640,17 +3676,18 @@ Shape (nblines, nrequested_times)</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="src.correlations.timing_solution_class.TimingSolution.find_timing_sol" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">find_timing_sol</span>
+<h4 id="src.correlations.timing_solution_class.TimingSolution.all_blines" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">all_blines</span>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">find_timing_sol</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">all_blines</span><span class="p">(</span><span class="n">taus</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Retrieve delays over a requested time interval.</p>
+        <p>For taus that are only with respect to the reference, creates all baseline combinations.
+By convention the reference antenna has zero delay.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3666,82 +3703,18 @@ Shape (nblines, nrequested_times)</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>start</code>
+                <code>taus</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Starting Unix timestamp.</p>
+                <p>All delays, shape (nant-1, ntimes)</p>
               </div>
             </td>
             <td>
                 <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>end</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Ending Unix timestamp.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>time_resolution</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Requested output spacing in seconds.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>extrapolate</code>
-            </td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Determines whether you can take data that lies before or after all sat passes.
-Basically, are you allowed to guess the evolution when you don't know what happens before or after.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>method</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Delay interpolation method.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;linear&#39;</code>
             </td>
           </tr>
       </tbody>
@@ -3752,24 +3725,31 @@ Basically, are you allowed to guess the evolution when you don't know what happe
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
+          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>delays</code></td>            <td>
+            <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Interpolated antenna delays.</p>
+                <p>All delays for all baselines, shape (nbl, ntimes)</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Beware of convention: ref-nref, and small-large.
+Means that when subtracting, if A&lt;B,  have delayA - delayB = (ref - tauA) - (ref - tauB) = tauB - tauA.
+Therefore, counterintuitively, you subtract smaller index from larger.</p>
+</details>
 
     </div>
 
