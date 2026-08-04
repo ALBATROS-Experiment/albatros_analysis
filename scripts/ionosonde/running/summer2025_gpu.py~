@@ -50,9 +50,9 @@ with open(summary_path, "a") as failure_summary:
     if not summary_exists:
         failure_summary.write("Success?,MARS Station,Time,Exception\n")
 
-    for ant in [2, 3, 7]:
-        baseband_dir = f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/"
-        folder_names = os.listdir(baseband_dir)
+    for ant in [3, 4, 5, 6, 7, 8, 1, 2]]:
+        baseband_dir = f"/scratch/mohanagr/summer_2025/baseband/mars{ant}"
+        folder_names = [folder_name for folder_name in os.listdir(baseband_dir) if folder_name.isdigit()]
 
         for folder_name in folder_names:
             folder_path = os.path.join(baseband_dir, folder_name)

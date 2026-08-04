@@ -29,10 +29,10 @@ parser.add_argument('--ipp', default=115501000/1e9/21, type=float, help='Interpu
 parser.add_argument('--code_repeat_num', default=10, type=int, help='Number of repetitions of code_pattern.')
 parser.add_argument('--trans_len', type=int, help='Calculate transmission length.')
 
-# parser.add_argument('--which_antenna', default=3, type=float, help='Antenna number.')
-parser.add_argument('--start_time', default=1729341800, type=int)
+parser.add_argument('--which_ant', default=2, type=float, help='Antenna number.')
+parser.add_argument('--start_time', default=1746795000, type=int)
 parser.add_argument('--corr_time', default=15, type=int)
-parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive7_mars_spring2025/baseband/", type=str)
+parser.add_argument('--baseband_dir', default="/scratch/mohanagr/drive2_mars_spring2025/baseband/", type=str)
 parser.add_argument('--out_dir', default="/scratch/mayas/ionograms_testing", type=str)
 parser.add_argument('--corr_name', default="correlated_data.npz", type=str)
 parser.add_argument('--num_pol', default=2, type=int, help='Number of polarizations.')

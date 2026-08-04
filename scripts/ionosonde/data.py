@@ -86,8 +86,13 @@ def process_from_data(args=default_args):
     logger.debug("Files: %s", files)
     final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
 
+    chunk_idx = 0
+    chunks = zip(*antenna_objs).__next__()
+
+    logger.debug(f"Number of antenna objects is {len(antenna_objs)}")
+
     # Setup IPFB
-    ipfb = sp.setup_ipfb(args.channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
+    ipfb = sp.setup_ipfb(final_channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
 
     len_timestream = read_size * ipfb.lblock
     ncols = args.buf_len - args.filter_len
@@ -113,36 +118,33 @@ def process_from_data(args=default_args):
     logger.debug("len_timestream (Nts): %s", len_timestream)
     ts_pol0_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
     ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
-
-
-    for chunk_idx, chunks in enumerate(zip(*antenna_objs)):
-        for ant_idx in range(args.num_ant):
-            chunk = chunks[ant_idx]
-            expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
-
-            logger.debug("chunk pol0 shape: %s", chunk["pol0"].shape)
-            
-            pol0 = bdc.make_continuous_gpu(
-                chunk["pol0"],
-                chunk["specnums"] - expected_start_specnum,
-                xp.arange(0, nchan),
-                read_size,
-                nchan,
-            )
-
-            logger.debug("pol0 shape: %s", pol0.shape)
-            pol1 = bdc.make_continuous_gpu(
-                chunk["pol1"],
-                chunk["specnums"] - expected_start_specnum,
-                xp.arange(0, nchan),
-                read_size,
-                nchan,
-            )
-            corr = sp.process_one_chunk(pol0, pol1, final_channels,
-                                        hf, len_timestream, Nts_dc, ts_pol0_dc,
-                                        ts_pol1_dc, ipfb, ant_idx, phase_cycles,
-                                        filter_state, filtered_timestreams, args=args)
     
+    for ant_idx in range(args.num_ant):
+        chunk = chunks[ant_idx]
+        expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
+
+        logger.debug("chunk pol0 shape: %s", chunk["pol0"].shape)
+        
+        pol0 = bdc.make_continuous_gpu(
+            chunk["pol0"],
+            chunk["specnums"] - expected_start_specnum,
+            xp.arange(0, nchan),
+            read_size,
+            nchan,
+        )
+
+        logger.debug("pol0 shape: %s", pol0.shape)
+        pol1 = bdc.make_continuous_gpu(
+            chunk["pol1"],
+            chunk["specnums"] - expected_start_specnum,
+            xp.arange(0, nchan),
+            read_size,
+            nchan,
+        )
+        corr = sp.process_one_chunk(pol0, pol1, final_channels,
+                                    hf, len_timestream, Nts_dc, ts_pol0_dc,
+                                    ts_pol1_dc, ipfb, ant_idx, phase_cycles,
+                                    filter_state, filtered_timestreams, args=args)
     os.makedirs(args.out_dir, exist_ok = True)
     logger.info("Saving to %s", os.path.join(args.out_dir, args.corr_name))
     np.savez(os.path.join(args.out_dir, args.corr_name), corr = corr, freqs = args.ionosonde_freqs)
@@ -151,5 +153,6 @@ def process_from_data(args=default_args):
 
             
 if __name__ == "__main__":
-    freqs, corr = process_from_data()
-    ionogram.process_and_plot()
+    process_from_data()
+#     freqs, corr = process_from_data()
+#     ionogram.process_and_plot()

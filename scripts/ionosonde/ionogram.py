@@ -204,19 +204,226 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
             flat_axs[i].set_facecolor((1.0, 0.95, 0.8))
 
         plt.show()
+        # Make sure the figure gets cleaned up once we're done with it.
+        plt.close(fig)
 
     final_idx = int((argmax + args.code_repeat_num + 3)
                     * (2 * args.ipp * args.code_baudrate)) + new_low_idx
 
     return final_idx - offset(best_channel, args=args)
-    
 
-def plot_all_traces(freqs, corr, ref_idx):
-    pass
+
+def extract_traces(freqs, corr, ref_idx, dist_range = [-2000, 2000], args = default_args):
+    """Extract each channel's windowed trace around ref_idx.
+
+    For each frequency channel, extracts a window of the correlation data
+    around the reference index (adjusted for that channel's timing
+    offset), and normalizes the power by the channel's median power over
+    that window.
+
+    Unlike a naive implementation that discards an entire channel to NaN
+    whenever any part of its window falls outside the bounds of the
+    available data, this function pulls in whatever real data does exist
+    for a channel (clipping the requested window to the available range)
+    and only pads the genuinely missing samples with NaN. This minimizes
+    the total number of NaNs in the output.
+
+    Parameters
+    ----------
+    freqs : ndarray
+        Array of channel frequencies, in Hz.
+    corr : ndarray, shape (n_channels, 2, n_samples)
+        Correlation data for each channel and polarization.
+    ref_idx : int
+        Reference (baseline) index, e.g. from find_ref_idx, marking the
+        effective transmit time in baseline samples.
+    dist_range : list of float, optional
+        [min, max] distance range (km) to extract around the reference,
+        default [-2000, 2000].
+
+    Returns
+    -------
+    normalized : ndarray, shape (n_samples, n_channels)
+        Median-normalized power for each channel, padded with NaN only
+        where no real data was available.
+    pol0 : ndarray, complex, shape (n_samples, n_channels)
+        Raw polarization-0 correlation values for each channel.
+    pol1 : ndarray, complex, shape (n_samples, n_channels)
+        Raw polarization-1 correlation values for each channel.
+    dists : ndarray
+        Distance axis (km) relative to ref_idx, corresponding to the
+        sample window used for every channel.
+    """
+    ref_idx_low = int(dist_range[0] / args.c * args.code_baudrate + ref_idx)
+    ref_idx_high = int(dist_range[1] / args.c * args.code_baudrate + ref_idx)
+
+    corr_power = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
+
+    n_samples = ref_idx_high - ref_idx_low
+    n_chan = len(freqs)
+
+    normalized = np.full([n_samples, n_chan], np.nan)
+    pol0 = np.full([n_samples, n_chan], np.nan, dtype=np.complex64)
+    pol1 = np.full([n_samples, n_chan], np.nan, dtype=np.complex64)
+
+    for i in range(n_chan):
+        low_idx = ref_idx_low + offset(i, args=args)
+        high_idx = ref_idx_high + offset(i, args=args)
+
+        # Clip the requested window to the range of data that actually
+        # exists, so we pull in as much real data as possible instead of
+        # throwing away the whole channel when only part of its window
+        # lies outside corr's bounds.
+        valid_low = max(low_idx, 0)
+        valid_high = min(high_idx, corr.shape[2])
+
+        if valid_low >= valid_high:
+            # No overlap at all with existing data for this channel;
+            # it stays NaN.
+            continue
+
+        # Where the valid data lands within the (fixed-size) output window.
+        out_start = valid_low - low_idx
+        out_end = out_start + (valid_high - valid_low)
+
+        med = np.median(corr_power[i, valid_low:valid_high])
+
+        normalized[out_start:out_end, i] = corr_power[i, valid_low:valid_high] / med
+        pol0[out_start:out_end, i] = corr[i, 0, valid_low:valid_high]
+        pol1[out_start:out_end, i] = corr[i, 1, valid_low:valid_high]
+
+    dists = np.arange(ref_idx_low - ref_idx, ref_idx_high - ref_idx) / args.code_baudrate * args.c
+
+    return normalized, pol0, pol1, dists
+
+
+def plot_all_traces(freqs, corr, ref_idx, dist_range = [-2000, 2000], figsize = None, args = default_args):
+    """Plot the power trace of every frequency channel around ref_idx.
+
+    Uses extract_traces to pull each channel's windowed trace (with as
+    little data loss as possible), then plots the combined (both
+    polarizations) power for each channel against distance, in its own
+    subplot within a single grid figure.
+
+    Parameters
+    ----------
+    freqs : ndarray
+        Array of channel frequencies, in Hz.
+    corr : ndarray, shape (n_channels, 2, n_samples)
+        Correlation data for each channel and polarization.
+    ref_idx : int
+        Reference (baseline) index, e.g. from find_ref_idx.
+    dist_range : list of float, optional
+        [min, max] distance range (km) to display around the reference,
+        default [-2000, 2000].
+    figsize : tuple of float, optional
+        Size of the resulting figure, in inches. Defaults to a size that
+        scales with the number of channels.
+
+    Returns
+    -------
+    fig, axs
+        The created matplotlib figure and array of axes (already saved
+        to disk and closed by the time this function returns).
+    """
+    normalized, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx,
+                                                     dist_range=dist_range, args=args)
+
+    n_chan = len(freqs)
+    n_cols = int(np.ceil(np.sqrt(n_chan)))
+    n_rows = int(np.ceil(n_chan / n_cols))
+
+    if figsize is None:
+        figsize = (n_cols * 2.2, n_rows * 1.8)
+
+    fig, axs = plt.subplots(n_rows, n_cols, sharex = True, sharey = True,
+                            layout = "constrained", figsize = figsize)
+    flat_axs = np.atleast_1d(axs).flatten()
+
+    power = np.abs(pol0)**2 + np.abs(pol1)**2
+
+    for i in range(n_chan):
+        flat_axs[i].plot(dists / 2, power[:, i], c = (0.5, 0, 0))
+        flat_axs[i].set_title(f"{freqs[i]/1e6:.2f} MHz", fontsize = 8)
+
+    # Hide any unused axes in the grid (when n_chan doesn't fill it exactly).
+    for j in range(n_chan, len(flat_axs)):
+        flat_axs[j].axis("off")
+
+    fig.supxlabel("Range (km)")
+    fig.supylabel("Power")
+
+    os.makedirs(args.out_dir, exist_ok=True)
+    fig.savefig(os.path.join(args.out_dir, "all_traces.png"))
+    logger.info("All-traces plot saved to %s", os.path.join(args.out_dir, "all_traces.png"))
+
+    plt.close(fig)
+
+    return fig, axs
+
+
+def find_plasma_freq(freqs, normalized, snr_threshold_db = 6):
+    """Estimate the plasma frequency from an ionogram's normalized traces.
+ 
+    The plasma frequency is approximated here as the highest frequency
+    channel that shows a detectable reflected signal: a channel counts as
+    detectable if any sample in its median-normalized power trace exceeds
+    snr_threshold_db, using the same 5*log10(normalized) dB convention as
+    the ionogram plot. Above the true plasma frequency, radio waves are no
+    longer reflected back by the ionosphere, so the highest frequency that
+    still shows a return is a reasonable estimate of it.
+ 
+    Parameters
+    ----------
+    freqs : ndarray
+        Array of channel frequencies, in Hz.
+    normalized : ndarray, shape (n_samples, n_channels)
+        Median-normalized power for each channel, e.g. as returned by
+        extract_traces (NaNs, from missing data, are ignored).
+    snr_threshold_db : float, optional
+        Minimum SNR, in dB, for a channel to be considered to have a
+        detectable signal (default 6 dB).
+ 
+    Returns
+    -------
+    float or None
+        Average of the highest-frequency channel with a detectable signal
+        and the next channel's frequency (i.e. the midpoint between the
+        last "detectable" channel and the first "undetectable" one above
+        it). Returns None if no channel shows a detectable signal, or if
+        every channel shows a detectable signal (since there is then no
+        higher, undetectable channel to average against).
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        power_db = 5 * np.log10(normalized)
+ 
+    detectable = np.zeros(len(freqs), dtype=bool)
+    for i in range(len(freqs)):
+        col = power_db[:, i]
+        valid = col[~np.isnan(col)]
+        if valid.size == 0:
+            continue
+        detectable[i] = np.any(valid >= snr_threshold_db)
+ 
+    if not np.any(detectable) or np.all(detectable): # TODO: Change this to look at highest freq
+        return None
+ 
+    order = np.argsort(freqs)
+    sorted_freqs = freqs[order]
+    sorted_detectable = detectable[order]
+ 
+    detected_positions = np.where(sorted_detectable)[0]
+    highest_pos = detected_positions.max()
+ 
+    # Guaranteed to exist since not all channels are detectable.
+    next_pos = highest_pos + 1
+ 
+    return (sorted_freqs[highest_pos] + sorted_freqs[next_pos]) / 2
 
 
 def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "total",
-             pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"}, args = default_args):
+             pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"}, figsize = None,
+             plasma_snr_threshold = 6, args = default_args):
     """Build and plot an ionogram: signal power vs. frequency and distance.
 
     For each frequency channel, extracts a window of the power trace
@@ -236,71 +443,124 @@ def ionogram(freqs, corr, ref_idx, dist_range = [-2000, 2000], which_pol = "tota
         effective transmit time in baseline samples.
     dist_range : list of float, optional
         [min, max] distance range (km) to display around the reference,
-        default [-500, 500].
+        default [-2000, 2000].
     which_pol : str, optional
         Currently unused placeholder for selecting a polarization
         (default "total", meaning both polarizations are combined).
     pcm_kw : dict, optional
         Extra keyword arguments passed to ax.pcolormesh (e.g. vmin, vmax,
         cmap).
+    figsize : tuple of float, optional
+        Size of the resulting figure, in inches. Defaults to matplotlib's
+        default figure size.
+    plasma_snr_threshold : float, optional
+        SNR threshold (dB) passed to find_plasma_freq to decide whether a
+        channel has a detectable signal (default 6 dB).
+
+    Returns
+    -------
+    normalized, pol0, pol1 : ndarray
+        As returned by extract_traces.
+    plasma_freq : float or None
+        Estimated plasma frequency (Hz), from find_plasma_freq, or None
+        if no channel showed a detectable signal.
     """
-    ref_idx_low = int(dist_range[0] / args.c * args.code_baudrate + ref_idx)
-    ref_idx_high = int(dist_range[1] / args.c * args.code_baudrate + ref_idx)
-    
-    corr_power = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
+    normalized, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx,
+                                                     dist_range=dist_range, args=args)
 
-    normalized = np.zeros([ref_idx_high - ref_idx_low, len(freqs)])
-    pol0 = np.zeros([ref_idx_high - ref_idx_low, len(freqs)], dtype=np.complex64)
-    pol1 = np.zeros([ref_idx_high - ref_idx_low, len(freqs)], dtype=np.complex64)
+    plasma_freq = find_plasma_freq(freqs, normalized, snr_threshold_db=plasma_snr_threshold)
 
-    for i in range(len(freqs)):
-        low_idx = ref_idx_low + offset(i, args=args)
-        high_idx = ref_idx_high + offset(i, args=args)
+    fig, ax = plt.subplots(figsize=figsize, layout = "constrained")
 
-        if low_idx < 0:
-            normalized[:, i] = np.nan
-            pol0[:, i] = np.nan
-            pol1[:, i] = np.nan
-        elif high_idx > corr.shape[2]:
-            normalized[:, i] = np.nan
-            pol0[:, i] = np.nan
-            pol1[:, i] = np.nan
-        else:
-            med = np.median(corr_power[i, low_idx: high_idx])
-            
-            normalized[:, i] = corr_power[i, low_idx:high_idx] / med
-            pol0[:, i] = corr[i, 0, low_idx:high_idx]
-            pol1[:, i] = corr[i, 1, low_idx:high_idx]
-
-    fig, ax = plt.subplots()
-
-    dists = np.arange(ref_idx_low - ref_idx, ref_idx_high - ref_idx) / args.code_baudrate * args.c
     im = ax.pcolormesh(freqs/1e6, dists / 2, 5 * np.log10(normalized), **pcm_kw)
     fig.colorbar(im, label='SNR (dB)')
     ax.set_xlabel("Frequency (MHz)")
     ax.set_ylabel("Range (km)") # Range is distance / 2
-    ax.set_title(f"0 km is {args.start_time + ref_idx / args.code_baudrate} @ {freqs[0]/1e6:.2f} MHz")
+    ax.set_title(f"MARS {args.which_ant}")
+
+    if plasma_freq is not None:
+        ax.axvline(plasma_freq / 1e6, color="white", linestyle="--", linewidth=1,
+                   label=f"$f_p$ \u2248 {plasma_freq/1e6:.2f} MHz")
+        ax.legend(loc="upper right", fontsize=8)
+        logger.info("Estimated plasma frequency: %.3f MHz", plasma_freq / 1e6)
+    else:
+        logger.info("No channel showed a detectable signal; plasma frequency not found.")
+
+    # Secondary y-axis showing the UNIX time corresponding to each range,
+    # referenced to the lowest frequency channel (freqs[0], which has zero
+    # timing offset relative to ref_idx).
+    base_time = args.start_time + ref_idx / args.code_baudrate
+    base_time_floor = int(base_time)
+    base_time_diff = base_time - base_time_floor
+    
+    def _range_to_time(range_km):
+        two_way_dist_km = np.asarray(range_km) * 2
+        return base_time_diff + two_way_dist_km / args.c
+
+    def _time_to_range(unix_time):
+        two_way_dist_km = (np.asarray(unix_time) - base_time_diff) * args.c
+        return two_way_dist_km / 2
+
+    secax = ax.secondary_yaxis("right", functions=(_range_to_time, _time_to_range))
+    secax.set_ylabel(f"UNIX Time (s) @ {freqs[0]/1e6:.2f} MHz – {base_time_floor}")
 
     os.makedirs(args.out_dir, exist_ok=True)
     fig.savefig(os.path.join(args.out_dir, "std_ionogram.png"))
-    np.savetxt(os.path.join(args.out_dir, "ionogram.csv"), normalized, delimiter=",")
+    np.savez(os.path.join(args.out_dir, "ionogram.npz"),
+             normalized=normalized, pol0=pol0, pol1=pol1)
     logger.info("Ionogram saved to %s", os.path.join(args.out_dir, "std_ionogram.png"))
 
-    return normalized, pol0, pol1
+    plt.show()
+    plt.close(fig)
 
-def process_and_plot(args=default_args):
+    return normalized, pol0, pol1, plasma_freq
+
+def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [-2000, 2000],
+                      which_pol = "total", pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"},
+                      figsize = None, plasma_snr_threshold = 6, args=default_args):
     """Run the full ionogram pipeline on a saved correlation file and plot it.
 
     Loads frequency and correlation data from an .npz file, automatically
     selects the clearest channel, locates the true reference (transmit)
-    index, and produces an ionogram plot."""
+    index, and produces an ionogram plot.
+
+    Parameters
+    ----------
+    ref_idx_plotting : bool, optional
+        Passed through to find_ref_idx: if True, plots each candidate
+        repeat's power trace while refining the reference index
+        (default False).
+    cutoff_plot : int, optional
+        Passed through to find_ref_idx: half-width (in samples) of the
+        window plotted around each candidate repeat when plotting is
+        True (default 500).
+    dist_range : list of float, optional
+        Passed through to ionogram: [min, max] distance range (km) to
+        display around the reference (default [-2000, 2000]).
+    which_pol : str, optional
+        Passed through to ionogram (currently an unused placeholder for
+        selecting a polarization; default "total").
+    pcm_kw : dict, optional
+        Passed through to ionogram: extra keyword arguments for
+        ax.pcolormesh (e.g. vmin, vmax, cmap).
+    figsize : tuple of float, optional
+        Passed through to ionogram: size of the resulting figure, in
+        inches.
+    plasma_snr_threshold : float, optional
+        Passed through to ionogram: SNR threshold (dB) used by
+        find_plasma_freq to decide whether a channel has a detectable
+        signal (default 6 dB).
+    """
     data = np.load(os.path.join(args.out_dir, args.corr_name))
     
     freqs, corr = data["freqs"], data["corr"]
     best_channel = pick_best_channel(corr, args=args)
     approx_ref_idx = find_approx_ref_idx(corr, best_channel, args=args)
-    ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, args=args)
-    ionogram(freqs, corr, ref_idx, args=args)
+    ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, plotting=ref_idx_plotting,
+                            cutoff_plot=cutoff_plot, args=args)
+    ionogram(freqs, corr, ref_idx, dist_range=dist_range, which_pol=which_pol,
+             pcm_kw=pcm_kw, figsize=figsize, plasma_snr_threshold=plasma_snr_threshold,
+             args=args)
 
 if __name__ == "__main__":
     # print("Plotting")
@@ -312,4 +572,4 @@ if __name__ == "__main__":
     # default_args.out_dir = "/scratch/mayas/ionograms_testing"
     # file_name = "/scratch/mayas/ionograms_testing/iono_corr_2pols_B_1746818100_to_1746818115.npz"
 
-    process_and_plot()
+    process_and_plot() 
