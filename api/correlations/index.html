@@ -802,6 +802,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.interpolate_existing_delays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate_existing_delays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -825,6 +836,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.get_all_batches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_all_batches
+      
+    </span>
+  </a>
   
 </li>
         
@@ -1635,6 +1657,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.interpolate_existing_delays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate_existing_delays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1658,6 +1691,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.get_all_batches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_all_batches
+      
+    </span>
+  </a>
   
 </li>
         
@@ -3393,7 +3437,7 @@ batches. The class selects the unique batch whose time range contains
 
     <div class="doc doc-contents ">
 
-        <p>Interpolate antenna delay timing solutions at requested Unix timestamps.</p>
+        <p>Interpolate antenna delay timing solutions for entire requested Unix interval.</p>
 <p>The timing solutions loaded for the selected batch are
 interpolated onto a user-defined time grid. Each antenna delay solution
 is interpolated independently using the specified interpolation method.</p>
@@ -3584,6 +3628,142 @@ performed independently for each antenna delay stream.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="src.correlations.timing_solution_class.TimingSolution.interpolate_existing_delays" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">interpolate_existing_delays</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">interpolate_existing_delays</span><span class="p">(</span><span class="n">interp_unix_start</span><span class="p">,</span> <span class="n">interp_unix_end</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">border_window</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Interpolate timing solutions only around periods with existing data.</p>
+<p>Finds all timing solution samples within the requested interval,
+extends each contiguous data region by <code>border_window</code> seconds,
+and interpolates delays onto a regular time grid. Regions with no
+timing solution data are not included.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>interp_start</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Start Unix timestamp of requested range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>interp_end</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>End Unix timestamp of requested range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dt</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output time resolution in seconds.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>border_window</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time padding applied around the edges of existing data regions.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>unix_interp</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Unix timestamps where interpolated delays are available.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>taus_interp</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interpolated delay solutions corresponding to <code>unix_interp</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="src.correlations.timing_solution_class.TimingSolution.get_data_mask" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_data_mask</span>
 
@@ -3763,6 +3943,80 @@ Therefore, counterintuitively, you subtract smaller index from larger.</p>
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="src.correlations.timing_solution_class.get_all_batches" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">get_all_batches</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">get_all_batches</span><span class="p">(</span><span class="n">root_dir</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Gives start and end times of all batches for which there are timing solutions.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>root_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory to the data</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of tuples (start, end) for all the batches</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
 
 
 
