@@ -3284,6 +3284,28 @@ timing solutions.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.UTC_per_spec">UTC_per_spec</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Conversion rate from spectrum number to absolute UTC time</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="src.correlations.timing_solution_class.TimingSolution.UTC_offset">UTC_offset</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Initial UTC time corresponding to spectrum number zero.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -3325,9 +3347,10 @@ batch, or if it is contained within more than one batch.</p>
 
 <details class="note" open>
   <summary>Notes</summary>
-  <p>Calibration solutions are organized into independent, non-overlapping
+  <p>Timing solutions are organized into independent, non-overlapping
 batches. The class selects the unique batch whose time range contains
-<code>query_unix_start</code>.</p>
+<code>query_unix_start</code>. 
+Moreover, spectra and absolute UTC are interchangable via UTC_per_spec * s + UTC_offset.</p>
 </details>
 
 
