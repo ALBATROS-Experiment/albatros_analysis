@@ -536,13 +536,13 @@ def snr_times_many(json_paths,
             })
     if nbatches == 1:
         ax = [ax]
-    fig.suptitle(f"{ref_antname} - {antname} (aligned by LST, integration time ~{int(c_acclen * T_SPECTRA)} s)")
+    fig.suptitle(f"{ref_antname} - {antname} (aligned by LST, integration time {int(c_acclen * T_SPECTRA)} s)")
     for i in range(nbatches):
         ax[i].step(aligned_secs[i], snr2db(aligned_snrs[i]), where="post")
         ax[i].set_ylabel("SNR (dB)")
         ax[i].grid(True)
     
-    ax[nbatches-1].set_xlabel(f"Time after Batch Start ({int(dt)} s)")
+    ax[nbatches-1].set_xlabel("Time in Day (s)")
     plt.tight_layout()
     
     return secs_raw, snrs_raw, fig 
