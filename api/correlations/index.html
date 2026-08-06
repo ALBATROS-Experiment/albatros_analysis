@@ -802,6 +802,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.interpolate_delay2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate_delay2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#src.correlations.timing_solution_class.TimingSolution.interpolate_existing_delays" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1650,6 +1661,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate_delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.correlations.timing_solution_class.TimingSolution.interpolate_delay2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate_delay2
       
     </span>
   </a>
@@ -3586,6 +3608,164 @@ interpolated.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+<td><code>taus_interp</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interpolated antenna delay solutions.
+Shape is <code>(nant - 1, ntime)</code>, where <code>nant - 1</code> is the number
+of non-reference antennas and <code>ntime</code> is the number of requested
+output timestamps.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If extrapolation is disabled and the requested interpolation range
+lies outside the available timing solution range.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotImplementedError">NotImplementedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If an unsupported interpolation method is requested.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Delay solutions are stored internally as <code>self.taus</code> and their
+corresponding Unix timestamps as <code>self.unix</code>. Linear interpolation is
+performed independently for each antenna delay stream.</p>
+</details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="src.correlations.timing_solution_class.TimingSolution.interpolate_delay2" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">interpolate_delay2</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">interpolate_delay2</span><span class="p">(</span><span class="n">unix_interp</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">break_batch</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Interpolate antenna delay timing solutions for a requested Unix time array.</p>
+<p>The timing solutions loaded for the selected batch are
+interpolated onto a user-defined time array. Each antenna delay solution
+is interpolated independently using the specified interpolation method.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>unix_interp</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Unix timestamp array. Must be increasing.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extrapolate</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to allow interpolation outside the time range covered by
+the loaded timing solution. If False, a ValueError is raised when
+the requested range extends beyond the available data.
+Default is True.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interpolation method to use. Currently only <code>"linear"</code> is
+supported.
+Default is <code>"linear"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;linear&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
           <tr class="doc-section-item">
 <td><code>taus_interp</code></td>            <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
