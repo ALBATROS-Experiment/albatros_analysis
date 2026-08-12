@@ -1,6 +1,6 @@
 # 2 Satellite Detection
 
-As promised, we will now be detecting satellites. The appropriate, callable module is 'get_satdet.py'. There are two main objectives to satdet: to determine when we can actually see which satellite, and to determine the best spectrum alignment for each baseline. We work on each baseline involving the reference antenna. Moreover, we call a satellite pass any satellite that is technically risen, and that could be visible to our antenna, whereas we call a pulse a satellite pass that is actually detected, and verified to be visible, using the method outlined below.
+There are two primary objectives to satellite detection (known as satdet): to determine when each antenna sees clear satellite signal, and to determine the best spectrum alignment for each antenna. We select a reference antenna (by convention MARS1) and consider all baselines containing it. This makes relative alignment significantly simpler. The script used to generate data in satellite detection is `get_satdet.py`, while `get_consensus_offsets.py` and `get_pulses.py` extract and format usable information from this data.
 
 ## 2.1 Detection Process
 

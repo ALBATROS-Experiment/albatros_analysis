@@ -2,51 +2,33 @@ import numpy as np
 import numba as nb
 from astropy.coordinates import EarthLocation, SkyCoord, AltAz
 
+
 @nb.njit(parallel=True)
 def get_map(data,freqs,delays,npix):
-    '''
-    Get dirty map on CPU for single time given some visibility data.
-
-    Parameters
-    ----------
-    data : np.ndarray shape (nfreq, nbl)
-        Visibility Data
-    freqs : np.ndarry shape (nfreqs)
-        Frequencies
-    delays : np.ndarray shape (npix, nbl)
-        Delays onto each pixel for each bline
-    npix : int
-        Number of pixels
-    
-    Returns
-    ------
-    np.ndarray shape (npix)
-        Dirty map, intensity value for each pixel
-    '''
     print(data.shape, freqs.shape, delays.shape)
-    map = np.zeros(npix, dtype=np.complex128)
+    map1 = np.zeros(npix, dtype=np.float64)
     nfreq, nbl = data.shape
     N_vis = nfreq * nbl
     for p in nb.prange(npix):
-        pixel_sum = 0j
+        pixel_sum = 0.
         for f in range(nfreq):
             nu = freqs[f]
             for b in range(nbl):
                 tau = delays[p, b] #delay shape is npix, nbl for CPU
 
                 # Calculate the fringe factor for this specific visibility
-                fringe = np.exp(-2j * np.pi * nu * tau)
+                fringe = np.exp(2j * np.pi * nu * tau)
                 
                 # Accumulate the dot product
-                pixel_sum += fringe * data[f, b]
+                pixel_sum += fringe.real * data[f, b].real - fringe.imag * data[f, b].imag
         
         # Calculate the mean and assign to the pixel map
-        map[p] = pixel_sum / N_vis
-    return map
+        map1[p] = pixel_sum / N_vis
+    return map1
 
 
 @nb.njit(parallel=True)
-def geo_delay_from_enu(bls, az, alt, angle='deg'):
+def geo_delay_from_enu(bls, alt, az, angle='deg'):
     """
     Calculate geometric delays for ENU baselines and sky positions.
     Sky positions in az/alt (local frame), accepts both radians and degrees.

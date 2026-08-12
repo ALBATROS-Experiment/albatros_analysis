@@ -695,7 +695,7 @@ def get_simul_files(arr, time_start, dt, desired_ant_indices):
     return runs
 
 
-def check_data_holes(t_start, t_end, dir, filesize=500001224, tol = 60, verbose=False, force_ts = False):
+def check_data_holes(t_start, t_end, dir, min_filesize=500001224, tol = 60, verbose=False, force_ts = False):
     '''
     This is a measure for abundance of caution when opening up files.
     Returns True if there is data missing, or any holes between the data.
@@ -714,7 +714,7 @@ def check_data_holes(t_start, t_end, dir, filesize=500001224, tol = 60, verbose=
     for f in files:
         #check that the file is full
         size = os.path.getsize(f)
-        if size != filesize:
+        if size < min_filesize:
             print('ERROR: Something wrong near file:', f)
             if not verbose:
                 return True

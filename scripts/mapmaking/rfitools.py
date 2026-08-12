@@ -531,3 +531,25 @@ def azalt_to_hadec(az, alt, lat):
     return ha, dec
 
 
+@nb.njit(parallel=True)
+def get_map(data,freqs,delays,npix):
+    print(data.shape, freqs.shape, delays.shape)
+    map1 = np.zeros(npix, dtype=np.float32) #float32
+    nfreq, nbl = data.shape
+    N_vis = nfreq * nbl
+    for p in nb.prange(npix):
+        pixel_sum = 0.
+        for f in range(nfreq):
+            nu = freqs[f]
+            for b in range(nbl):
+                tau = delays[p, b] #delay shape is npix, nbl for CPU
+
+                # Calculate the fringe factor for this specific visibility
+                fringe = np.exp(2j * np.pi * nu * tau)
+                
+                # Accumulate the dot product
+                pixel_sum += fringe.real * data[f, b].real - fringe.imag * data[f, b].imag
+        
+        # Calculate the mean and assign to the pixel map
+        map1[p] = pixel_sum / N_vis
+    return map1

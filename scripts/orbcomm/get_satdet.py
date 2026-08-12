@@ -20,8 +20,6 @@ from albatros_analysis.src.utils import sat_utils as sutils
 from albatros_analysis.src.utils import sat_utils_gpu as sutils_g
 #xcorr
 from albatros_analysis.scripts.xcorr import helper as hxc
-#etc
-import figures as fgs
 
 
 if __name__ == "__main__":
@@ -173,7 +171,7 @@ if __name__ == "__main__":
             if missing:
                 print('missing data for pulse, we skip')
                 continue
-            su.print_memory_usage(note = "start of pulse")
+            sutils.print_memory_usage(note = "start of pulse")
 
             chunk_length_secs = c_acclen * T_SPECTRA
             chunk_times = np.arange(pstart, pend, chunk_length_secs)
@@ -329,7 +327,7 @@ if __name__ == "__main__":
                 cx_cpu = []
                 for cxcorr in cx:
                     cx_cpu.append(cxcorr.get())
-                detected_sats, detected_peaks, detected_snrs, rel_ratios = su.get_detections(cx_cpu, snr_arr, temp_satmap)
+                detected_sats, detected_peaks, detected_snrs, rel_ratios = sutils.get_detections(cx_cpu, snr_arr, temp_satmap)
                     
 
                 #now have all required data.
@@ -449,7 +447,7 @@ if __name__ == "__main__":
             print(pulse_data)
             baseline_data.append(pulse_data)
 
-            su.print_memory_usage(note = 'before memory freeing')
+            sutils.print_memory_usage(note = 'before memory freeing')
             del data_ref
             del data_nref
             del cx
@@ -457,7 +455,7 @@ if __name__ == "__main__":
             gc.collect()
             mempool.free_all_blocks()
             pinned_mempool.free_all_blocks()
-            su.print_memory_usage(note = 'after memory freeing')
+            sutils.print_memory_usage(note = 'after memory freeing')
         print(baseline_data)
 
         #SAVE TO SAT DATA
