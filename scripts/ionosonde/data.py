@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import sys, os
 
@@ -9,10 +12,6 @@ from albatros_analysis.src.utils import baseband_utils as bu
 from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde import signal_processing as sp
 from albatros_analysis.scripts.ionosonde import ionogram
-
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel("DEBUG")
 
 def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_args):
     """Get baseband spectra for all antennas x polarizations
@@ -78,13 +77,13 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
 def process_from_data(args=default_args):
     files, idx = bu.get_init_info(args.start_time, int(args.start_time + args.corr_time), args.baseband_dir)
     nchunks = 1
-    nchan = len(args.channels)
 
     ipfb_chunk_size = int(args.corr_time * args.chan_res_init)
     read_size = ipfb_chunk_size - 2 * args.cutsize
 
     logger.debug("Files: %s", files)
-    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, args.channels, read_size, args=args)
+    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, np.arange(64,168), read_size, args=args)
+    nchan = len(final_channels)
 
     chunk_idx = 0
     chunks = zip(*antenna_objs).__next__()

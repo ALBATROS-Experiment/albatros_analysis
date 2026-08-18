@@ -16,7 +16,7 @@ parser.add_argument('--c', default=3e5, type=float, help='Speed of light in km/s
 parser.add_argument('--len_pfb_init', default=4096, type=int, help='Length of the FFTs taken by the FPGA.')
 parser.add_argument('--num_pfb_tap', default=4, type=int, help='Number of taps in the inital PFB.')
 parser.add_argument('--adc_samp_freq', default=250e6, type=float, help='Analog-to-digital converter (ADC) sample frequency.')
-parser.add_argument('--channels', default=np.arange(64,168), type=int, nargs="+")
+# parser.add_argument('--channels', default=np.arange(64,168), type=int, nargs="+")
 
 # Codes
 parser.add_argument('--code0_str', default='0001_0010_0001_1101', type=str, help='Code 0 of the complementary code pair.')
