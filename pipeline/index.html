@@ -608,7 +608,7 @@
   <span class="md-ellipsis">
     
   
-    Scripts
+    Tutorials
   
 
     
@@ -624,7 +624,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Scripts
+    Tutorials
   
 
           </label>
@@ -637,7 +637,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../scripts/" class="md-nav__link">
+      <a href="../tutorials/" class="md-nav__link">
         
   
   
@@ -665,14 +665,42 @@
   
   
     <li class="md-nav__item">
-      <a href="../scripts/orbcomm/" class="md-nav__link">
+      <a href="../tutorials/batches/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Orbcomm
+    Batches
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/BFI/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BFI
   
 
     
@@ -1037,9 +1065,6 @@
 <p>The timestamping of our data suffers errors on the order of 1 second. Therefore, whenever data is accessed, there is a high level of uncertainty as to what actual recording time it corresponds to. Baseband spectra (each time sample of our channelizer) therefore serves as a natural time proxy for our data, as it is far more consistent than our timestamping.</p>
 <p>We suffer two types of clock uncertainty. First, there is the relative alignment of our antenna. For interferometry to be accurate, we need to know these delays to nanosecond level precision. Second, there is the absolute UTC timing, i.e. the actual time at which data was recorded. This UTC discrepancy is important as an intermittent data analysis step, and is valuable for source phasing. The two sources of delay are visualized below.</p>
 <p><img alt="alt text" src="../images/alignment_figure.jpg" /></p>
-<p>The general flow of the pipeline, with various scripts and data storage files, is best outlined in the following flowchart:</p>
-<p><img alt="alt text" src="../images/flow.jpeg" /></p>
-<p>Note that the arrows only point towards the right, meaning data that is generated in the script then gets stored in that file. Each script uses almost all previous data (e.g. practically all scripts use antenna coordinates, which are stored in the config files).</p>
 
 
 
