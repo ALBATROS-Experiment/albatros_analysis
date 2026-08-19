@@ -13,9 +13,10 @@ nav:
       - Overview: api/index.md
       - Utilities: api/utils.md
       - Correlations: api/correlations.md
-  - Scripts:
-      - Overview: scripts/index.md
-      - Orbcomm: scripts/orbcomm.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Batches: tutorials/batches.ipynb
+      - BFI: tutorials/BFI.ipynb
   - Testing:
       - Science:
           - Overview: testing/science/index.md
@@ -30,6 +31,7 @@ theme:
 
 plugins:
   - search
+  - mkdocs-jupyter
   - mkdocstrings:
       handlers:
         python:

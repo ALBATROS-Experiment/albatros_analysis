@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is to test both [get_batch_discrepancies.py](../../scripts/get_batch_discrepancies.md) and [get_batch_finetiming.py](../../scripts/get_batch_finetiming.md). 
+This is to test both `get_batch_discrepancies.py` and `get_batch_finetiming.py`. 
 
 The aim of this test is to demonstrate that the fine timing section yields similar results for different pulse start time and end times. The idea is that it is robust to slightly shifted regions, and that the underlying signal is properly identified and fitted for. 
 
