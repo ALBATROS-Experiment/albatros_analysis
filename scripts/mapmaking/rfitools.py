@@ -453,6 +453,7 @@ def geo_delay_from_itrs(bls,ha,dec,lon):
             delays[bl, pix] = p/c
     return delays
 
+@nb.njit(parallel=True)
 def hadec_to_azalt(ha, dec, lat):
     """
     Convert Hour Angle and Declination to Altitude and Azimuth.
@@ -474,22 +475,27 @@ def hadec_to_azalt(ha, dec, lat):
     alt : float or array-like
         Altitude angle(s)
     """
-    sinha = np.sin(ha)
-    cosha = np.cos(ha)
-    sindec = np.sin(dec)
-    cosdec = np.cos(dec)
+    az = np.empty(ha.shape, ha.dtype)
+    alt = np.empty(ha.shape, ha.dtype)
     sinlat = np.sin(lat)
     coslat = np.cos(lat)
-    
-    aa = sinlat * sindec + coslat * cosdec * cosha
-    aa = np.clip(aa, -1.0, 1.0)
-    alt = np.arcsin(aa)
-    sinaz = -cosdec * sinha
-    cosaz = (coslat * sindec - sinlat * cosdec * cosha)
-    az = np.arctan2(sinaz, cosaz)
-    az = (az + 2 * np.pi) % (2 * np.pi)
+    npix = len(ha)
+    for pix in nb.prange(npix):
+        sinha = np.sin(ha[pix])
+        cosha = np.cos(ha[pix])
+        sindec = np.sin(dec[pix])
+        cosdec = np.cos(dec[pix])
+        
+        aa = sinlat * sindec + coslat * cosdec * cosha
+        aa = max(-1.0, min(1.0, aa)) #clip to -1, 1
+        alt[pix] = np.arcsin(aa)
+        sinaz = -cosdec * sinha
+        cosaz = (coslat * sindec - sinlat * cosdec * cosha)
+        aa = np.arctan2(sinaz, cosaz)
+        az[pix] = (aa + 2 * np.pi) % (2 * np.pi)
     return az, alt
 
+@nb.njit(parallel=True)
 def azalt_to_hadec(az, alt, lat):
     """
     Convert Altitude and Azimuth to Hour Angle and Declination.
@@ -511,23 +517,28 @@ def azalt_to_hadec(az, alt, lat):
     dec : float or array-like
         Declination(s) in radians [-pi/2, pi/2]
     """
-    sinalt = np.sin(alt)
-    cosalt = np.cos(alt)
-    sinaz = np.sin(az)
-    cosaz = np.cos(az)
+    ha = np.empty(az.shape, az.dtype)
+    dec = np.empty(az.shape, az.dtype)
+    npix = len(ha)
     sinlat = np.sin(lat)
     coslat = np.cos(lat)
-
-    sindec = sinalt * sinlat + cosalt * coslat * cosaz
     
-    # Clip to strictly [-1, 1] to avoid NaN errors from floating point inaccuracies
-    sindec = np.clip(sindec, -1.0, 1.0)
-    dec = np.arcsin(sindec)
+    for pix in nb.prange(npix):
+        sinalt = np.sin(alt[pix])
+        cosalt = np.cos(alt[pix])
+        sinaz = np.sin(az[pix])
+        cosaz = np.cos(az[pix])
+        
+        aa = sinalt * sinlat + cosalt * coslat * cosaz
 
-    y = -sinaz * cosalt
-    x = sinalt * coslat - cosalt * sinlat * cosaz
-    ha = np.arctan2(y, x)
-    ha = ha % (2 * np.pi)
+        # Clip to strictly [-1, 1] to avoid NaN errors from floating point inaccuracies
+        aa = max(-1.0, min(1.0, aa)) #clip to -1, 1
+        dec[pix] = np.arcsin(aa)
+    
+        y = -sinaz * cosalt
+        x = sinalt * coslat - cosalt * sinlat * cosaz
+        aa = np.arctan2(y, x)
+        ha[pix] = aa % (2 * np.pi)
     return ha, dec
 
 
