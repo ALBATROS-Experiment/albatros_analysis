@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--testing', type=str, default=None)
     parser.add_argument('-f', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file')
     parser.add_argument('-c', '--write_to_config', action='store_true', help='writes the consensus offsets to the config file')
+    parser.add_argument('-t', '--write_to_tsobj', action='store_true', help='writes the consensus offsets to the timing solution database')
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
@@ -112,6 +113,9 @@ if __name__ == "__main__":
         with open(args.config_path, 'w') as f:
             json.dump(config_all, f, indent=4)
 
+    if args.write_to_tsobj:
+        print('writing to timing solution database!')
+        print(offset_data)
 
     # idx = np.argsort(offsets)
     # offsets_sorted = offsets[idx]

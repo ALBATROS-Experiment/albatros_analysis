@@ -37,12 +37,16 @@ path_kernel = '/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/dirtyma
 module = cp.RawModule(path=path_kernel)
 dirty_map_kernel = module.get_function('dirty_map_kernel')
 
+#sim
+#path_data = '/scratch/thomasb/mapmaking_dumps/simulation_vis.npz'
+
 # old data path
-#path_data = '/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/vis_dump.npz'
+path_data = '/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/vis_dump.npz'
 
 # new data path
-pidx = 0
-path_data = f'/scratch/thomasb/mapmaking_dumps/all_sats_science_band/satpass_{pidx}.npz'
+#pidx = 0
+#path_data = f'/scratch/thomasb/mapmaking_dumps/all_sats_science_band/satpass_{pidx}.npz'
+
 
 # ============================================================
 # Load Stuff
@@ -52,20 +56,20 @@ with np.load(path_data) as f:
     print('vis value', vis[0,0,0])
 
     # new version
-    mask = f['mask']
-    print("mask shape:", mask.shape)
-    times = f['times']
-    freqs = f['freqs']
+    # mask = f['mask']
+    # print("mask shape:", mask.shape)
+    # times = f['times']
+    # freqs = f['freqs']
     
     # # old version
-    # cnt = f['cnt']
-    # print("cnt shape:", cnt.shape)
-    # tstart = f['tstart']
-    # print("tstart:", tstart)
-    # deltat = f['deltat']
-    # print("deltat:", deltat)
-    # deltaf = f['deltaf']
-    # print("deltaf:", deltaf)
+    cnt = f['cnt']
+    print("cnt shape:", cnt.shape)
+    tstart = f['tstart']
+    print("tstart:", tstart)
+    deltat = f['deltat']
+    print("deltat:", deltat)
+    deltaf = f['deltaf']
+    print("deltaf:", deltaf)
 
 # for testing
 # vis = np.mean(vis,axis=0)
@@ -73,14 +77,14 @@ with np.load(path_data) as f:
 # cnt = np.sum(cnt,axis=0)
 # cnt = cnt[None, :, :]
 
-vis_gpu = cp.asarray((1-mask)*vis, dtype=cp.complex64)
+#vis_gpu = cp.asarray((1-mask)*vis, dtype=cp.complex64)
 
 #sys.exit()
 # ============================================================
 # Coords, etc
 
-NSIDE = 1024
-compute = 'gpu'
+NSIDE = 512
+compute = 'cpu'
 coords = {
     0: [79.417161473, -90.767238685, 187.9577],   # MARS1
     1: [79.417198047, -90.758739192, 183.0684],   # MARS2
@@ -127,8 +131,8 @@ ant0 = EarthLocation.from_geodetic(lat=coords[0][0], lon=coords[0][1], height=co
 # Frequencies
 
 # Old Version
-# fstart = 360 * 250e6 / 4096
-# freqs = (np.arange(vis.shape[1]) * deltaf+ fstart)
+fstart = 360 * 250e6 / 4096
+freqs = (np.arange(vis.shape[1]) * deltaf+ fstart)
 
 # new version
 # freqs = freqs*250e6/4096
@@ -171,8 +175,8 @@ for map_idx, t_idx in enumerate(time_indices):
     total_start = time.time()
 
     #==Center time of visibility
-    #obstime = Time(tstart + t_idx * deltat + deltat/2, format="unix", scale="utc") # old version
-    obstime = Time(times[t_idx], format="unix", scale="utc") # new version
+    obstime = Time(tstart + t_idx * deltat + deltat/2, format="unix", scale="utc") # old version
+    #obstime = Time(times[t_idx], format="unix", scale="utc") # new version
     print("center time:", obstime.unix)
 
     #==Pixel coords into alt/az
@@ -201,7 +205,7 @@ for map_idx, t_idx in enumerate(time_indices):
     print('Number of good frequencies', nfreq)
 
     #== Normalization Factor
-    norm = np.sum(1-mask[t_idx, :, :])
+    norm = np.sum(1-mask[t_idx, 1:, :]) #exclude MARS1-MARS2
     print('full expected', np.prod(vis.shape[1:]))
     print('norm', norm)
 
@@ -240,6 +244,8 @@ for map_idx, t_idx in enumerate(time_indices):
         # ======================
         print('RUNNING GPU VERSION')
 
+        vis_gpu = cp.asarray((1-mask)*vis, dtype=cp.complex64)
+        
         # Transfer arrays to GPU
         t1 = time.time()
         d_delays = cp.asarray(delays, dtype=cp.float32)
@@ -280,7 +286,7 @@ for map_idx, t_idx in enumerate(time_indices):
 
         # Copy map back to CPU
         t1 = time.time()
-        map_cpu = cp.asnumpy(d_map/norm)
+        map_cpu = cp.asnumpy(d_map)
         t2 = time.time()
         print("GPU -> CPU:",t2 - t1,"seconds")
 
@@ -304,7 +310,9 @@ print("average map shape:",avg_map.shape)
 # ============================================================
 # Save final map
 
-output_path = (f'/scratch/thomasb/mapmaking_dumps/average_map{compute}_sat{pidx}.npz')
+#output_path = (f'/scratch/thomasb/mapmaking_dumps/sim_map_{compute}_nside{NSIDE}.npz')
+output_path = (f'/scratch/thomasb/mapmaking_dumps/first_test_real_data/{compute}_sat{pidx}_nside{NSIDE}.npz')
+#output_path = (f'/scratch/thomasb/mapmaking_dumps/test_map_{compute}_sat{pidx}.npz')
 np.savez(
     output_path,
     avg_map=avg_map,
