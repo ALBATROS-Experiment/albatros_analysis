@@ -13,12 +13,13 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--testing', type=str, default=None)
     parser.add_argument('-f', '--write_to_file', action='store_true', help='writes the consensus offsets to the satdet json file')
     parser.add_argument('-c', '--write_to_config', action='store_true', help='writes the consensus offsets to the config file')
-    parser.add_argument('-t', '--write_to_tsobj', action='store_true', help='writes the consensus offsets to the timing solution database')
+    parser.add_argument('-o', '--write_to_tsobj', action='store_true', help='writes the consensus offsets to the timing solution database')
     args = parser.parse_args()
 
     with open(args.config_path, "r") as f:
         config = json.load(f)
         batch_start_ts = config["correlation"]["start_timestamp"]
+        batch_end_ts = config["correlation"]["end_timestamp"]
 
     if args.testing is not None:
         path = f'/scratch/thomasb/batch_{batch_start_ts}_testing/{args.testing}/satdet'
@@ -101,21 +102,53 @@ if __name__ == "__main__":
         with open(os.path.join(path, f'satdet_{int(args.acclen/1e6)}M_ref{args.ref_ant}.json'), 'w') as f:
             json.dump(data, f, indent=4)
 
-    if args.write_to_config:       
-        print('writing to config file!')
-        offset_data = data['summary']
-        print(offset_data)
-        with open(args.config_path, 'r') as f:
+    if args.write_to_config:
+        print("Writing to config file!")
+        offset_data = data["summary"]
+
+        with open(args.config_path, "r") as f:
             config_all = json.load(f)
-            for key, items in offset_data.items():
-                config_all['antenna'][key]['clock_offset'] = items['consensus_offset']
-                #print(config_all['antenna'][key])
-        with open(args.config_path, 'w') as f:
+
+        for ant in config_all["antennas"]:
+            if ant in offset_data:
+                config_all["antennas"][ant]["clock_offset"] = (offset_data[ant]["consensus_offset"])
+            else:
+                config_all["antennas"][ant]["clock_offset"] = 0
+
+        with open(args.config_path, "w") as f:
             json.dump(config_all, f, indent=4)
 
     if args.write_to_tsobj:
-        print('writing to timing solution database!')
-        print(offset_data)
+        offset_data = data["summary"]
+        path_tsobj = "/scratch/thomasb/timing_solution/index.json"
+
+        print("Checking if this batch exists in the database...")
+
+        with open(path_tsobj, "r") as f:
+            index_tsobj = json.load(f)
+
+        batch = next(
+            (batch for batch in index_tsobj if batch["start"] == batch_start_ts),
+            None,
+        )
+
+        if batch is None:
+            print(
+                "Batch doesn't exist yet, so can't write. "
+                "Try again when fine timing is done and the index entry is created."
+            )
+        else:
+            print("Batch exists!")
+            print("Writing to timing solution database...")
+            batch['consensus_offsets'] = {}
+            for ant in batch["non_ref_ants"]:
+                batch["consensus_offsets"][ant] = offset_data[ant]["consensus_offset"]
+
+            with open(path_tsobj, "w") as f:
+                json.dump(index_tsobj, f, indent=4)
+
+            print("Database updated successfully.")
+
 
     # idx = np.argsort(offsets)
     # offsets_sorted = offsets[idx]

@@ -240,7 +240,7 @@ def get_discrepancy(config_path,
     T_SPECTRA = bb_spectrum_T * osamp
     nchans = data_all.shape[3]
     sat_freqs = 250e6 - ((np.arange(nchans)/osamp + old_chan_start)/(4096/250e6))  #put as chan_start instead of 1834?
-    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
+    ant_idxs = [0, 1, 2, 3, 4, 5] #HARD CODED, BEWARE
 
     #get start spectrum from file (INDIRECT! SHOULD BE DONE WHEN COMPUTING DATA RIGHT AWAY)
     #still reliant on the function giving the same starting spectrum for each iteration
