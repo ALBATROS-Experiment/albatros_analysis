@@ -1,0 +1,21 @@
+#!/bin/bash
+#SBATCH --job-name=xcorr_7ant_nov02_withIQ_band5_pipeline_test       # Job name
+#SBATCH --output=/scratch/thomasb/mohan/%x_%j.out    # Output file (%j = job ID)
+#SBATCH --nodes=1                         # Request 1 node
+#SBATCH --gpus-per-node=1                 # Request 1 GPU
+#SBATCH --time=10:00:00                   # Max runtime (30 minutes)
+#SBATCH --mail-type=END,FAIL
+
+# Activate Python environment (if applicable)
+source /home/mohanagr/albatros_analysis/src/setup_gpu.sh
+
+# Check GPU allocation
+srun nvidia-smi
+
+# Config file
+config=/home/mohanagr/albatros_analysis/scripts/xcorr/config/config_winter_2025/nov25_batch_1762099360_86260_band5_pipeline_test.json
+output=/scratch/thomasb/mohan/
+
+# Run your workload
+cd /home/mohanagr/albatros_analysis/scripts/xcorr
+srun python xcorr_gpu.py  "$config" -o /scratch/thomasb/mohan/

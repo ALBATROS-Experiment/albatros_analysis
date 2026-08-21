@@ -120,11 +120,11 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
     if downconvert:
         ipfb = pu.StreamingIPFB_IQ(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
         fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = ipfb.lblock*osamp, dtype='complex64')
-        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, np.arange(new_nchan), bufsize_frac = 10)
+        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, np.arange(new_nchan), bufsize_frac = 20)
     else:
         ipfb = pu.StreamingIPFB(nant, npol, channels, nblock=pfb_size, lblock=4096, ntap=4, window='hamming', cut=cutsize)
         fpfb = pu.StreamingPFB(nant, npol,timestream_size = timestream_size, lblock = lblock*osamp)
-        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 10)
+        xcorr = pu.StreamingCorrelator(nant, npol, new_acclen, new_channels, bufsize_frac = 20)
     #needs channels you want to cross-correlate in re-PFB'd data
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
     
@@ -206,7 +206,7 @@ def repfb_xcorr_avg(idxs,files,pfb_size,nchunks,channels,osamp,new_acclen,outfil
             expected_start_specnum = start_specnums[ant_idx] + (chunk_idx) * read_size
             # print(f"Ant {ant_idx} specnum @ {antenna_objs[ant_idx].spec_num_start}; should be @ {start_specnums[ant_idx] + (chunk_idx+1) * read_size}") #spec_num start has already been incremented since a block was read
             assert antenna_objs[ant_idx].spec_num_start == start_specnums[ant_idx] + (chunk_idx+1) * read_size
-            # assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size
+            # assert chunk['specnums'][0] == start_specnums[ant_idx] + (chunk_idx) * read_size #might have spectra missing at the beginning, causing assert to fail
             # print(f"chunk specnums {chunk['specnums'][0:10]}, start_specnums {start_specnums[ant_idx] + (chunk_idx) * read_size}")
             # print(f"for antenna {ant_idx}, len specnums is {len(chunk['specnums'])}")
             if len(chunk['specnums']) != read_size:

@@ -127,7 +127,7 @@ def as_slice_if_contiguous(idx):
             return slice(idx[0], idx[-1] + 1)
     return idx
 
-class StreamingPFB():
+class StreamingPFB:
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
@@ -217,7 +217,7 @@ class StreamingPFB():
         )
         return _print_class_mem_usage(arrays, header)
 
-class StreamingPFB_():
+class StreamingPFB_:
     """
     Works for arbitrary timestream sizes. Can be less than lblock.
     """
@@ -299,8 +299,7 @@ class StreamingPFB_():
         )
         return _print_class_mem_usage(arrays, header)
 
-
-class StreamingIPFB():
+class StreamingIPFB:
     def __init__(self, nant, npol, channels, nblock=100, lblock=4096, ntap=4, window='hamming', cut=10):
         self.lblock = lblock
         self.nblock = nblock
@@ -380,7 +379,7 @@ class StreamingIPFB():
         )
         return _print_class_mem_usage(arrays, header)
 
-class StreamingIPFB_IQ():
+class StreamingIPFB_IQ:
     def __init__(self, nant, npol, channels, nblock=100, lblock=4096, ntap=4, window='hamming', cut=10):
         #no need to pass lblock. we assign it
         self.nblock = nblock
@@ -436,7 +435,7 @@ class StreamingIPFB_IQ():
         return _print_class_mem_usage(arrays, header)
         
 
-class StreamingCorrelator():
+class StreamingCorrelator:
     def __init__(self, nant, npol, acclen, channels, split=1, bufsize_frac = 1):
         self.nant = nant
         self.npol = npol

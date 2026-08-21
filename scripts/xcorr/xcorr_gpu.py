@@ -47,6 +47,8 @@ if __name__=="__main__":
     osamp = config["correlation"]["osamp"]
     pfb_size = config["correlation"]["pfb_size"]
     new_acclen = config["correlation"]["new_acclen"]
+    filt_thresh = config["correlation"]["filt_thresh"] #IPFB Wiener filter threshold
+    tag = config["correlation"]["tag"]
     cutsize = 16
     print("pfbsize",pfb_size)
     nchunks = int(np.floor((end_t-init_t)*250e6/4096/pfb_size))
@@ -57,13 +59,12 @@ if __name__=="__main__":
     print("nchunks", nchunks)
     # print("loaded files", files)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    filt_thresh = 0.4
+    
     # t_acclen = acclen*4096/250e6
     # sys.exit()
     nant = len(dir_parents)
     npol = 2
     nrows_total = nchunks * pfb_size // (osamp * new_acclen)
-    tag = 'jul22_orbcomm_IQ'
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     # uid = str(uuid.uuid4())[:4]  # short unique suffix
     bit_mode = 1
