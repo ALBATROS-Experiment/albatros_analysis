@@ -39,6 +39,7 @@ def plot_one(folder_path, time, ant, summary_file):
 def iter_through_all(num_max = None):
     time_sup_folder_names = [folder for folder in os.listdir(out_dir_root) if folder.isdigit()]
     counter = 0
+    data_dict = {}
 
     for time_sup_folder in time_sup_folder_names:
 
@@ -49,7 +50,6 @@ def iter_through_all(num_max = None):
             ant_folder_names = [folder for folder in os.listdir(os.path.join(out_dir_root, time_sup_folder, time_folder)) if folder[:4] == "mars"]
 
             for ant_folder in ant_folder_names:
-                data_dict = {}
                 
                 total_path = os.path.join(out_dir_root, time_sup_folder, time_folder, ant_folder)
                 time = int(time_folder)
@@ -69,6 +69,6 @@ with open(os.path.join(out_dir_root, "graphing_summary.csv"), "w") as failure_su
     
 
 t0 = time.time()
-np.savez(os.path.join(out_dir_root, "all_ionogram_data"), **data_dict)
+np.savez_compressed(os.path.join(out_dir_root, "all_ionogram_data"), **data_dict)
 logger.info("Time to save all data: ", t0)
 print("DONE!! Data saved to ", os.path.join(out_dir_root, "all_ionogram_data"))

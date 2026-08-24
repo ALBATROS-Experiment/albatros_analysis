@@ -357,7 +357,7 @@ if __name__ == "__main__":
         [files,],
         pfb_size,
         nchunks,
-        np.arange(60,168),
+        np.arange(64,100),
         iono_freqs,
         lblock=4096,
         ntap=4,
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         code_type=code_type
     )
     outdir = f"/scratch/{os.environ.get('USER')}/ionosphere/output"
-    fname = "iono_corr_2pols_"+tstart_str+"Z_to_"+tend_str+"Z"
+    fname = "iono_corr_2pols_"+tstart_str+"Z_to_"+tend_str+"Z_"
     os.makedirs(outdir, exist_ok = True)
     print(f"Saving to {path.join(outdir, fname)}")
     np.savez(path.join(outdir, fname), corr = corr, freqs = iono_freqs)

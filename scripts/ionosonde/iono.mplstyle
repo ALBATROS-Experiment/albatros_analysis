@@ -1,0 +1,5 @@
+figure.dpi: 200
+savefig.dpi: 200
+figure.constrained_layout.use: True
+errorbar.capsize: 3
+savefig.transparent: True

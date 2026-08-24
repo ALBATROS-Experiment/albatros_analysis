@@ -38,6 +38,7 @@ parser.add_argument('--corr_name', default="correlated_data.npz", type=str)
 parser.add_argument('--num_pol', default=2, type=int, help='Number of polarizations.')
 parser.add_argument('--num_ant', default=1, type=int, help='Number of anntenna.')
 
+parser.add_argument('--init_chan_bounds', default=[64, 168], type=int, nargs=2, help="Initial channel bounds.")
 parser.add_argument('--cutsize', default=16, type=int, help="???????")
 parser.add_argument('--filt_thresh', default=0.2, type=float, help="Filter threshold.")
 parser.add_argument('--filter_len', default=512, type=int, help="Filter length.")
@@ -59,8 +60,8 @@ default_args.chan_res_init = default_args.adc_samp_freq / default_args.len_pfb_i
 if default_args.template_dt == None:
     default_args.template_dt = 1 / default_args.code_baudrate
 
-default_args.all_freqs = np.loadtxt(default_args.iono_freqs_path, skiprows = 1)
-default_args.ionosonde_freqs = default_args.all_freqs[default_args.freq_idx_bounds[0]:default_args.freq_idx_bounds[1]]
+all_freqs = np.loadtxt(default_args.iono_freqs_path, skiprows = 1)
+default_args.ionosonde_freqs = all_freqs[default_args.freq_idx_bounds[0]:default_args.freq_idx_bounds[1]]
 
 if __name__ == "__main__":
     print(default_args)

@@ -71,6 +71,7 @@ def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_a
     )
     final_channels = aa.obj.channels[aa.obj.channel_idxs].copy()
 
+    logger.info("Antenna object channels: %s", aa.obj.channels)
     logger.info("Final channels: %s", final_channels)
     return final_channels, antenna_objs
 
@@ -82,7 +83,8 @@ def process_from_data(args=default_args):
     read_size = ipfb_chunk_size - 2 * args.cutsize
 
     logger.debug("Files: %s", files)
-    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, np.arange(64,168), read_size, args=args)
+    init_channels = np.arange(args.init_chan_bounds[0], args.init_chan_bounds[1])
+    final_channels, antenna_objs = get_antenna_objs([idx], [files], nchunks, init_channels, read_size, args=args)
     nchan = len(final_channels)
 
     chunk_idx = 0
