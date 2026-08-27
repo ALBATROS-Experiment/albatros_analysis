@@ -11,7 +11,7 @@ from albatros_analysis.src.correlations import baseband_data_classes as bdc
 from albatros_analysis.src.utils import baseband_utils as bu
 from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde import signal_processing as sp
-from albatros_analysis.scripts.ionosonde import ionogram
+from albatros_analysis.scripts.ionosonde import ionogram_processing
 
 def get_antenna_objs(idxs, files, nchunks, channels, read_size, args = default_args):
     """Get baseband spectra for all antennas x polarizations
@@ -98,8 +98,9 @@ def process_from_data(args=default_args):
     len_timestream = read_size * ipfb.lblock
     ncols = args.buf_len - args.filter_len
     nrows = len_timestream // ncols
-    dsamp = int(args.adc_samp_freq * ipfb.lblock / args.len_pfb_init / args.code_baudrate)
-    Nts_dc = (nrows * ncols + dsamp - 1) // dsamp  # downsampled length after chopping end bits, essentially ceil
+
+    new_samp_freq = args.adc_samp_freq * ipfb.lblock / args.len_pfb_init
+    Nts_dc = int(ncols * nrows * args.code_baudrate / new_samp_freq) # downsampled length
 
     # Get filter
     hf = sp.get_filter()
@@ -143,7 +144,7 @@ def process_from_data(args=default_args):
             nchan,
         )
         corr = sp.process_one_chunk(pol0, pol1, final_channels,
-                                    hf, len_timestream, Nts_dc, ts_pol0_dc,
+                                    hf, len_timestream, ts_pol0_dc,
                                     ts_pol1_dc, ipfb, ant_idx, phase_cycles,
                                     filter_state, filtered_timestreams, args=args)
     os.makedirs(args.out_dir, exist_ok = True)

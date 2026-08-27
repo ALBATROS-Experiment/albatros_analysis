@@ -26,36 +26,33 @@ from albatros_analysis.scripts.ionosonde.params import default_args
 import logging
 logger = logging.getLogger(__name__)
 
-def plot_traces(freqs, dists, total_corr_db, ref_idx, chan_indices = None,
+def plot_traces(freqs, dists, total_corr_db, chan_indices = None,
                 figsize = None, args = default_args):
     """Plot the power trace of a set of frequency channels around ref_idx.
 
     Parameters
     ----------
     freqs : ndarray
-        Array of channel frequencies, in Hz
-    corr : ndarray, shape (n_channels, 2, n_samples)
-        Correlation data for ALL channels and polarizations (do not
-        pre-slice this either).
-    ref_idx : int
-        Reference (baseline) index, e.g. from find_ref_idx.
-    dist_range : list of float, optional
-        [min, max] distance range (km) to display around the reference,
-        default [-2000, 2000].
+        Array of channel frequencies, in Hz.
+    dists : ndarray
+        Distance axis (km) relative to the reference index. The spacing should be c/code_baudrate.
+    total_corr_db : ndarray, shape (n_samples, n_channels)
+        Median-normalized power (dB).
+
     chan_indices : array-like of int, optional
-        Indices (into the full freqs/corr) of the channels to plot. If
-        None (default), all channels are plotted. Selecting a subset
-        this way (rather than slicing freqs/corr yourself) keeps each
-        channel's timing offset correct.
+        Indices (into the full freqs/total_corr_db) of the channels to
+        plot. If None (default), all channels are plotted. Selecting a
+        subset this way (rather than slicing freqs/total_corr_db
+        yourself) keeps each channel's timing offset correct.
     figsize : tuple of float, optional
         Size of the resulting figure, in inches. Defaults to a size that
         scales with the number of channels being plotted.
 
     Returns
     -------
-    fig, axs
-        The created matplotlib figure and array of axes (already saved
-        to disk and closed by the time this function returns).
+    None
+        The figure is saved to disk (under args.out_dir) and closed
+        before this function returns; nothing is returned.
     """
 
     if chan_indices is None:
@@ -97,7 +94,7 @@ def plot_traces(freqs, dists, total_corr_db, ref_idx, chan_indices = None,
     plt.close(fig)
 
 def ionogram(freqs, dists, total_corr_db, ref_idx,
-             pcm_kw = {"vmin": 0, "vmax": 30, "cmap": "jet"}, figsize = None,
+             pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"}, figsize = None,
             plasma_freq = None, ref_freq = None, args = default_args):
     """Build and plot an ionogram: signal power vs. frequency and distance.
 
@@ -111,29 +108,35 @@ def ionogram(freqs, dists, total_corr_db, ref_idx,
     ----------
     freqs : ndarray
         Array of channel frequencies, in Hz.
-    corr : ndarray, shape (n_channels, 2, n_samples)
-        Correlation data for each channel and polarization.
+    dists : ndarray
+        Distance axis (km) relative to the reference index, e.g. as
+        returned by extract_traces.
+    total_corr_db : ndarray, shape (n_samples, n_channels)
+        Median-normalized power (dB) for each channel, e.g. as returned
+        by extract_traces.
     ref_idx : int
         Reference (baseline) index, e.g. from find_ref_idx, marking the
         effective transmit time in baseline samples.
-
     pcm_kw : dict, optional
         Extra keyword arguments passed to ax.pcolormesh (e.g. vmin, vmax,
         cmap).
     figsize : tuple of float, optional
         Size of the resulting figure, in inches. Defaults to matplotlib's
         default figure size.
-    plasma_snr_threshold : float, optional
-        SNR threshold (dB) passed to find_plasma_freq to decide whether a
-        channel has a detectable signal (default 6 dB).
+    plasma_freq : float or None, optional
+        Estimated plasma frequency (Hz), e.g. from find_plasma_freq. If
+        given, it's marked with a dashed vertical line on the plot
+        (default None, in which case no line is drawn).
+    ref_freq : int, optional
+        Index of the channel used as the timing reference (e.g.
+        best_channel from process_and_plot). Used only to label the
+        y-axis.
 
     Returns
     -------
-    total_corr_db, pol0, pol1 : ndarray
-        As returned by extract_traces.
-    plasma_freq : float or None
-        Estimated plasma frequency (Hz), from find_plasma_freq, or None
-        if no channel showed a detectable signal.
+    None
+        The figure is saved to disk (under args.out_dir) and closed
+        before this function returns; nothing is returned.
     """ 
     fig, ax = plt.subplots(figsize=figsize, layout = "constrained")
 

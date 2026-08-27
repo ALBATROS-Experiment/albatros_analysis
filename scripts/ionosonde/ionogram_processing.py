@@ -8,6 +8,10 @@ from datetime import datetime
 from datetime import timezone as tz
 import time
 
+# Plotting
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+
 # System utils
 import sys, os
 # Adds the home directory to the path so that we can import from albatros_analysis
@@ -106,8 +110,8 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
     """
     Refine the approximate reference index into a precise one.
 
-    The transmitted code repeats many times (params.code_repeat_num
-    repeats), each separated by the inter-pulse period (params.ipp). This
+    The transmitted code repeats many times (args.code_repeat_num
+    repeats), each separated by the inter-pulse period (args.ipp). This
     function searches a window around approx_ref_idx for the true peak,
     then scores every subsequent expected repeat location using
     peak_height, and finds the contiguous block of repeats (of length
@@ -189,11 +193,29 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
 def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], chan_indices = None, args = default_args):
     """Extract each channel's windowed trace around ref_idx.
 
-    ...
+    For each requested channel, windows the correlation data to
+    dist_range (in samples, adjusted for that channel's staggered-
+    transmission timing offset), converts the window to a distance axis,
+    and normalizes the resulting power by a per-channel median to get a
+    dB-scale trace.
 
     Parameters
     ----------
-    ...
+    freqs : ndarray
+        Array of channel frequencies, in Hz.
+    corr : ndarray, shape (n_channels, 2, n_samples)
+        Correlation data for channels and polarizations
+    ref_idx : int
+        Reference (baseline) index, e.g. from find_ref_idx, marking the
+        effective transmit time in baseline samples.
+    med_arr : ndarray or None
+        Per-channel median power to normalize by. If None (or otherwise
+        falsy), the median is instead computed on the fly from the
+        extracted power (per channel, across samples).
+    dist_range : list of float, optional
+        [min, max] distance range (km) to extract around the reference,
+        default [-2000, 2000]. If falsy (e.g. None), the full available
+        range is used instead.
     chan_indices : array-like of int, optional
         Indices into freqs/corr specifying which channels to extract. If
         None (default), all channels are extracted. Indices are always
@@ -206,10 +228,11 @@ def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], ch
 
     Returns
     -------
-    normalized : ndarray, shape (n_samples, len(chan_indices))
-        Median-normalized power for each selected channel.
-    pol0, pol1 : ndarray, complex, shape (n_samples, len(chan_indices))
-        Raw polarization correlation values for each selected channel.
+    total_corr_db : ndarray, shape (n_samples, len(chan_indices))
+        Median-normalized power for each selected channel, in dB.
+    pol0, pol1 : ndarray, shape (n_samples, len(chan_indices))
+        Magnitude of correlation for the corresponding polarization for each selected
+        channel.
     dists : ndarray
         Distance axis (km) relative to ref_idx.
     """
@@ -254,11 +277,10 @@ def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], ch
     dists = np.arange(ref_idx_low - ref_idx, ref_idx_high - ref_idx) / args.code_baudrate * args.c
 
     corr_sq = (pol0**2 + pol1**2)
-    if med_arr:
-        total_corr_db = 5 * np.log(corr_sq / med_arr)
+    if med_arr is not None:
+        total_corr_db = 5 * np.log10(corr_sq / med_arr)
     else:
-        total_corr_db = 5 * np.log(corr_sq / np.median(corr_sq, axis = 0))
-        print(np.median(corr_sq, axis = 0))
+        total_corr_db = 5 * np.log10(corr_sq / np.median(corr_sq, axis = 0))
 
     return total_corr_db, pol0, pol1, dists
 
@@ -277,9 +299,9 @@ def find_plasma_freq(freqs, total_corr_db, snr_threshold_db = 6, args = default_
     ----------
     freqs : ndarray
         Array of channel frequencies, in Hz.
-    normalized : ndarray, shape (n_samples, n_channels)
-        Median-normalized power for each channel, e.g. as returned by
-        extract_traces (NaNs, from missing data, are ignored).
+    total_corr_db : ndarray, shape (n_samples, n_channels)
+        Median-normalized power (dB) for each channel, e.g. as returned
+        by extract_traces (NaNs, from missing data, are ignored).
     snr_threshold_db : float, optional
         Minimum SNR, in dB, for a channel to be considered to have a
         detectable signal (default 6 dB).
@@ -313,11 +335,11 @@ def find_plasma_freq(freqs, total_corr_db, snr_threshold_db = 6, args = default_
     # Guaranteed to exist since the highest channel is not detectable
     next_pos = highest_pos + 1
  
-    return (sorted_freqs[highest_pos] + sorted_freqs[next_pos]) / 2
+    return (freqs[highest_pos] + freqs[next_pos]) / 2
 
 def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [-2000, 2000],
-                      which_pol = "total", pcm_kw = {"vmin": 0, "vmax": 30, "cmap": "jet"},
-                      figsize = None, plasma_snr_threshold = 12, args=default_args):
+                      which_pol = "total", pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"},
+                      figsize = None, plasma_snr_threshold = 6, args=default_args):
     """Run the full ionogram pipeline on a saved correlation file and plot it.
 
     Loads frequency and correlation data from an .npz file, automatically
@@ -347,9 +369,8 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
         Passed through to ionogram: size of the resulting figure, in
         inches.
     plasma_snr_threshold : float, optional
-        Passed through to ionogram: SNR threshold (dB) used by
-        find_plasma_freq to decide whether a channel has a detectable
-        signal (default 6 dB).
+        Passed through to find_plasma_freq: SNR threshold (dB) used to
+        decide whether a channel has a detectable signal (default 6 dB).
     """
     data = np.load(os.path.join(args.out_dir, args.corr_name))
     freqs, corr = data["freqs"], data["corr"]
@@ -357,7 +378,6 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     # TODO: Benchmark the following and see if there is a faster alternative
     corr_power_sq = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
     med_arr = np.median(corr_power_sq, axis = 1)
-    print(med_arr)
     max_arr = np.max(corr_power_sq, axis = 1)
     snr_ratios = max_arr / med_arr
     best_channel =  np.argmax(snr_ratios)
@@ -371,7 +391,7 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     total_corr_db, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx, med_arr = None,
                                                    dist_range=dist_range, args=args)
     
-    plot_traces(freqs, dists, total_corr_db, ref_idx, best_six_chan, args = args)
+    plot_traces(freqs, dists, total_corr_db, best_six_chan, args = args)
     
     est_plasma_freq = find_plasma_freq(freqs, total_corr_db, snr_threshold_db=plasma_snr_threshold, args = args)
 
@@ -389,4 +409,4 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     return freqs[best_channel], est_plasma_freq, data_to_save
 
 if __name__ == "__main__":
-    process_and_plot() 
+    process_and_plot()

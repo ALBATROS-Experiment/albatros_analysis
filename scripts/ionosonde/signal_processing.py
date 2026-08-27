@@ -126,7 +126,21 @@ def apply_filter(dc_ts, hf, filter_state_1d, args = default_args):
     out = np.ravel(out)
     return out
 
-def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts_pol0_dc, ts_pol1_dc, ipfb,
+def downsample(data, lblock, args = default_args):
+    # Old way:
+    # dsamp = int(args.adc_samp_freq * lblock / args.len_pfb_init / args.code_baudrate)
+    # return data[::dsamp]
+
+    # New way:
+    samp_freq = args.adc_samp_freq * lblock / args.len_pfb_init
+    old_time = xp.arange(len(data)) / samp_freq
+
+    new_len = int(len(data) * args.code_baudrate / samp_freq)
+    new_time = xp.arange(new_len) / args.code_baudrate
+    
+    return xp.interp(x = new_time, xp = old_time, fp = data)
+
+def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, ts_pol0_dc, ts_pol1_dc, ipfb,
           ant_idx, phase_cycles, filter_state,
           filtered_timestreams, args=default_args):
     """TODO: Write description.
@@ -141,7 +155,6 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
         Filter coefficients
     len_timestream :
         AKA Nts
-    Nts_dc
     ts_pol0_dc, ts_pol1_dc:
         Here to be overwritten, but should be of the right shape (length Nts)
     ipfb : StreamingIPFB_IQ
@@ -155,8 +168,6 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
     filtered_timestream :
         Here to be overwritten, but should be of the right shape
     """
-
-    dsamp = int(args.adc_samp_freq * ipfb.lblock / args.len_pfb_init / args.code_baudrate)
 
     ts_pol0 = ipfb.ipfb(ant_idx, 0, pol0, thresh=args.filt_thresh)
     ts_pol1 = ipfb.ipfb(ant_idx, 1, pol1, thresh=args.filt_thresh)
@@ -179,14 +190,14 @@ def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, Nts_dc, ts
 
         # filter the downconverted ts, sampling rate 5 us
         # FIX: Use separate filter states for pol0 and pol1
-        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], args=args)[::dsamp]  
-        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], args=args)[::dsamp]
+        ts_pol0_filt = apply_filter(ts_pol0_dc, hf, filter_state[fi, 0], args=args)
+        ts_pol1_filt = apply_filter(ts_pol1_dc, hf, filter_state[fi, 1], args=args)
         # print("ts_pol0_filt shape is", ts_pol0_filt.shape, "and ts_pol1_filt shape is", ts_pol1_filt.shape)
-        filtered_timestreams[fi, 0, :] = ts_pol0_filt
-        filtered_timestreams[fi, 1, :] = ts_pol1_filt
+        filtered_timestreams[fi, 0, :] = downsample(ts_pol0_filt, ipfb.lblock, args=args)
+        filtered_timestreams[fi, 1, :] = downsample(ts_pol1_filt, ipfb.lblock, args=args)
     
     # Perform correlation
-    code_spectra = codes.get_code_spectra(Nts_dc, args=args)
+    code_spectra = codes.get_code_spectra(filtered_timestreams.shape[2], args=args)
     corr = ifft( fft(filtered_timestreams, axis=2) * cp.conj(code_spectra[None,:, :]), axis=2)
     
     return corr
