@@ -6,6 +6,9 @@ logger = logging.getLogger(__name__)
 import numpy as np
 import cupy as cp
 import scipy
+import time
+# from scipy.interpolate import CubicSpline
+from cupyx.scipy.interpolate import CubicSpline
 
 import sys, os
 
@@ -131,14 +134,27 @@ def downsample(data, lblock, args = default_args):
     # dsamp = int(args.adc_samp_freq * lblock / args.len_pfb_init / args.code_baudrate)
     # return data[::dsamp]
 
-    # New way:
     samp_freq = args.adc_samp_freq * lblock / args.len_pfb_init
     old_time = xp.arange(len(data)) / samp_freq
 
     new_len = int(len(data) * args.code_baudrate / samp_freq)
     new_time = xp.arange(new_len) / args.code_baudrate
     
+    # Linear interoplation
     return xp.interp(x = new_time, xp = old_time, fp = data)
+    # t0 = time.time()
+    # out = xp.interp(x = new_time, xp = old_time, fp = data)
+    # t1 = time.time()
+    # logger.info(f"Downsampling took {t1 - t0} s.")
+    # return out
+
+    # Cubic spline
+    # t0 = time.time()
+    # cs = CubicSpline(old_time, data)
+    # out = cs(new_time)
+    # t1 = time.time()
+    # logger.info(f"Downsampling took {t1 - t0} s.")
+    # return out
 
 def process_one_chunk(pol0, pol1, final_channels, hf, len_timestream, ts_pol0_dc, ts_pol1_dc, ipfb,
           ant_idx, phase_cycles, filter_state,
