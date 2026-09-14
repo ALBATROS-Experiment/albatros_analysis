@@ -13,6 +13,7 @@ def load_all_parts(dir_path):
     """
     # Find all part files
     pattern = os.path.join(dir_path, "*_part*.npy")
+    #pattern = os.path.join(dir_path, "*.part*.npy")
     part_files = glob.glob(pattern)
     
     if not part_files:
@@ -108,7 +109,7 @@ def mad_1d(x):
     return 1.4826 * np.median(d)
 
 @nb.njit(parallel=True)
-def time_mask(vis_amp, thresh):
+def time_mask(vis_amp, thresh, allow_positive=False):
     #need to paralellize along time. time is faster moving, in Fortran type
     ntime,nfreq = vis_amp.shape
     mask = np.empty(ntime,dtype='bool')
@@ -119,7 +120,10 @@ def time_mask(vis_amp, thresh):
     mad = mad_1d(score)
     med = np.median(score)
     for i in nb.prange(ntime):
-        mask[i] = np.abs(score[i]-med) > thresh * mad
+        if allow_positive:
+            mask[i] = med-score[i] > thresh * mad
+        else:
+            mask[i] = np.abs(score[i]-med) > thresh * mad
     return mask, score
     
 @nb.njit(parallel=True)

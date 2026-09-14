@@ -24,15 +24,10 @@ from albatros_analysis.scripts.xcorr import helper as hxc
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "config_file", type=str, help="Config file containing all required data.")
-    parser.add_argument(
-        '-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna'
-    )
-    #parser.add_argument(
-    #    "-a",'--antenna',type=int,nargs='+',default=-1,help='all antenna indices you want to include, measured from config file')
-    parser.add_argument(
-        '-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
+    parser.add_argument("config_file", type=str, help="Config file containing all required data.")
+    parser.add_argument('-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna')
+    parser.add_argument('-t', "--testing", type=str, default=None , help='name of test that is being run')
+    parser.add_argument('-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
     args = parser.parse_args()
 
     #GET HARD-CODED PARAMS---------------------------------------------------------------------
@@ -72,14 +67,19 @@ if __name__ == "__main__":
     ref_antnum = ant_names.index(args.ref_antenna)
     coords_ref, path_ref = coords[ref_antnum], dir_parents[ref_antnum]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}')
+
+    if args.testing is not None:
+        path_batch = f'/scratch/thomasb/batch_{args.testing}'
+    else:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+
     os.makedirs(path_batch, exist_ok=True)
     path_satdet = os.path.join(path_batch, 'satdet')
     os.makedirs(path_satdet, exist_ok = True)
     path_debugplots = os.path.join(path_satdet, 'debugplots')
     os.makedirs(path_debugplots, exist_ok=True)
 
-    satmap = {} #maps sat IDs (e.g. 33591) to its index in satlist (e.g. 2), without collisions
+    satmap = {} #maps sat IDs (e.g. 59051) to its index in satlist (e.g. 2), without collisions
     assert min(satlist) > len(satlist)
     for i, sat_ID in enumerate(satlist):
         satmap[i] = sat_ID

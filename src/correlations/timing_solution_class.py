@@ -28,7 +28,7 @@ def get_all_batches(root_dir):
         index = json.load(f)
     
     batches = []
-    for batch in index:
+    for batch in index.values():
         batches.append((batch['start'], batch['end']))
     return batches
 
@@ -74,6 +74,8 @@ class TimingSolution:
         Conversion rate from spectrum number to absolute UTC time
     UTC_offset : float
         Initial UTC time corresponding to spectrum number zero.
+    coarse_delays : dict
+        Dictionary that gives spectrum number delays between reference antenna and all other antenna.
 
     Raises
     ------
@@ -92,22 +94,22 @@ class TimingSolution:
     Moreover, spectra and absolute UTC are interchangable via UTC_per_spec * s + UTC_offset.
     """
 
-    def __init__(self, query_unix_start, root):
+    def __init__(self, query_unix_start, root_dir):
 
         # root path where all timing solutions stored
-        self.root = Path(root)
+        self.root = Path(root_dir)
 
         # set up batch
         self.batch = self._find_batch(query_unix_start)
 
         # set up metadata
-        self.batch_name = self.batch['batch']
         self.batch_start_unix = self.batch['start']
         self.batch_end_unix = self.batch['end']
         self.ref_ant = self.batch['ref_ant']
         self.non_ref_ants = self.batch['non_ref_ants']
         self.UTC_per_spec = self.batch["UTC_per_spec"]
         self.UTC_offset = self.batch["UTC_offset"]
+        self.coarse_delays = self.batch['consensus_offsets']
 
         # load up timing solution
         self._load_data()
@@ -125,7 +127,7 @@ class TimingSolution:
         # figure out what batch it's asking for, set to property
         matches = []
 
-        for batch in index:
+        for batch_name, batch in index.items():
             contained = (query_unix_start >= batch["start"] and query_unix_start <= batch["end"])
             if contained:
                 matches.append(batch)
@@ -139,7 +141,7 @@ class TimingSolution:
 
     def _load_data(self):
 
-        filename = (self.root / f"{self.batch_name}.h5")
+        filename = (self.root / f"batch_{self.batch_start_unix}.h5")
 
         if not filename.exists():
             raise FileNotFoundError(f'Could not find {filename}')

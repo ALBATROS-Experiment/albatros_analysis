@@ -99,6 +99,8 @@ if __name__ == "__main__":
         else:
             compute_chans = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
 
+        print(compute_chans)
+
         fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
         print('Looking at file:', fname)
         path_disk = os.path.join(path_batch, 'data', fname)

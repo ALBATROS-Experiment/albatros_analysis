@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import json
 import argparse
 from albatros_analysis.src.utils import baseband_utils as butils
+from albatros_analysis.scripts.xcorr import helper as hpx
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -77,6 +78,14 @@ if __name__ == '__main__':
     print('Number of good pulses', len(w_all)) 
     for p in w_all:
         print(p)
+
+    #========================================================================================
+    # check for idx<0 error
+    # try:
+    #    hpx.get_init_info_allant()
+    # except:
+    #   XXXXXX
+
     #========================================================================================
     #save to json
     if args.write_to_file:

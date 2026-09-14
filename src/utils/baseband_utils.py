@@ -592,7 +592,7 @@ def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 70
         path_name = os.path.basename(ant_path)
         ant_name = i
         #ant_name = os.path.splitext(path_name)[0]
-        print(ant_name)
+        #print(ant_name)
         ant_name_list.append(ant_name)
 
     for ant_idx, ant_path in enumerate(ant_path_list):
@@ -603,7 +603,7 @@ def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 70
             files_raw = time2fnames(t_start-tolerance, t_end, ant_path, 'f') #want to look backwards a bit from t_start also
         except FileNotFoundError:
             files_raw = []
-        print(f'raw file ant {ant_name}', files_raw)
+        #print(f'raw file ant {ant_name}', files_raw)
 
         for file in files_raw:
             filename = os.path.basename(file)
@@ -612,7 +612,7 @@ def get_present_files(t_start, t_end, ant_path_list, T_SCAN = 10, tolerance = 70
             tstamps.append(tstamp)
         
         tstamps = np.array(tstamps)
-        print(f'tstamps ant {ant_name}', tstamps)
+        #print(f'tstamps ant {ant_name}', tstamps)
         ant2files[ant_name] = tstamps
 
     rounded = int(np.ceil((t_end-t_start)/T_SCAN))*T_SCAN + t_start +1 #round UP to the nearest dt.

@@ -191,9 +191,9 @@ dirty_map_kernel = module.get_function('dirty_map_kernel')
 # sys.exit()
 
 
-
+clock = 'new'
 ### REAL DATA STUFF ###
-# pidxs = [7]
+#pidxs = [7]
 pidxs = np.arange(11)
 for pidx in pidxs:
     print("starting pidx", pidx)
@@ -204,7 +204,10 @@ for pidx in pidxs:
     # path_data = f'/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/output/refactor_jul22_test_old_data_pass{pidx}.npz'
     # path_data = f'/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/output/refactor_bugfix_jul22_test_old_data_pass{pidx}.npz'
     # path_data = f'/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/output/refactor_bugfix_jul22_test_old_data_ntime500_pass7.npz'
-    path_data = f'/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/output/refactor_bugfix_jul22_test_old_data_ntime500_pass{pidx}.npz'
+    
+    #path_data = f'/home/mohanagr/Jupyter/MARS Fringe analysis (Summer 2025)/output/refactor_bugfix_jul22_test_old_data_ntime500_pass{pidx}.npz'
+    path_data = f'/scratch/thomasb/mapmaking_dumps/test_tsobj/clock_{clock}_pass{pidx}.npz'
+    
     print("loaded", path_data)
     # # ============================================================
     # # Load Stuff
@@ -334,8 +337,8 @@ for pidx in pidxs:
 
     if save:
         # output_path = (f'/scratch/thomasb/mapmaking_dumps/average_map{compute}_sat{pidx}.npz')
-        output_path = (f'/scratch/thomasb/mohan/mapmaking_test_jul22/map_nside_{NSIDE}_nbl_{nbl_good}_tstart_{times[0]:.0f}UTC_ntime_{ntime}_dt_{dt*1e3:.0f}ms_fstart_{freqs[0]/1e3:.0f}kHz_bw_{(freqs[-1]-freqs[0])/1e3:.0f}kHz_bugfix_finalrun_pass{pidx}.npz')
-        # output_path = ('/scratch/thomasb/mohan/average_map_test_vis.npz')
+        #output_path = (f'/scratch/thomasb/mohan/mapmaking_test_jul22/map_nside_{NSIDE}_nbl_{nbl_good}_tstart_{times[0]:.0f}UTC_ntime_{ntime}_dt_{dt*1e3:.0f}ms_fstart_{freqs[0]/1e3:.0f}kHz_bw_{(freqs[-1]-freqs[0])/1e3:.0f}kHz_bugfix_finalrun_pass{pidx}.npz')
+        output_path = (f'/scratch/thomasb/mapmaking_dumps/test_tsobj/map_clock_{clock}_pass_{pidx}.npz')
         np.savez(
             output_path,
             avg_map=avg_map,
