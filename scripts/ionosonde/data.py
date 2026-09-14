@@ -95,32 +95,6 @@ def process_from_data(args=default_args):
     # Setup IPFB
     ipfb = sp.setup_ipfb(final_channels, ipfb_chunk_size) # This takes 10 GB of memory for some reason
 
-    len_timestream = read_size * ipfb.lblock
-    ncols = args.buf_len - args.filter_len
-    nrows = len_timestream // ncols
-
-    new_samp_freq = args.adc_samp_freq * ipfb.lblock / args.len_pfb_init
-    Nts_dc = int(ncols * nrows * args.code_baudrate / new_samp_freq) # downsampled length
-
-    # Get filter
-    hf = sp.get_filter()
-
-    # we'll have to store the end phase for all frequencies to downconvert continuously
-    phase_cycles = xp.zeros(len(args.ionosonde_freqs), dtype="float64")
-    # we'll have to store the last filter state for all frequencies and polarizations to filter continuously
-    filter_state = xp.zeros((len(args.ionosonde_freqs), args.num_pol,
-                             args.filter_len), dtype="complex64")
-
-
-    # Pre-allocate temporary timestreams for downconversion to avoid in-place modification and repeated allocations
-    filtered_timestreams = xp.zeros((len(args.ionosonde_freqs),
-                                     args.num_pol, Nts_dc),
-                                     dtype="complex64") # this takes up roughly 5 GB
-
-    logger.debug("len_timestream (Nts): %s", len_timestream)
-    ts_pol0_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
-    ts_pol1_dc = xp.empty(len_timestream, dtype="complex64") # this takes up roughly 32 GB
-    
     for ant_idx in range(args.num_ant):
         chunk = chunks[ant_idx]
         expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
@@ -143,18 +117,15 @@ def process_from_data(args=default_args):
             read_size,
             nchan,
         )
-        corr = sp.process_one_chunk(pol0, pol1, final_channels,
-                                    hf, len_timestream, ts_pol0_dc,
-                                    ts_pol1_dc, ipfb, ant_idx, phase_cycles,
-                                    filter_state, filtered_timestreams, args=args)
+        corr, final_samp_rate = sp.process(ant_idx, pol0, pol1, final_channels, ipfb, args=args)
+
     os.makedirs(args.out_dir, exist_ok = True)
     logger.info("Saving to %s", os.path.join(args.out_dir, args.corr_name))
-    np.savez(os.path.join(args.out_dir, args.corr_name), corr = corr, freqs = args.ionosonde_freqs)
+    np.savez(os.path.join(args.out_dir, args.corr_name), corr = corr,
+             freqs = args.ionosonde_freqs, final_samp_rate = final_samp_rate)
 
-    return args.ionosonde_freqs, corr.get()
+    return args.ionosonde_freqs, corr.get(), final_samp_rate
 
             
 if __name__ == "__main__":
     process_from_data()
-#     freqs, corr = process_from_data()
-#     ionogram.process_and_plot()

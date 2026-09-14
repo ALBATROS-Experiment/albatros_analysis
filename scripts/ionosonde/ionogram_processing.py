@@ -25,7 +25,7 @@ from albatros_analysis.scripts.ionosonde.ionogram_plotting import ionogram, plot
 import logging
 logger = logging.getLogger(__name__)
 
-def offset(chan_idx, args = default_args):
+def offset(chan_idx, final_samp_rate, args = default_args):
     """Compute the time-sample offset between a given channel and the baseline.
 
     The ionosonde transmits different frequency channels in a staggered
@@ -44,9 +44,9 @@ def offset(chan_idx, args = default_args):
         Number of timesamples by which this channel's data is offset
         from the baseline (channel 0).
     """
-    return int(args.trans_len * chan_idx * args.code_baudrate)
+    return int(args.trans_len * chan_idx * final_samp_rate)
 
-def find_approx_ref_idx(corr, best_channel, args = default_args):
+def find_approx_ref_idx(corr, best_channel, final_samp_rate, args = default_args):
     """Find a rough estimate of the reference index (the index of the time at
     which the signal is recieved in best_channel).
 
@@ -71,7 +71,7 @@ def find_approx_ref_idx(corr, best_channel, args = default_args):
     """
     corr_sq = np.abs(corr[best_channel, 0, :])**2 + np.abs(corr[best_channel, 1, :])**2
 
-    approx_ref_idx = np.argmax(corr_sq) - offset(best_channel, args=args)
+    approx_ref_idx = np.argmax(corr_sq) - offset(best_channel, final_samp_rate, args=args)
 
     return approx_ref_idx
 
@@ -106,7 +106,7 @@ def peak_height(corr_power_sq, center_idx, cutoff_inner = 100, cutoff_outer = 50
     median_offpeak_power = np.median(np.concat([to_left, to_right]))
     return mean_peak_power - median_offpeak_power
 
-def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_plot = 500, args = default_args):
+def find_ref_idx(corr, best_channel, approx_ref_idx, final_samp_rate, plotting = False, cutoff_plot = 500, args = default_args):
     """
     Refine the approximate reference index into a precise one.
 
@@ -145,9 +145,9 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
                  + np.abs(corr[best_channel, 1, :])**2 )
 
     low_idx = ( int(approx_ref_idx - 2 * args.trans_len * args.code_baudrate)
-              + offset(best_channel, args=args) )
+              + offset(best_channel, final_samp_rate, args=args) )
     high_idx = ( int(approx_ref_idx + 2 * args.trans_len * args.code_baudrate)
-               + offset(best_channel, args=args) )
+               + offset(best_channel, final_samp_rate, args=args) )
 
     max_idx = np.argmax(corr_sq[low_idx:high_idx]) + low_idx
     new_low_idx = int(max_idx - 2 * args.trans_len * args.code_baudrate)
@@ -187,10 +187,10 @@ def find_ref_idx(corr, best_channel, approx_ref_idx, plotting = False, cutoff_pl
     final_idx = int((argmax + args.code_repeat_num + 3)
                     * (2 * args.ipp * args.code_baudrate)) + new_low_idx
 
-    return final_idx - offset(best_channel, args=args)
+    return final_idx - offset(best_channel, final_samp_rate, args=args)
 
 
-def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], chan_indices = None, args = default_args):
+def extract_traces(freqs, corr, ref_idx, med_arr, final_samp_rate, dist_range = [-2000, 2000], chan_indices = None, args = default_args):
     """Extract each channel's windowed trace around ref_idx.
 
     For each requested channel, windows the correlation data to
@@ -245,7 +245,7 @@ def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], ch
         ref_idx_low = int(dist_range[0] / args.c * args.code_baudrate + ref_idx)
         ref_idx_high = int(dist_range[1] / args.c * args.code_baudrate + ref_idx)
     else:
-        ref_idx_low = - offset(len(freqs) - 1, args=args)
+        ref_idx_low = - offset(len(freqs) - 1, final_samp_rate, args=args)
         ref_idx_high = corr.shape[2]
 
     n_samples = ref_idx_high - ref_idx_low
@@ -259,8 +259,8 @@ def extract_traces(freqs, corr, ref_idx, med_arr, dist_range = [-2000, 2000], ch
         # the *original* freqs/corr arrays -- this is what keeps the
         # staggered-transmission timing correct when only a subset of
         # channels is being extracted.
-        low_idx = ref_idx_low + offset(chan_i, args=args)
-        high_idx = ref_idx_high + offset(chan_i, args=args)
+        low_idx = ref_idx_low + offset(chan_i, final_samp_rate, args=args)
+        high_idx = ref_idx_high + offset(chan_i, final_samp_rate, args=args)
 
         valid_low = max(low_idx, 0)
         valid_high = min(high_idx, corr.shape[2])
@@ -373,7 +373,7 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
         decide whether a channel has a detectable signal (default 6 dB).
     """
     data = np.load(os.path.join(args.out_dir, args.corr_name))
-    freqs, corr = data["freqs"], data["corr"]
+    freqs, corr, final_samp_rate = data["freqs"], data["corr"], data["final_samp_rate"]
 
     # TODO: Benchmark the following and see if there is a faster alternative
     corr_power_sq = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
@@ -383,12 +383,12 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     best_channel =  np.argmax(snr_ratios)
     best_six_chan = np.argpartition(snr_ratios, -6)[-6:]
     
-    approx_ref_idx = find_approx_ref_idx(corr, best_channel, args=args)
+    approx_ref_idx = find_approx_ref_idx(corr, best_channel, final_samp_rate, args=args)
     
-    ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, plotting=ref_idx_plotting,
+    ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, final_samp_rate, plotting=ref_idx_plotting,
                             cutoff_plot=cutoff_plot, args=args)
     
-    total_corr_db, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx, med_arr = None,
+    total_corr_db, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx, None, final_samp_rate,
                                                    dist_range=dist_range, args=args)
     
     plot_traces(freqs, dists, total_corr_db, best_six_chan, args = args)

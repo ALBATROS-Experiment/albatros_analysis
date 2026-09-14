@@ -7,12 +7,12 @@ Default output plot will have counts for each bit value, e.g. 0 - 15 for 4 bit d
 
 
 if __name__ == "__main__":
-    import sys
+    import sys, os
+    sys.path.insert(0, os.path.expanduser("~"))
     sys.path.insert(0, "/home/s/sievers/mohanagr/")
     import numpy as np
     import argparse
     from matplotlib import pyplot as plt
-    import os
     from palettable.colorbrewer.sequential import GnBu_9 as mycmap
     from albatros_analysis.src.correlations import baseband_data_classes as bdc
     "Example usage: python quick_spectra.py ~/data_auto_cross/16171/1617100000"
