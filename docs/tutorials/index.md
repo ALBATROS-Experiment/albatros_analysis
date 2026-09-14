@@ -1,25 +1,9 @@
-This section provides hands-on examples and walkthroughs of some useful things our code can do.
+# **Setup**
 
-## Identifying Batches
+The Tutorials section provides hands-on examples and walkthroughs of some useful things the albatros_analysis code can do. This notebook walks the user through setting up their system to run this code.
 
-How to determine data presence for multiple antenna at once, and break them up into contiguous sections we call "batches".
+## Dependencies
 
-## Unpacking Raw Data
 
-How to move through long sections of data in chunks of a certain desired size. The Baseband File Iterator (BFI) object deals with holes in the data and moves between files seamlessly.
+## Importing Code
 
-## Rechannelizing Data (re-PFB)
-
-How to rechannelize baseband data to a desired frequency resolution.
-
-## Running Satellite Detection
-
-How to get coarse offsets and a list of high SNR pulses for a batch of data.
-
-## Running Fine Timing
-
-How to get the nanosecond level relative alignment between antenna timestreams.
-
-## Unpacking Timing Solutions
-
-How to access the data from Fine Timing, and how to apply it to data.
