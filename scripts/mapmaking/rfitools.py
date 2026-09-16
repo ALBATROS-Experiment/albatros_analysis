@@ -12,7 +12,7 @@ def load_all_parts(dir_path):
     and loads them into a single pre-allocated big array.
     """
     # Find all part files
-    pattern = os.path.join(dir_path, "*_part*.npy")
+    pattern = os.path.join(dir_path, '*_part*.npy')
     #pattern = os.path.join(dir_path, "*.part*.npy")
     part_files = glob.glob(pattern)
     

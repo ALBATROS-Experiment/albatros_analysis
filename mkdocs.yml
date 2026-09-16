@@ -33,6 +33,7 @@ nav:
       - BDC: tutorials/BDC.ipynb
       - Satdet: tutorials/satdet.ipynb
       - Fine Timing: tutorials/fine_timing.ipynb
+      - TSC: tutorials/TSC.ipynb
 
   - Testing:
       - Science:

@@ -21,6 +21,7 @@ importlib.reload(butils)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="Config file containing all required data.")
+    parser.add_argument('-g', '--tag', default='test')
     #parser.add_argument('-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna')
     #parser.add_argument('-t', "--testing", type=str, default=None , help='name of test that is being run')
     #parser.add_argument('-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
@@ -74,6 +75,7 @@ if __name__ == "__main__":
         overflows = hxc.get_overflow_files(rstart, rend, ant_paths[0])
         if overflows.size>0:
             print('OVERFLOW!! NOO!!')
+            # make a break?
         else:
             print('No overflows')
 
@@ -118,7 +120,9 @@ if __name__ == "__main__":
             "coarse_acclen": 3000000,
             "osamp": 64,
             "pfb_size": 65536,
-            "new_acclen": 1024
+            "new_acclen": 1024,
+            "filt_thresh": 0.4,
+            "tag": args.tag
         }
         file["frequency"] = {"start_channel": 1834, "end_channel": 1852} #usual satellite channels
         path_runs = f'/scratch/thomasb/batch_{batch_start_ts}_m1'
