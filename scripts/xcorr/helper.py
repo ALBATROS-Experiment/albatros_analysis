@@ -84,7 +84,7 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents, ref_idx = 0)
         End time in unix timestamp format
     spec_offsets : list
         spectrum number offsets for each antenna with reference to the reference antenna (ref_idx).
-        first antenna's offset with itself is always set to 0.
+        reference antenna's offset with itself is always set to 0.
     dir_parents : list
         List of paths where each antenna's data (5-digit dirs) resides.
     ref_idx : int
@@ -132,9 +132,9 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents, ref_idx = 0)
     print('spec offsets', spec_offsets)
     for jj in range(0, len(idxs)):
         print(f'\nPROCESSING ANTENNA {jj}')
-        init_offset = specnums[ant_idx] - specnums[jj] # ref_ant - ant_jj
+        init_offset = specnums[ref_idx] - specnums[jj] # ref_ant - ant_jj
         print('initial offset wrt ref ant', init_offset)
-        print("idxs before correction", idxs[0], idxs[jj])
+        print("idxs before correction", idxs[ref_idx], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
         print('spec offset', spec_offsets[jj], 'init offset', init_offset) #this is the offset within the respective files
         print('correction', spec_offsets[jj]-init_offset)
@@ -144,7 +144,7 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents, ref_idx = 0)
                 "Edge case, idx < 0. Don't start right at the beginning of a file."
             )
         # not handling the edge case for now
-        print("after correction", idxs[0], idxs[jj])
+        print("after correction", idxs[ref_idx], idxs[jj])
     return idxs, files
 
 
