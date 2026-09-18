@@ -9,7 +9,10 @@ from albatros_analysis.src import xp, fft
 from albatros_analysis.scripts.ionosonde.params import default_args
 
 import logging
-logger = logging.getLogger(__name__)
+if __name__ == "__main__":
+    logger = logging.getLogger("albatros_analysis.scripts.ionosonde")
+else:
+    logger = logging.getLogger(__name__)
 
 def clean_code(code_str, args = default_args):
     """
@@ -157,7 +160,7 @@ def get_code_spectra(len_timestream, samp_rate = None, which_code = "1first", co
         AKA Nts_dc
     """
     if code_repeat_num is None:
-        code_repeat_num = args.code_repeat_num
+        code_repeat_num = args.corr_code_repeat_num
 
     code_templates_gpu = xp.zeros((1, len_timestream), dtype="complex64")
     if samp_rate is None:

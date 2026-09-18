@@ -1,7 +1,10 @@
 ### IMPORTS ###
 
 import logging
-logger = logging.getLogger(__name__)
+if __name__ == "__main__":
+    logger = logging.getLogger("albatros_analysis.scripts.ionosonde")
+else:
+    logger = logging.getLogger(__name__)
 
 import numpy as np
 import cupy as cp
@@ -67,7 +70,7 @@ ddc_kernel = cp.ElementwiseKernel(
     name='ddc_kernel'
 )
 
-def process(ant_idx, pol0, pol1, final_channels, ipfb, args=default_args):
+def process(ant_idx, start_specnum, pol0, pol1, final_channels, ipfb, args=default_args):
     """Processing one chunck at a time no longer supported!
 
     Parameters
@@ -114,7 +117,12 @@ def process(ant_idx, pol0, pol1, final_channels, ipfb, args=default_args):
     # Perform correlation
     # Switch this so that the code spectrum is being obtained at new_samp_rate / decimate_factor
     # Instead of the original code_baudrate
-    code_spectra = codes.get_code_spectra(filtered_timestreams.shape[2], samp_rate = new_samp_rate / decimate_factor, args=args)
+    corr_len = filtered_timestreams.shape[2]
+    code_spectra = codes.get_code_spectra(corr_len, samp_rate = new_samp_rate / decimate_factor, args=args)
     corr = ifft( fft(filtered_timestreams, axis=2) * cp.conj(code_spectra[None,:, :]), axis=2)
-    
-    return corr, new_samp_rate / decimate_factor
+
+    # specnums = np.arange(start_specnum, start_specnum + corr_len * decimate_factor, decimate_factor)
+    specnums = start_specnum + np.arange(0, corr_len) * decimate_factor / ipfb.lblock
+    logger.info(f"The shape of the correlated data is {corr.shape}.")
+    logger.info(f"The calculated specnums are {specnums[0]}, {specnums[1]}, ..., {specnums[-1]}.")
+    return corr, new_samp_rate / decimate_factor, specnums

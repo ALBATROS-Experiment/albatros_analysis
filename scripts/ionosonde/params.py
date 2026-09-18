@@ -26,6 +26,7 @@ parser.add_argument('--code_len', default=16, type=int, help = 'Length of codes.
 parser.add_argument('--code_baudrate', default=200e3, type=float, help='Code baudrate.')
 parser.add_argument('--ipp', default=115501000/1e9/21, type=float, help='Interpulse period, i.e. the time between sucessive code transmissions.')
 parser.add_argument('--code_repeat_num', default=10, type=int, help='Number of repetitions of code_pattern.')
+parser.add_argument('--corr_code_repeat_num', default=10, type=int, help='Number of repetitions of code_pattern in the signal we are correlating with.')
 parser.add_argument('--trans_len', type=int, help='Calculate transmission length.')
 
 parser.add_argument('--which_ant', default=2, type=float, help='Antenna number.')
@@ -55,6 +56,9 @@ if default_args.trans_len == None:
     default_args.trans_len = (2 * default_args.code_repeat_num + 1) * default_args.ipp
 # Calculate channel resolution of orginial Fourier transform
 default_args.chan_res_init = default_args.adc_samp_freq / default_args.len_pfb_init
+
+default_args.ipfb_chunk_size = int(default_args.corr_time * default_args.chan_res_init)
+default_args.read_size = default_args.ipfb_chunk_size - 2 * default_args.cutsize
 
 all_freqs = np.loadtxt(default_args.iono_freqs_path, skiprows = 1)
 default_args.ionosonde_freqs = all_freqs[default_args.freq_idx_bounds[0]:default_args.freq_idx_bounds[1]]

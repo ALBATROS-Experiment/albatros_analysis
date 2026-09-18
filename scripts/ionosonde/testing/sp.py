@@ -1,12 +1,10 @@
-import logging
-logger = logging.getLogger(__name__)
-
 import numpy as np
 import copy
 import sys, os
 from cupyx.scipy.signal import decimate
 
 sys.path.insert(0, os.path.expanduser("~"))
+
 from albatros_analysis.src import xp
 
 from albatros_analysis.src.correlations import baseband_data_classes as bdc
@@ -17,6 +15,14 @@ from albatros_analysis.scripts.ionosonde import ionogram_processing
 from albatros_analysis.scripts.ionosonde import ionogram_plotting
 from albatros_analysis.scripts.ionosonde import codes
 from albatros_analysis.scripts.ionosonde import data
+
+import logging
+if __name__ == "__main__":
+    print("Hello")
+    logger = logging.getLogger("albatros_analysis.scripts.ionosonde")
+else:
+    print(__name__)
+    logger = logging.getLogger(__name__)
 
 args = copy.deepcopy(default_args)
 out_dir_root = "/scratch/mayas/ionograms_testing"
@@ -51,6 +57,7 @@ ipfb = sp.setup_ipfb(final_channels, ipfb_chunk_size) # This takes 10 GB of memo
 ant_idx = 0
 chunk = chunks[ant_idx]
 expected_start_specnum = antenna_objs[ant_idx].spec_num_start + (chunk_idx) * read_size
+logger.info(f"expected_start_specnum is {expected_start_specnum}, chunk[\"specnums\"] is {chunk['specnums']}")
 
 logger.debug("chunk pol0 shape: %s", chunk["pol0"].shape)
 

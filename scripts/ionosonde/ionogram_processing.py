@@ -1,5 +1,11 @@
 ### IMPORTS ###
 
+import logging
+if __name__ == "__main__":
+    logger = logging.getLogger("albatros_analysis.scripts.ionosonde")
+else:
+    logger = logging.getLogger(__name__)
+
 # Array-handling
 import numpy as np
 
@@ -21,9 +27,6 @@ sys.path.insert(0, os.path.expanduser("~"))
 # Nicely packaged up parameters
 from albatros_analysis.scripts.ionosonde.params import default_args
 from albatros_analysis.scripts.ionosonde.ionogram_plotting import ionogram, plot_traces
-
-import logging
-logger = logging.getLogger(__name__)
 
 def offset(chan_idx, final_samp_rate, args = default_args):
     """Compute the time-sample offset between a given channel and the baseline.
@@ -373,7 +376,7 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
         decide whether a channel has a detectable signal (default 6 dB).
     """
     data = np.load(os.path.join(args.out_dir, args.corr_name))
-    freqs, corr, final_samp_rate = data["freqs"], data["corr"], data["final_samp_rate"]
+    freqs, corr, final_samp_rate, specnums = data["freqs"], data["corr"], data["final_samp_rate"], data["specnums"]
 
     # TODO: Benchmark the following and see if there is a faster alternative
     corr_power_sq = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
@@ -387,6 +390,9 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     
     ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, final_samp_rate, plotting=ref_idx_plotting,
                             cutoff_plot=cutoff_plot, args=args)
+
+    print(specnums)
+    logger.info(f"The reference index corresponds to a specnum of {specnums[ref_idx]}.")
     
     total_corr_db, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx, None, final_samp_rate,
                                                    dist_range=dist_range, args=args)
