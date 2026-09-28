@@ -65,6 +65,7 @@ if __name__ == "__main__":
     array_time =  batch_end_ts - batch_start_ts
     #reference setup
     ref_antnum = ant_names.index(args.ref_antenna)
+    print('reference antenna index', ref_antnum)
     coords_ref, path_ref = coords[ref_antnum], dir_parents[ref_antnum]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
 

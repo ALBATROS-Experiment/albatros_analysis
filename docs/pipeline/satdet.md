@@ -20,7 +20,7 @@ The second main objective is some reliable measure of where to look for high SNR
 
 An example of why this dump might be useful: the image shows satellite SNR with time, for two different batches overlayed. 
 
-![alt text](./images/snrs_times_properly.png)
+![alt text](./images/snr_b1b2.png.png)
 
 **/data/pulses.json** records all the pulses we actually use in the later steps. Upsampling is computationally expensive, so we want to use pulse selection sparingly and cleverly. The relevant script is 'get_pulse_list.py', which finds all the times where there is a satellite risen for N continuous chunks at a minimum of X SNR. The script automatically checks the data presence for each antenna, and records which ones have missing data so as to inform the later upsampling scriupts. Due to the unreliability of detections on longer baselines, we select a short baseline to run the script on, with a reasonably high SNR floor. This way, we can gauge which pulses are bright. (TODO: We then verify there is a detection (need not be as high SNR) in the other baselines). This json answers the question: where do you want me to look for a timing solution, and what antenna can I trust to have data there? The computation of pulses.json marks the first time we actually index pulses by their starting time (rounded to nearest integer), since we can now reliably say there are visible, detected, and have sufficient SNR.
 
