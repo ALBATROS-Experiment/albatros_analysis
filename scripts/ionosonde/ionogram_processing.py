@@ -342,7 +342,8 @@ def find_plasma_freq(freqs, total_corr_db, snr_threshold_db = 6, args = default_
 
 def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [-2000, 2000],
                       which_pol = "total", pcm_kw = {"vmin": 0, "vmax": 15, "cmap": "jet"},
-                      figsize = None, plasma_snr_threshold = 6, args=default_args):
+                      figsize = None, plasma_snr_threshold = 6, final_samp_rate = None, 
+                      args=default_args):
     """Run the full ionogram pipeline on a saved correlation file and plot it.
 
     Loads frequency and correlation data from an .npz file, automatically
@@ -376,7 +377,10 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
         decide whether a channel has a detectable signal (default 6 dB).
     """
     data = np.load(os.path.join(args.out_dir, args.corr_name))
-    freqs, corr, final_samp_rate, specnums = data["freqs"], data["corr"], data["final_samp_rate"], data["specnums"]
+    freqs, corr = data["freqs"], data["corr"]
+    
+    if final_samp_rate is None:
+        final_samp_rate = data["final_samp_rate"]
 
     # TODO: Benchmark the following and see if there is a faster alternative
     corr_power_sq = np.abs(corr[:, 0, :])**2 + np.abs(corr[:, 1, :])**2
@@ -391,8 +395,8 @@ def process_and_plot(ref_idx_plotting = False, cutoff_plot = 500, dist_range = [
     ref_idx = find_ref_idx(corr, best_channel, approx_ref_idx, final_samp_rate, plotting=ref_idx_plotting,
                             cutoff_plot=cutoff_plot, args=args)
 
-    print(specnums)
-    logger.info(f"The reference index corresponds to a specnum of {specnums[ref_idx]}.")
+    if "specnums" in data.keys():
+        logger.info(f"The reference index corresponds to a specnum of {data['specnums'][ref_idx]}.")
     
     total_corr_db, pol0, pol1, dists = extract_traces(freqs, corr, ref_idx, None, final_samp_rate,
                                                    dist_range=dist_range, args=args)

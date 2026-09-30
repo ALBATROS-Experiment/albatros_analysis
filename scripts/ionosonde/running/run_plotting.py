@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 out_dir_root = "/scratch/mayas/ionograms_to_share_4bit"
 
+ant_dict = {'1':3, '2': 2, '4': 7}
+
 def plot_one(folder_path, time, ant, summary_file):
     logger.info("=== run started ===")
     
@@ -23,7 +25,7 @@ def plot_one(folder_path, time, ant, summary_file):
     args = copy.deepcopy(default_args)
     args.start_time = time
     args.which_ant = ant
-    args.baseband_dir = f"/scratch/mohanagr/drive{ant}_mars_spring2025/baseband/"
+    args.baseband_dir = f"/scratch/mohanagr/drive{ant_dict[ant]}_mars_spring2025/baseband/"
     args.out_dir = folder_path
 
     logger.info(f"path={folder_path}")
