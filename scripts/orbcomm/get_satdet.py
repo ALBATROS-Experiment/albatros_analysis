@@ -20,21 +20,14 @@ from albatros_analysis.src.utils import sat_utils as sutils
 from albatros_analysis.src.utils import sat_utils_gpu as sutils_g
 #xcorr
 from albatros_analysis.scripts.xcorr import helper as hxc
-#etc
-import figures as fgs
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "config_file", type=str, help="Config file containing all required data.")
-    parser.add_argument(
-        '-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna'
-    )
-    #parser.add_argument(
-    #    "-a",'--antenna',type=int,nargs='+',default=-1,help='all antenna indices you want to include, measured from config file')
-    parser.add_argument(
-        '-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
+    parser.add_argument("config_file", type=str, help="Config file containing all required data.")
+    parser.add_argument('-r', '--ref_antenna', type=str, default='MARS2', help='determines the reference antenna')
+    parser.add_argument('-t', "--testing", type=str, default=None , help='name of test that is being run')
+    parser.add_argument('-m', "--meteors_only", action='store_false', help='makes it so we only look at russian satellites')
     args = parser.parse_args()
 
     #GET HARD-CODED PARAMS---------------------------------------------------------------------
@@ -72,16 +65,22 @@ if __name__ == "__main__":
     array_time =  batch_end_ts - batch_start_ts
     #reference setup
     ref_antnum = ant_names.index(args.ref_antenna)
+    print('reference antenna index', ref_antnum)
     coords_ref, path_ref = coords[ref_antnum], dir_parents[ref_antnum]  #(ref = Reference Ant, nref = Non-Reference Ant)
     tle_path = outils.get_tle_file(batch_start_ts, "/project/rrg-sievers/mohanagr/OCOMM_TLES")
-    path_batch = os.path.join('/scratch/thomasb', f'batch_{batch_start_ts}')
+
+    if args.testing is not None:
+        path_batch = f'/scratch/thomasb/batch_{args.testing}'
+    else:
+        path_batch = f'/scratch/thomasb/batch_{batch_start_ts}'
+
     os.makedirs(path_batch, exist_ok=True)
     path_satdet = os.path.join(path_batch, 'satdet')
     os.makedirs(path_satdet, exist_ok = True)
     path_debugplots = os.path.join(path_satdet, 'debugplots')
     os.makedirs(path_debugplots, exist_ok=True)
 
-    satmap = {} #maps sat IDs (e.g. 33591) to its index in satlist (e.g. 2), without collisions
+    satmap = {} #maps sat IDs (e.g. 59051) to its index in satlist (e.g. 2), without collisions
     assert min(satlist) > len(satlist)
     for i, sat_ID in enumerate(satlist):
         satmap[i] = sat_ID
@@ -173,7 +172,7 @@ if __name__ == "__main__":
             if missing:
                 print('missing data for pulse, we skip')
                 continue
-            su.print_memory_usage(note = "start of pulse")
+            sutils.print_memory_usage(note = "start of pulse")
 
             chunk_length_secs = c_acclen * T_SPECTRA
             chunk_times = np.arange(pstart, pend, chunk_length_secs)
@@ -329,7 +328,7 @@ if __name__ == "__main__":
                 cx_cpu = []
                 for cxcorr in cx:
                     cx_cpu.append(cxcorr.get())
-                detected_sats, detected_peaks, detected_snrs, rel_ratios = su.get_detections(cx_cpu, snr_arr, temp_satmap)
+                detected_sats, detected_peaks, detected_snrs, rel_ratios = sutils.get_detections(cx_cpu, snr_arr, temp_satmap)
                     
 
                 #now have all required data.
@@ -449,7 +448,7 @@ if __name__ == "__main__":
             print(pulse_data)
             baseline_data.append(pulse_data)
 
-            su.print_memory_usage(note = 'before memory freeing')
+            sutils.print_memory_usage(note = 'before memory freeing')
             del data_ref
             del data_nref
             del cx
@@ -457,7 +456,7 @@ if __name__ == "__main__":
             gc.collect()
             mempool.free_all_blocks()
             pinned_mempool.free_all_blocks()
-            su.print_memory_usage(note = 'after memory freeing')
+            sutils.print_memory_usage(note = 'after memory freeing')
         print(baseline_data)
 
         #SAVE TO SAT DATA

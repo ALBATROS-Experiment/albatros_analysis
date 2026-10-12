@@ -1,0 +1,28 @@
+/* Site title in the sidebar */
+.md-header__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+/* Sidebar site title */
+.md-sidebar--primary .md-nav__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+/* Sidebar section titles */
+.md-nav__item--section > .md-nav__link {
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+/* Sidebar subsection titles */
+.md-nav__item--nested > .md-nav__link {
+    font-weight: 600;
+}
+
+/* Hide Jupyter input/output prompts */
+.jp-InputPrompt,
+.jp-OutputPrompt {
+    display: none !important;
+}

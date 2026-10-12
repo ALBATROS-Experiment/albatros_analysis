@@ -28,7 +28,7 @@ def get_all_batches(root_dir):
         index = json.load(f)
     
     batches = []
-    for batch in index:
+    for batch in index.values():
         batches.append((batch['start'], batch['end']))
     return batches
 
@@ -70,6 +70,12 @@ class TimingSolution:
     non_ref_ants : list of str
         Names of the non-reference antennas whose delays are stored in the
         timing solutions.
+    UTC_per_spec : float
+        Conversion rate from spectrum number to absolute UTC time
+    UTC_offset : float
+        Initial UTC time corresponding to spectrum number zero.
+    coarse_delays : dict
+        Dictionary that gives spectrum number delays between reference antenna and all other antenna.
 
     Raises
     ------
@@ -82,27 +88,28 @@ class TimingSolution:
 
     Notes
     -----
-    Calibration solutions are organized into independent, non-overlapping
+    Timing solutions are organized into independent, non-overlapping
     batches. The class selects the unique batch whose time range contains
-    ``query_unix_start``.
+    ``query_unix_start``. 
+    Moreover, spectra and absolute UTC are interchangable via UTC_per_spec * s + UTC_offset.
     """
 
-    def __init__(self, query_unix_start, root):
+    def __init__(self, query_unix_start, root_dir):
 
         # root path where all timing solutions stored
-        self.root = Path(root)
+        self.root = Path(root_dir)
 
         # set up batch
         self.batch = self._find_batch(query_unix_start)
 
         # set up metadata
-        self.batch_name = self.batch['batch']
         self.batch_start_unix = self.batch['start']
         self.batch_end_unix = self.batch['end']
         self.ref_ant = self.batch['ref_ant']
         self.non_ref_ants = self.batch['non_ref_ants']
         self.UTC_per_spec = self.batch["UTC_per_spec"]
         self.UTC_offset = self.batch["UTC_offset"]
+        self.coarse_delays = self.batch['consensus_offsets']
 
         # load up timing solution
         self._load_data()
@@ -120,7 +127,7 @@ class TimingSolution:
         # figure out what batch it's asking for, set to property
         matches = []
 
-        for batch in index:
+        for batch_name, batch in index.items():
             contained = (query_unix_start >= batch["start"] and query_unix_start <= batch["end"])
             if contained:
                 matches.append(batch)
@@ -134,7 +141,7 @@ class TimingSolution:
 
     def _load_data(self):
 
-        filename = (self.root / f"{self.batch_name}.h5")
+        filename = (self.root / f"batch_{self.batch_start_unix}.h5")
 
         if not filename.exists():
             raise FileNotFoundError(f'Could not find {filename}')
@@ -248,6 +255,93 @@ class TimingSolution:
                 taus_interp[bl, :] = np.interp(unix_interp, unix_data, taus[bl,:])
 
             return unix_interp, taus_interp
+
+        else:
+            raise NotImplementedError(f"Unknown interpolation method {method}")
+
+
+    
+    def interpolate_delay2(self, unix_interp, extrapolate = True, break_batch = False, method="linear" ):
+        """
+        Interpolate antenna delay timing solutions for a requested Unix time array.
+
+        The timing solutions loaded for the selected batch are
+        interpolated onto a user-defined time array. Each antenna delay solution
+        is interpolated independently using the specified interpolation method.
+
+        Parameters
+        ----------
+        unix_interp : np.ndarray
+            Unix timestamp array. Must be increasing.
+
+        extrapolate : bool, optional
+            Whether to allow interpolation outside the time range covered by
+            the loaded timing solution. If False, a ValueError is raised when
+            the requested range extends beyond the available data.
+            Default is True.
+
+        method : str, optional
+            Interpolation method to use. Currently only ``"linear"`` is
+            supported.
+            Default is ``"linear"``.
+
+        Returns
+        -------
+    
+        taus_interp : np.ndarray
+            Interpolated antenna delay solutions.
+            Shape is ``(nant - 1, ntime)``, where ``nant - 1`` is the number
+            of non-reference antennas and ``ntime`` is the number of requested
+            output timestamps.
+
+        Raises
+        ------
+        ValueError
+            If extrapolation is disabled and the requested interpolation range
+            lies outside the available timing solution range.
+
+        NotImplementedError
+            If an unsupported interpolation method is requested.
+
+        Notes
+        -----
+        Delay solutions are stored internally as ``self.taus`` and their
+        corresponding Unix timestamps as ``self.unix``. Linear interpolation is
+        performed independently for each antenna delay stream.
+        """ 
+        
+        #check that the queried unix timestamps are increasing
+        if np.any(np.diff(unix_interp) < 0):
+            raise ValueError("unix_interp must be increasing.")
+
+        #check the interpolation times fall inside the batch
+        if not break_batch:
+            if (unix_interp[0] < self.batch_start_unix) or (unix_interp[-1] > self.batch_end_unix):
+                raise ValueError("Interpolation time interval falls outside batch range")
+
+        # load unix timestamps that have data
+        unix_data = self.unix 
+
+        # set taus as array
+        taus = self.taus
+
+        # check bounds
+        if extrapolate == False:
+            if unix_interp[0] < unix_data[0] or unix_interp[-1] > unix_data[-1]:
+                raise ValueError("You have extrapolation turned off, and requested times outside batch's satellite data range.")
+
+        if method == "linear":
+
+            taus_interp = np.zeros((taus.shape[0], len(unix_interp)))
+            print('number of baselines (containing ref ant) in tau data:', taus.shape[0])
+            print('number of desired interpolation unix times:', len(unix_interp))
+            print('number of total data unix times', unix_data.shape)
+
+            # Interpolate each baseline independently
+            for bl in range(taus.shape[0]):
+                taus_interp[bl, :] = np.interp(unix_interp, unix_data, taus[bl,:])
+
+            return taus_interp
 
         else:
             raise NotImplementedError(f"Unknown interpolation method {method}")
@@ -384,15 +478,21 @@ class TimingSolution:
         """
         nant = taus.shape[0] + 1
         ntimes = taus.shape[1]
-        nbl = nant*(nant-1)/2
+        nbl = nant*(nant-1)//2
 
-        taus2 = np.vstack(np.zeros(ntimes), taus)
+        ant_names = [self.ref_ant] + self.non_ref_ants
+        bline_names = []
+
+        taus2 = np.vstack([np.zeros(ntimes), taus])
         taus_all = np.zeros((nbl, ntimes))
 
         blid = 0
         for i in range(nant):
-            tau_i = taus2[i,:]
+            taus_i = taus2[i,:]
             for j in range(i+1 ,nant):
-                tau_j = taus2[j,:]
-                taus_all[blix, :] = taus_j - taus_i
+                taus_j = taus2[j,:]
+                taus_all[blid, :] = taus_j - taus_i
+                bline_names.append(ant_names[i] + '-' + ant_names[j])
                 blid +=1
+
+        return taus_all, bline_names

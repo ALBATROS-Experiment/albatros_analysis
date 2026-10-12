@@ -73,7 +73,7 @@ def get_overflow_files(init_t, end_t, dir_parent):
     wrap_loc = np.where(np.diff(specnums)<0)[0]
     return np.asarray([butils.get_tstamp_from_filename(f) for f in files[wrap_loc]],dtype='int64')
 
-def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
+def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents, ref_idx = 0):
     """_summary_
 
     Parameters
@@ -83,10 +83,12 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     end_t : float
         End time in unix timestamp format
     spec_offsets : list
-        spectrum number offsets for each antenna with reference to the first antenna.
-        first antenna's offset with itself is always set to 0.
+        spectrum number offsets for each antenna with reference to the reference antenna (ref_idx).
+        reference antenna's offset with itself is always set to 0.
     dir_parents : list
         List of paths where each antenna's data (5-digit dirs) resides.
+    ref_idx : int
+        Index of the reference antenna, to which everything else is aligned
 
     Returns
     -------
@@ -126,13 +128,13 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
     if len(spec_offsets) == 1: #only one antenna
         return idxs, files
     spec_offsets = np.asarray(spec_offsets,dtype='int64')
-    spec_offsets -= spec_offsets[0] #normalize to specoffset of the first (ref) ant
+    spec_offsets -= spec_offsets[ref_idx] #normalize to specoffset of the ref ant
     print('spec offsets', spec_offsets)
-    for jj in range(0, len(idxs)):  # all except first antenna
+    for jj in range(0, len(idxs)):
         print(f'\nPROCESSING ANTENNA {jj}')
-        init_offset = specnums[0] - specnums[jj] # ref_ant - ant_jj
+        init_offset = specnums[ref_idx] - specnums[jj] # ref_ant - ant_jj
         print('initial offset wrt ref ant', init_offset)
-        print("idxs before correction", idxs[0], idxs[jj])
+        print("idxs before correction", idxs[ref_idx], idxs[jj])
         # idx0 += (spec_offset - init_offset) #needed offset - current offset, adjust one antenna's starting
         print('spec offset', spec_offsets[jj], 'init offset', init_offset) #this is the offset within the respective files
         print('correction', spec_offsets[jj]-init_offset)
@@ -142,7 +144,7 @@ def get_init_info_all_ant(init_t, end_t, spec_offsets, dir_parents):
                 "Edge case, idx < 0. Don't start right at the beginning of a file."
             )
         # not handling the edge case for now
-        print("after correction", idxs[0], idxs[jj])
+        print("after correction", idxs[ref_idx], idxs[jj])
     return idxs, files
 
 

@@ -10,9 +10,9 @@ The [Pipeline Pages](pipeline/index.md) give a detailed overview and explanation
 
 The [API Pages](api/index.html) constitute formal API documentation on all the helper and utility functions that were made for this project. This is useful for quick lookups, or to understand what each function actually does. For people who want to expand on/develop the project, the API documentation will give you many tools to do so. This code is importable as a package.
 
-## Scripts (Science Code)
+## Tutorials (Science Code)
 
-The [Scripts](scripts/index.html) give detailed explanations of each core script that is used in this pipeline. It serves as a good reference for points of confusion while parsing the Pipeline documentation, and may help provide a deeper understanding. 
+The [Tutorials](tutorials/index.html) give runthroughs and explanations of each main workflow that is used in this pipeline. It serves as a good reference for getting started on writing your own scripts.
 
 ## Testing
 

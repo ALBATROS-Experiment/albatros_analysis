@@ -47,6 +47,7 @@ if __name__ == "__main__":
     print(antpos)
 
     batch_start_ts = config["correlation"]["start_timestamp"]
+    batch_end_ts = config["correlation"]["end_timestamp"]
     osamp = config['correlation']['osamp']
     acclen = config['correlation']['new_acclen']
 
@@ -54,7 +55,8 @@ if __name__ == "__main__":
     window_size = int(2**13*3*5/acclen) #want around 2 minutes always
     print('ACCLEN=', acclen)
     print('WINDOW SIZE=', window_size)
-    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
+    #ant_idxs = [0, 1, 2, 3, 4, 5, 6]
+    ant_idxs = [0, 1, 2, 3, 4, 5]
     antmap = {0:"MARS1", 1:"MARS2",2:"MARS4",3:"MARS5",4:"MARS6",5:"MARS7",6:"MARS8"}
     nant_used = len(ant_idxs)
     nblines = len(ant_idxs)*(len(ant_idxs)-1)//2
@@ -94,6 +96,7 @@ if __name__ == "__main__":
     #ITERATION
     #=========================================================================
     for idx_pulse in range(len(list_pulses)):
+        continue
         #extract from json
         pulse = list_pulses[idx_pulse]
         pulse_start_ts = pulse['t_start']
@@ -376,7 +379,8 @@ if __name__ == "__main__":
             taus_guess = tau_fit_params['x']
             print(f"done tt={tt}, time = {t2-t1:5.3f}")
         fig, ax = plt.subplots(figsize=(8,5))
-        labels=['M1-2', 'M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
+        #labels=['M1-2', 'M1-4', 'M1-5', 'M1-6', 'M1-7', 'M1-8']
+        labels=['M2-4', 'M2-5', 'M2-6', 'M2-7', 'M2-8']
         #set up so they start from zero
         taus_fitted -= taus_fitted[0,:]
         for antidx in range(nant-1):
@@ -493,7 +497,7 @@ if __name__ == "__main__":
         phi_linear2 = mfit2[1 * bs:]
         errs_all = np.sqrt(np.diag(AtA_inv2))
 
-        taus_fitted_all = tau_linear2[:, np.newaxis] + taus_unwrapped.T
+        taus_fitted_all = tau_linear2[:, np.newaxis] + taus_fitted.T  #add in the fitted, still wrapped taus
         taus_errs_all = errs_all[:bs]
 
         print(tau_linear2)
@@ -521,10 +525,11 @@ if __name__ == "__main__":
         nvis = window_size
         ntimes = nvis*len(list_pulses)
         spectra = np.zeros(ntimes)
-        taus = np.zeros((bs, ntimes))
+        taus = np.zeros((nant_used-1, ntimes))
 
         pass_ctr = 0
-        with h5py.File(f'/scratch/thomasb/timing_solution/batch_{batch_start_ts}', 'r') as f:
+        int_spec = acclen*osamp #DOUBLE CHECK THIS
+        with h5py.File(f'/scratch/thomasb/batch_{batch_start_ts}/fine_timing/timing_solution.h5', 'r') as f:
             for name, obj in f.items():
                 #specnum stuff
                 start_spec = obj['taus'].attrs['starting_specnum']
@@ -542,5 +547,5 @@ if __name__ == "__main__":
         with h5py.File(f'/scratch/thomasb/timing_solution/batch_{batch_start_ts}.h5', "w") as f:
             f.create_dataset("spectra", data=spectra)
             f.create_dataset("taus", data=taus) #shape (nbl, ntimes)
-
+            
     print('done!')

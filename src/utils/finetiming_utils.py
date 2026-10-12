@@ -708,7 +708,7 @@ def discrep_cutting(V, satID, acclen=1024):
     return spectra_start,spectra_end,new_chans
 
 
-def cost_surface(data, guesses, freqs_normalized, wts, antidx = 0, timeidx=0, N1=10001, N2=40, err = None):
+def cost_surface(data, guesses, freqs_normalized, wts, antmap, antidx = 0, timeidx=0, N1=10001, N2=40, err = None):
     """
     Compute and plot the cost surface for func() given initial offsets, and a single antenna direction to vary.
 
@@ -747,20 +747,16 @@ def cost_surface(data, guesses, freqs_normalized, wts, antidx = 0, timeidx=0, N1
     fig : matplotlib figure
         Figure with zoomed out and zoomed in cost surfaces.
     """
-    antmap = ['MARS 2', 'MARS 4', 'MARS 5', 'MARS 6', 'MARS 7', 'MARS 8']
     print(data.shape)
     print(guesses[antidx])
     taus_trial1, taus_trial2 = np.tile(guesses, (N1, 1)), np.tile(guesses, (N1, 1))
     taus_trial1[:, antidx] = np.linspace(-30000, 30000, N1) + guesses[antidx]
-    taus_trial2[:,antidx] = np.linspace(-N2, N2, N1) + guesses[antidx]
+    taus_trial2[:, antidx] = np.linspace(-N2, N2, N1) + guesses[antidx]
 
     cost1, cost2 = np.zeros(N1), np.zeros(N1)
     for i in range(N1):
-        cost1[i] = np.sum(func(taus_trial1[i], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
-        cost2[i] = np.sum(func(taus_trial2[i], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
-
-    center = N1//2
-    trough = taus_trial2[np.argmin(cost2[center-100:center+100])+center-100]
+        cost1[i] = np.sum(func(taus_trial1[i, :], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
+        cost2[i] = np.sum(func(taus_trial2[i, :], data[timeidx,:,:].ravel(), freqs_normalized, wts, fit_phi=False)**2)
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 5),sharey=True,constrained_layout=True)
 
@@ -786,7 +782,7 @@ def cost_surface(data, guesses, freqs_normalized, wts, antidx = 0, timeidx=0, N1
         a.tick_params(direction='in',top=True,right=True)
     fig.suptitle(rf"Antenna {antmap[antidx]}: Initial Guess "rf"$\tau = {guesses[antidx]:.1f}$ ns")
 
-    return cost1, cost2, trough, fig
+    return cost1, cost2, fig
 
 
 def get_mask(vis, tol=1.5): 
@@ -839,7 +835,7 @@ def get_mask(vis, tol=1.5):
     return mask_pulse, fig
 
 
-def get_thermal_noise(vis, ant_idxs, mask=None, T_SPECTRA=4096/250e6 * 64, acclen=1024):
+def get_thermal_noise(vis, ant_idxs, antmap, mask=None, title=None, T_SPECTRA=4096/250e6 * 64, acclen=1024):
     """
     Computes thermal noise for visibility data, and also plots all visibility phase angles.
 
@@ -849,6 +845,10 @@ def get_thermal_noise(vis, ant_idxs, mask=None, T_SPECTRA=4096/250e6 * 64, accle
         Visibiilty Data
     ant_idxs : list
         Indices of antenna that we want to use
+    antmap : dict
+        Antenna names
+    title: str
+        Optional title to throw in there
     mask : np.npdarray shape (nblines, ntimes, nchans)
         Optional way to mask high noise regions out of the main data (RFI masking)
     T_SPECTRA : float
@@ -863,13 +863,26 @@ def get_thermal_noise(vis, ant_idxs, mask=None, T_SPECTRA=4096/250e6 * 64, accle
     fig : matplotlib figure
         Figure of all baseline visibility plots
     """
+    if title is None:
+        title = f"Stokes I Phase  |  Integration time: {T_SPECTRA*acclen:.2f} s"
 
-    antmap = ['MARS1', 'MARS 2', 'MARS 4', 'MARS 5', 'MARS 6', 'MARS 7', 'MARS 8']
-    fig,ax = plt.subplots(7,3, constrained_layout=True)
-    fig.set_size_inches(10,15)
-    ax=np.ravel(ax)
-    plt.suptitle(f"stokes I (phase), int. time {T_SPECTRA*acclen:4.2f}s")
     nblines, ntimes, nchans = vis.shape
+    nants = len(ant_idxs)
+
+    ncols = 3
+    nrows = int(np.ceil(nblines / ncols))
+
+    fig, ax = plt.subplots(nrows, ncols,figsize=(10, 3*nrows),sharex=True,sharey=True)
+    fig.subplots_adjust(left=0.07,right=0.93,bottom=0.05,top=0.92,wspace=0.08,hspace=0.20)
+    ax = np.ravel(ax)
+    fig.text(
+        0.5, 0.97,
+        title,
+        ha="center",
+        va="top",
+        fontsize=14,
+        fontweight="bold"
+    )
 
     thermal_noise = np.zeros((nblines, ntimes),dtype='float64')
     vis_noise = np.zeros((nblines, ntimes),dtype='float64')
@@ -928,6 +941,55 @@ def get_thermal_noise(vis, ant_idxs, mask=None, T_SPECTRA=4096/250e6 * 64, accle
                 plt.colorbar(img, ax=ax[blnum])
             blnum+=1
     return thermal_noise, fig
+
+
+def plot_amp(V, ant_idxs, antmap):
+    """
+    Plot all baselines in a 3-column grid, each with its own colorbar.
+    
+    V: (Nbl, Nfreq, Ntime)
+    ant_idxs: list of antenna indices used to form baselines
+    """
+    Nbl, Nfreq, Ntime = V.shape
+    nants = len(ant_idxs)
+
+    ncols = 3
+    nrows = int(np.ceil(Nbl / ncols))
+
+    # Make plots longer by adjusting height
+    fig, ax = plt.subplots(nrows, ncols,
+                        figsize=(5*ncols, 4*nrows),
+                        sharex=True, sharey=True)
+
+    # Ensure ax is always 2D
+    ax = np.atleast_2d(ax)
+
+    bline_idx = 0
+    for i in range(nants):
+        ant1_idx = ant_idxs[i]
+        for j in range(i+1, nants):
+            ant2_idx = ant_idxs[j]
+
+            # Compute row, col in the grid
+            r = bline_idx // ncols
+            c = bline_idx % ncols
+
+            im = ax[r, c].imshow(np.abs(V[bline_idx, :, :]),
+                                aspect='auto',
+                                interpolation='nearest')
+            fig.colorbar(im, ax=ax[r, c], fraction=0.046, pad=0.04, label='|V|')
+            ax[r, c].set_title(f'{antmap[ant1_idx]}-{antmap[ant2_idx]}')
+
+            bline_idx += 1
+
+    # Hide any unused subplots
+    for idx in range(Nbl, nrows*ncols):
+        r = idx // ncols
+        c = idx % ncols
+        ax[r, c].axis('off')
+
+    plt.tight_layout()
+    return fig
 
 #=========================================================================
 #LINEAR ALGEBRA

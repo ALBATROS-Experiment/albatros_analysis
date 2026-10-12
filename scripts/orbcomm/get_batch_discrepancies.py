@@ -39,16 +39,11 @@ if __name__ == "__main__":
     with open(args.config_path, "r") as f:
         config = json.load(f)
 
-    # Determine reference antenna
-    ref_ant = min(
-        config["antennas"].keys(),
-        key=lambda ant: config["antennas"][ant]["clock_offset"],
-    )
     dir_parents, spec_offsets, ant_coords = [], [], []
     # Call get_starting_index for all antennas except reference
     for i, (ant, details) in enumerate(config["antennas"].items()):
         # if ant != ref_ant:
-        print(ref_ant, ant, details)
+        print(ant, details)
         dir_parents.append(details["path"])
         spec_offsets.append(details["clock_offset"])
         ant_coords.append(details["coordinates"])
@@ -64,10 +59,11 @@ if __name__ == "__main__":
     channels = np.arange(chanstart, chanend)
     filt_thresh = 0.4
     nant = len(dir_parents)
+    print('nants', nant)
     npol = 2
     print("batch start ts", batch_start_ts, "batch end ts", batch_end_ts)
     print("IPFB ROWS", pfb_size, "OSAMP", osamp)
-    ant_idxs = [0, 1, 2, 3, 4, 5, 6]
+    ant_idxs = [0, 1, 2, 3, 4, 5]  # HARD CODED!! BEWARE!! #could do np.arange(nant) if config determines what we keep
     T_SPECTRA = 4096/250e6*osamp
 
     # set up some paths
@@ -102,6 +98,8 @@ if __name__ == "__main__":
             compute_chans = np.array([det_chan-2, det_chan-1, det_chan, det_chan+1])
         else:
             compute_chans = np.array([det_chan-1, det_chan, det_chan+1, det_chan+2])
+
+        print(compute_chans)
 
         fname = f"data_raw_osamp={osamp}_start={pulse_start_ts}_end={pulse_end_ts}_chans={compute_chans[0]}:{compute_chans[-1]}.npy"
         print('Looking at file:', fname)

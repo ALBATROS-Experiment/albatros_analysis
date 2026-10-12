@@ -12,7 +12,8 @@ def load_all_parts(dir_path):
     and loads them into a single pre-allocated big array.
     """
     # Find all part files
-    pattern = os.path.join(dir_path, "*_part*.npy")
+    pattern = os.path.join(dir_path, '*_part*.npy')
+    #pattern = os.path.join(dir_path, "*.part*.npy")
     part_files = glob.glob(pattern)
     
     if not part_files:
@@ -108,7 +109,7 @@ def mad_1d(x):
     return 1.4826 * np.median(d)
 
 @nb.njit(parallel=True)
-def time_mask(vis_amp, thresh):
+def time_mask(vis_amp, thresh, allow_positive=False):
     #need to paralellize along time. time is faster moving, in Fortran type
     ntime,nfreq = vis_amp.shape
     mask = np.empty(ntime,dtype='bool')
@@ -119,7 +120,10 @@ def time_mask(vis_amp, thresh):
     mad = mad_1d(score)
     med = np.median(score)
     for i in nb.prange(ntime):
-        mask[i] = np.abs(score[i]-med) > thresh * mad
+        if allow_positive:
+            mask[i] = med-score[i] > thresh * mad
+        else:
+            mask[i] = np.abs(score[i]-med) > thresh * mad
     return mask, score
     
 @nb.njit(parallel=True)
@@ -453,6 +457,7 @@ def geo_delay_from_itrs(bls,ha,dec,lon):
             delays[bl, pix] = p/c
     return delays
 
+@nb.njit(parallel=True)
 def hadec_to_azalt(ha, dec, lat):
     """
     Convert Hour Angle and Declination to Altitude and Azimuth.
@@ -474,22 +479,27 @@ def hadec_to_azalt(ha, dec, lat):
     alt : float or array-like
         Altitude angle(s)
     """
-    sinha = np.sin(ha)
-    cosha = np.cos(ha)
-    sindec = np.sin(dec)
-    cosdec = np.cos(dec)
+    az = np.empty(ha.shape, ha.dtype)
+    alt = np.empty(ha.shape, ha.dtype)
     sinlat = np.sin(lat)
     coslat = np.cos(lat)
-    
-    aa = sinlat * sindec + coslat * cosdec * cosha
-    aa = np.clip(aa, -1.0, 1.0)
-    alt = np.arcsin(aa)
-    sinaz = -cosdec * sinha
-    cosaz = (coslat * sindec - sinlat * cosdec * cosha)
-    az = np.arctan2(sinaz, cosaz)
-    az = (az + 2 * np.pi) % (2 * np.pi)
+    npix = len(ha)
+    for pix in nb.prange(npix):
+        sinha = np.sin(ha[pix])
+        cosha = np.cos(ha[pix])
+        sindec = np.sin(dec[pix])
+        cosdec = np.cos(dec[pix])
+        
+        aa = sinlat * sindec + coslat * cosdec * cosha
+        aa = max(-1.0, min(1.0, aa)) #clip to -1, 1
+        alt[pix] = np.arcsin(aa)
+        sinaz = -cosdec * sinha
+        cosaz = (coslat * sindec - sinlat * cosdec * cosha)
+        aa = np.arctan2(sinaz, cosaz)
+        az[pix] = (aa + 2 * np.pi) % (2 * np.pi)
     return az, alt
 
+@nb.njit(parallel=True)
 def azalt_to_hadec(az, alt, lat):
     """
     Convert Altitude and Azimuth to Hour Angle and Declination.
@@ -511,23 +521,50 @@ def azalt_to_hadec(az, alt, lat):
     dec : float or array-like
         Declination(s) in radians [-pi/2, pi/2]
     """
-    sinalt = np.sin(alt)
-    cosalt = np.cos(alt)
-    sinaz = np.sin(az)
-    cosaz = np.cos(az)
+    ha = np.empty(az.shape, az.dtype)
+    dec = np.empty(az.shape, az.dtype)
+    npix = len(ha)
     sinlat = np.sin(lat)
     coslat = np.cos(lat)
-
-    sindec = sinalt * sinlat + cosalt * coslat * cosaz
     
-    # Clip to strictly [-1, 1] to avoid NaN errors from floating point inaccuracies
-    sindec = np.clip(sindec, -1.0, 1.0)
-    dec = np.arcsin(sindec)
+    for pix in nb.prange(npix):
+        sinalt = np.sin(alt[pix])
+        cosalt = np.cos(alt[pix])
+        sinaz = np.sin(az[pix])
+        cosaz = np.cos(az[pix])
+        
+        aa = sinalt * sinlat + cosalt * coslat * cosaz
 
-    y = -sinaz * cosalt
-    x = sinalt * coslat - cosalt * sinlat * cosaz
-    ha = np.arctan2(y, x)
-    ha = ha % (2 * np.pi)
+        # Clip to strictly [-1, 1] to avoid NaN errors from floating point inaccuracies
+        aa = max(-1.0, min(1.0, aa)) #clip to -1, 1
+        dec[pix] = np.arcsin(aa)
+    
+        y = -sinaz * cosalt
+        x = sinalt * coslat - cosalt * sinlat * cosaz
+        aa = np.arctan2(y, x)
+        ha[pix] = aa % (2 * np.pi)
     return ha, dec
 
 
+@nb.njit(parallel=True)
+def get_map(data,freqs,delays,npix):
+    print(data.shape, freqs.shape, delays.shape)
+    map1 = np.zeros(npix, dtype=np.float32) #float32
+    nfreq, nbl = data.shape
+    N_vis = nfreq * nbl
+    for p in nb.prange(npix):
+        pixel_sum = 0.
+        for f in range(nfreq):
+            nu = freqs[f]
+            for b in range(nbl):
+                tau = delays[p, b] #delay shape is npix, nbl for CPU
+
+                # Calculate the fringe factor for this specific visibility
+                fringe = np.exp(2j * np.pi * nu * tau)
+                
+                # Accumulate the dot product
+                pixel_sum += fringe.real * data[f, b].real - fringe.imag * data[f, b].imag
+        
+        # Calculate the mean and assign to the pixel map
+        map1[p] = pixel_sum / N_vis
+    return map1
