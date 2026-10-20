@@ -151,22 +151,36 @@ class TimingSolution:
             self.spectra = f["spectra"][:]
             self.unix = self.spectra * self.UTC_per_spec + self.UTC_offset
 
-
-    def spectra_to_unix(self, spectra):
+    def spectra_to_unix(self, spectra, ant_name = None):
         """
-        Converts any desired reference antenna spectrum indices to UNIX timestamps.
+        Converts any desired antenna spectrum indices to UNIX timestamps.
+        Corrects for fine timing also.
 
         Parameters
         ----------
         spectra : np.ndarray
             Array of reference antenna spectra.
+        ant_name : str
+            Name of antenna or None for reference antenna
 
         Returns
         -------
         np.ndarray
             Unix timesamps corresponding to input spectra.
         """
-        return spectra * self.UTC_per_spec + self.UTC_offset
+        if ant_name is None or ant_name == self.ref_ant:
+            ref_ant_spectra = spectra
+        elif ant_name in self.non_ref_ants:
+            ref_ant_spectra_coarse = spectra + self.coarse_delays[ant_name]
+            #we interpolate so that when you get UTC times they are already fine timing corrected
+            #(despite lack of accuracy in UTC map, all antenna will be aligned)
+            #may also want to change to the in-house interpolation function
+            interp_taus = np.interp(ref_ant_spectra_coarse, self.spectra, self.taus[self.non_ref_ants.index(ant_name)])
+            ref_ant_spectra = ref_ant_spectra_coarse + (interp_taus*1e-9*250e6/4096)
+        else:
+            raise ValueError(f"{ant_name} is not the reference antenna ({self.ref_ant}) or among the non-reference antennas ({self.non_ref_ants}).")
+
+        return ref_ant_spectra * self.UTC_per_spec + self.UTC_offset
 
 
     def interpolate_delay(self, interp_unix_start, interp_unix_end, dt, extrapolate = True, method="linear" ):
